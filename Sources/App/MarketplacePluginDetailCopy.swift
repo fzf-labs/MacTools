@@ -27,6 +27,7 @@ enum MarketplacePluginDetailCopy {
         "local-keyword-input-when-enabled": "启用时的关键词输入",
         "foreground-application": "前台应用",
         "input-source": "输入源",
+        "browser-url": "当前网页地址",
         "screen-pixels": "屏幕像素",
         "window-geometry": "窗口位置与大小",
         "recognized-text-and-codes": "识别出的文本、二维码和条形码",

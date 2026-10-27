@@ -89,6 +89,10 @@ Shared filesystem metadata code lives in `Sources/MacToolsFileSystem`. Disk Clea
 
 ## Validation
 
+Auto Input website-rule changes must preserve application memory and stop browser
+Accessibility work on deactivation. See [Auto Input](docs/plugins/auto-input.md)
+for matching, permission, privacy, and native browser verification requirements.
+
 Keep a compact suite covering the main user flow and consequential boundaries such as data loss, permission checks, cancellation, or compatibility. Reuse existing coverage across layers. A past bug alone does not require a permanent test; omit unlikely combinations in settled code unless their recurrence would have a significant impact. See the [core test scope](docs/testing/core-tests.md).
 
 There is no per-PR test-count or coverage-percentage target. Do not add tests that merely repeat the implementation, assert private call sequences, or check fixed wording, colors, and spacing. Choose checks by their distinct behavior and risk, not their UI/unit/integration label. Use manual review for appearance and keep desktop-dependent evidence checks on demand; retain automated integration checks when they establish a critical outcome that cheaper tests cannot cover.

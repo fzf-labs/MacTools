@@ -5,6 +5,8 @@ import MacToolsPluginKit
 
 enum AutoInputSettingsSearchEntryID {
     static let behavior = "behavior"
+    static let defaultSource = "default-input-source"
+    static let websites = "website-rules"
     static let rules = "rules"
     static let hud = "hud"
     static let shortcuts = PluginActionShortcutSettingsConfiguration.settingsSearchEntryID
@@ -112,7 +114,8 @@ final class AutoInputPlugin: MacToolsPlugin, PluginApplicationActivityStateHandl
             },
             keyboardModeErrorMessage: {
                 localization.string("error.keyboardModeFailed", defaultValue: "无法更改顶部按键用途")
-            }
+            },
+            browserObserver: AccessibilityAutoInputBrowserObserver()
         )
         self.localization = localization
         self.store = store
@@ -146,7 +149,7 @@ final class AutoInputPlugin: MacToolsPlugin, PluginApplicationActivityStateHandl
                 ),
                 description: localization.string(
                     "permission.accessibility.description",
-                    defaultValue: "仅用于在文本输入区域和终端附近显示当前输入法。"
+                    defaultValue: "用于显示输入法提示和识别浏览器当前网站。"
                 )
             ),
         ]
@@ -190,6 +193,24 @@ final class AutoInputPlugin: MacToolsPlugin, PluginApplicationActivityStateHandl
                     ),
                 ],
                 systemImage: "arrow.counterclockwise"
+            ),
+            PluginSettingsSearchEntry(
+                id: AutoInputSettingsSearchEntryID.defaultSource,
+                title: localization.string("settings.defaultSource.title", defaultValue: "默认输入法"),
+                description: localization.string(
+                    "settings.defaultSource.description",
+                    defaultValue: "没有固定规则和可用记忆时使用。已有记忆优先。"
+                ),
+                systemImage: "keyboard"
+            ),
+            PluginSettingsSearchEntry(
+                id: AutoInputSettingsSearchEntryID.websites,
+                title: localization.string("settings.websites.title", defaultValue: "网站规则"),
+                description: localization.string(
+                    "settings.websites.description",
+                    defaultValue: "按网站切换输入法，优先于应用规则。需要辅助功能权限。"
+                ),
+                systemImage: "globe"
             ),
             PluginSettingsSearchEntry(
                 id: AutoInputSettingsSearchEntryID.rules,
@@ -344,6 +365,22 @@ final class AutoInputPlugin: MacToolsPlugin, PluginApplicationActivityStateHandl
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(controller.sources.isEmpty)
+            },
+            PluginSettingsSection(
+                id: AutoInputSettingsSearchEntryID.websites,
+                title: localization.string("settings.websites.title", defaultValue: "网站规则"),
+                systemImage: "globe",
+                presentation: .edgeToEdge
+            ) { [self] _ in
+                AutoInputWebsiteSettingsView(
+                    store: store,
+                    controller: controller,
+                    localization: localization,
+                    onChange: { [weak self] in
+                        self?.controller.configurationDidChange()
+                        self?.onStateChange?()
+                    }
+                )
             },
             PluginSettingsSection(
                 id: "hud",

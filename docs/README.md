@@ -16,6 +16,7 @@ Start with the [English README](../README.md) or [Chinese README](../README.zh-C
 | Clipboard backup and restore | [Encrypted clipboard backup](plugins/clipboard-backup.md) |
 | Window navigation and arrangement | [Window Switcher](plugins/window-switcher.md) · [Window Layouts](plugins/window-layouts.md) |
 | Keyboard, mouse, and gesture mappings | [Input remapping](plugins/input-remapping.md) |
+| Input sources for applications and websites | [Auto Input](plugins/auto-input.md) |
 | macOS settings and reusable profiles | [Mac Settings](plugins/mac-settings.md) |
 | Menu bar customization | [Hide Menu Bar Icons](plugins/menu-bar-hidden.md) · [Custom icons](plugins/menu-bar-icons.md) |
 | Audio controls | [App Volume](plugins/app-volume.md) · [Display Volume](plugins/display-volume.md) |

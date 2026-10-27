@@ -66,7 +66,8 @@
     "action.select-input-source.description": "@localizable.action.selectSource.description",
     "action.select-input-source.parameter-summary": "@localizable.action.selectSource.parameterTitle",
     "discovery.input-source-hud": "@localizable.settings.hud.title",
-    "discovery.input-source-shortcuts": "@localizable.settings.shortcuts.title"
+    "discovery.input-source-shortcuts": "@localizable.settings.shortcuts.title",
+    "discovery.website-rules": "@localizable.settings.websites.title"
   },
   "version": "2.1.0",
   "minHostVersion": "2.0.1",
@@ -97,7 +98,7 @@
       }
     ],
     "screenshots": [],
-    "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
+    "documentationURL": "https://github.com/mactools-app/MacTools/blob/main/docs/plugins/auto-input.md",
     "supportURL": "https://github.com/ggbond268/MacTools/issues",
     "publisher": "MacTools",
     "license": "GPL-3.0-only"
@@ -163,7 +164,8 @@
     "alternativePluginIDs": [],
     "localizedSynonymRefs": [
       "@productStrings.discovery.input-source-hud",
-      "@productStrings.discovery.input-source-shortcuts"
+      "@productStrings.discovery.input-source-shortcuts",
+      "@productStrings.discovery.website-rules"
     ]
   },
   "requirements": {
@@ -184,7 +186,8 @@
   "privacy": {
     "dataObserved": [
       "foreground-application",
-      "input-source"
+      "input-source",
+      "browser-url"
     ],
     "dataPersisted": [
       "plugin-configuration"
@@ -196,7 +199,7 @@
     "networkDomains": [],
     "allowsUserConfiguredDomains": false,
     "telemetry": "none",
-    "processesSensitiveUserContent": false,
+    "processesSensitiveUserContent": true,
     "diagnosticExportsContainUserData": false
   },
   "setup": {

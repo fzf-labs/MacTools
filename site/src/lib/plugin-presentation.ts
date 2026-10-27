@@ -29,6 +29,7 @@ const labels: Record<string, LocalizedText> = {
   "input-device-availability": { zh: "输入设备可用状态", en: "Input device availability" },
   "input-events": { zh: "输入事件", en: "Input events" },
   "input-source": { zh: "输入法", en: "Input source" },
+  "browser-url": { zh: "当前网页地址", en: "Current page URL" },
   "installed-applications": { zh: "已安装的应用", en: "Installed applications" },
   "local-cli-credentials": { zh: "本机 CLI 凭据", en: "Local CLI credentials" },
   "local-keyword-input-when-enabled": { zh: "启用后的本机关键词输入", en: "Local keyword input when enabled" },

@@ -85,6 +85,14 @@ struct AutoInputSettingsView: View {
     }
 
     private var behaviorSection: some View {
+        VStack(spacing: 0) {
+            remembersLastInputSourceToggle
+            PluginSettingsListDivider()
+            defaultInputSourcePicker
+        }
+    }
+
+    private var remembersLastInputSourceToggle: some View {
         settingToggle(
             icon: "arrow.counterclockwise",
             title: localization.string("settings.memory.title", defaultValue: "自动记忆"),
@@ -99,6 +107,44 @@ struct AutoInputSettingsView: View {
                     onChange()
                 }
             )
+        )
+    }
+
+    private var defaultInputSourcePicker: some View {
+        let title = localization.string("settings.defaultSource.title", defaultValue: "默认输入法")
+        let description = localization.string(
+            "settings.defaultSource.description",
+            defaultValue: "没有固定规则和可用记忆时使用。已有记忆优先。"
+        )
+        return settingPickerRow(icon: "keyboard", title: title, description: description) {
+            Picker(title, selection: Binding(
+                get: { store.defaultInputSourceID },
+                set: { sourceID in
+                    store.setDefaultInputSourceID(sourceID)
+                    onChange()
+                }
+            )) {
+                Text(localization.string("settings.defaultSource.none", defaultValue: "不设置"))
+                    .tag("")
+                if !store.defaultInputSourceID.isEmpty,
+                   !isSourceAvailable(store.defaultInputSourceID) {
+                    Text(localization.string("settings.source.unavailable", defaultValue: "输入法不可用"))
+                        .tag(store.defaultInputSourceID)
+                }
+                ForEach(controller.sources) { source in
+                    Text(source.name).tag(source.id)
+                }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .accessibilityLabel(Text(title))
+            .accessibilityHint(Text(description))
+            .accessibilityIdentifier("auto-input.default-input-source")
+        }
+        .pluginSettingsSearchAnchor(
+            pluginID: "auto-input",
+            entryID: AutoInputSettingsSearchEntryID.defaultSource
         )
     }
 

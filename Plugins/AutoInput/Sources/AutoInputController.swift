@@ -177,6 +177,7 @@ final class AutoInputController: ObservableObject {
     private let sourceController: AutoInputSourceControlling
     private let applicationMonitor: AutoInputApplicationMonitoring
     private let focusObserver: AutoInputFocusObserving
+    private let browserObserver: AutoInputBrowserObserving?
     private let hudPresenter: InputSourceHUDPresenting
     private let hudLabelResolver: InputSourceHUDLabelResolving
     private let accessibilityCheck: AutoInputAccessibilityChecking
@@ -191,6 +192,8 @@ final class AutoInputController: ObservableObject {
     )
 
     private var currentApplication: AutoInputApplication?
+    private var browserContext: AutoInputBrowserContext?
+    private var browserRestoreSourceID: String?
     private var focusedElement: AutoInputEditableFocus?
     private var isStarted = false
     private var isInteractive = true
@@ -222,12 +225,14 @@ final class AutoInputController: ObservableObject {
         applicationNotificationCenter: NotificationCenter = .default,
         now: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         switchErrorMessage: @escaping () -> String = { "无法切换输入法" },
-        keyboardModeErrorMessage: @escaping () -> String = { "无法更改顶部按键用途" }
+        keyboardModeErrorMessage: @escaping () -> String = { "无法更改顶部按键用途" },
+        browserObserver: AutoInputBrowserObserving? = nil
     ) {
         self.store = store
         self.sourceController = sourceController
         self.applicationMonitor = applicationMonitor
         self.focusObserver = focusObserver
+        self.browserObserver = browserObserver
         self.hudPresenter = hudPresenter
         self.hudLabelResolver = hudLabelResolver
         self.accessibilityCheck = accessibilityCheck
@@ -257,6 +262,9 @@ final class AutoInputController: ObservableObject {
         applicationMonitor.onApplicationActivated = { [weak self] application in
             self?.handleApplicationActivated(application)
         }
+        browserObserver?.onContextChange = { [weak self] context in
+            self?.handleBrowserContextChanged(context)
+        }
         focusObserver.onEditableFocusChanged = { [weak self] focus in
             self?.handleEditableFocusChanged(focus)
         }
@@ -272,6 +280,10 @@ final class AutoInputController: ObservableObject {
     func stop() {
         guard isStarted else { return }
         operationGeneration += 1
+        browserObserver?.stop()
+        browserObserver?.onContextChange = nil
+        browserContext = nil
+        browserRestoreSourceID = nil
         restoreStandardFunctionKeysIfNeeded()
         stopFocusMonitoring()
         stopApplicationMonitoring()
@@ -307,7 +319,7 @@ final class AutoInputController: ObservableObject {
         }
 
         synchronizeHUDReminderPreferences()
-        refreshAccessibilityPermission(prompt: promptForAccessibility && store.isInputHUDEnabled)
+        refreshAccessibilityPermission(prompt: promptForAccessibility && (store.isInputHUDEnabled || store.hasEnabledWebsiteRules))
         reconcilePermissionObservation()
         reconcileActiveServices()
         onStateChange?()
@@ -359,6 +371,14 @@ final class AutoInputController: ObservableObject {
 
     func target(for bundleIdentifier: String) -> AutoInputTarget? {
         let availableSources = Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0) })
+        if isAccessibilityGranted, let browserContext,
+           browserContext.bundleIdentifier == bundleIdentifier,
+           !browserContext.isAddressBarFocused, let url = browserContext.url,
+           let rule = store.websiteRules.first(where: {
+               availableSources[$0.inputSourceID] != nil && $0.matches(url, browserBundleIdentifier: bundleIdentifier)
+           }), let source = availableSources[rule.inputSourceID] {
+            return AutoInputTarget(source: source, reason: .websiteRule)
+        }
         if let rule = store.rule(for: bundleIdentifier),
            let source = availableSources[rule.inputSourceID] {
             return AutoInputTarget(source: source, reason: .fixedRule)
@@ -368,12 +388,78 @@ final class AutoInputController: ObservableObject {
            let source = availableSources[rememberedID] {
             return AutoInputTarget(source: source, reason: .remembered)
         }
+        if let source = availableSources[store.defaultInputSourceID] {
+            return AutoInputTarget(source: source, reason: .defaultSource)
+        }
+        if currentApplication?.bundleIdentifier == bundleIdentifier,
+           let browserRestoreSourceID, let source = availableSources[browserRestoreSourceID] {
+            return AutoInputTarget(source: source, reason: .browserRestore)
+        }
         return nil
     }
 
+    private func handleBrowserContextChanged(_ context: AutoInputBrowserContext) {
+        guard autoSwitchActive, let application = currentApplication,
+              application.bundleIdentifier == context.bundleIdentifier,
+              application.processIdentifier == context.processIdentifier,
+              inputSourceOwnerBundleIdentifier == application.bundleIdentifier,
+              applicationMonitor.frontmostApplication == application,
+              hasWebsiteRules(for: application.bundleIdentifier) else { return }
+        if context.permissionDenied {
+            isAccessibilityGranted = false
+            browserObserver?.stop()
+            browserContext = nil
+            onStateChange?()
+        } else {
+            guard isAccessibilityGranted else { return }
+            browserContext = context
+        }
+        guard let target = target(for: application.bundleIdentifier) else { return }
+        if target.reason == .websiteRule, browserRestoreSourceID == nil {
+            browserRestoreSourceID = validCurrentSourceID
+        }
+        do {
+            if target.source.id != sourceController.currentSourceID {
+                try sourceController.selectSource(id: target.source.id)
+                _ = hudTriggerPolicy.inputSourceDidChange(to: target.source.id)
+                refreshPendingHUDFromAccessibility()
+            }
+            if target.reason != .websiteRule { browserRestoreSourceID = nil }
+            errorMessage = nil
+        } catch {
+            errorMessage = switchErrorMessage()
+        }
+        onStateChange?()
+    }
+
+    private func hasWebsiteRules(for bundleIdentifier: String) -> Bool {
+        AutoInputBrowser.supports(bundleIdentifier) && store.websiteRules.contains {
+            $0.isEnabled && ($0.browserBundleIdentifier.isEmpty || $0.browserBundleIdentifier == bundleIdentifier)
+        }
+    }
+
+    private func updateBrowserObservation(for application: AutoInputApplication) {
+        if browserContext?.bundleIdentifier != application.bundleIdentifier
+            || browserContext?.processIdentifier != application.processIdentifier {
+            browserContext = nil
+            browserRestoreSourceID = nil
+        }
+        guard autoSwitchActive, isAccessibilityGranted,
+              hasWebsiteRules(for: application.bundleIdentifier) else {
+            browserObserver?.stop()
+            browserContext = nil
+            return
+        }
+        browserObserver?.observe(application)
+    }
+
     private func handleSourcesChanged() {
+        let previousSourceIDs = Set(sources.map(\.id))
         sources = sourceController.sources
         rememberCurrentSourceIfNeeded()
+        if previousSourceIDs != Set(sources.map(\.id)), let browserContext {
+            handleBrowserContextChanged(browserContext)
+        }
         let sourceChanged = hudTriggerPolicy.inputSourceDidChange(
             to: sourceController.currentSourceID
         )
@@ -423,6 +509,7 @@ final class AutoInputController: ObservableObject {
         }
         currentApplication = application
         inputSourceOwnerBundleIdentifier = application.bundleIdentifier
+        updateBrowserObservation(for: application)
         operationGeneration += 1
         let generation = operationGeneration
         var shouldRefreshHUD = applicationChanged
@@ -437,7 +524,11 @@ final class AutoInputController: ObservableObject {
             clearErrorIfNeeded()
             return
         }
+        if target.reason == .websiteRule, browserRestoreSourceID == nil {
+            browserRestoreSourceID = validCurrentSourceID
+        }
         guard target.source.id != sourceController.currentSourceID else {
+            if target.reason != .websiteRule { browserRestoreSourceID = nil }
             clearErrorIfNeeded()
             return
         }
@@ -451,9 +542,10 @@ final class AutoInputController: ObservableObject {
             shouldRefreshHUD = hudTriggerPolicy.inputSourceDidChange(to: target.source.id)
                 || shouldRefreshHUD
             errorMessage = nil
-            if store.remembersLastInputSource {
+            if store.remembersLastInputSource, target.reason != .websiteRule {
                 store.remember(inputSourceID: target.source.id, for: application.bundleIdentifier)
             }
+            if target.reason != .websiteRule { browserRestoreSourceID = nil }
             onStateChange?()
         } catch {
             guard generation == operationGeneration else { return }
@@ -472,6 +564,9 @@ final class AutoInputController: ObservableObject {
               let sourceID = validCurrentSourceID
         else { return }
 
+        guard !(browserContext?.bundleIdentifier == bundleIdentifier && browserRestoreSourceID != nil),
+              target(for: bundleIdentifier)?.reason != .websiteRule else { return }
+
         store.remember(inputSourceID: sourceID, for: bundleIdentifier)
     }
 
@@ -479,6 +574,9 @@ final class AutoInputController: ObservableObject {
         guard autoSwitchActive, store.remembersLastInputSource,
               let sourceID = validCurrentSourceID
         else { return }
+
+        guard !(browserContext?.bundleIdentifier == bundleIdentifier && browserRestoreSourceID != nil),
+              target(for: bundleIdentifier)?.reason != .websiteRule else { return }
 
         store.remember(inputSourceID: sourceID, for: bundleIdentifier)
     }
@@ -505,7 +603,7 @@ final class AutoInputController: ObservableObject {
     }
 
     private var hudPermissionObservationActive: Bool {
-        isStarted && isInteractive && store.isInputHUDEnabled
+        isStarted && isInteractive && (store.isInputHUDEnabled || (store.isAutoSwitchEnabled && store.hasEnabledWebsiteRules))
     }
 
     private var keyboardModeActive: Bool {
@@ -521,6 +619,12 @@ final class AutoInputController: ObservableObject {
             || keyboardModeActive
         setSourceMonitoring(active: shouldMonitorSources)
         setApplicationMonitoring(active: shouldMonitorApplications)
+
+        if !autoSwitchActive {
+            browserObserver?.stop()
+            browserContext = nil
+            browserRestoreSourceID = nil
+        }
 
         if shouldMonitorApplications,
            let application = applicationMonitor.frontmostApplication {
@@ -709,7 +813,7 @@ final class AutoInputController: ObservableObject {
             try sourceController.selectSource(id: target.source.id)
             _ = hudTriggerPolicy.inputSourceDidChange(to: target.source.id)
             errorMessage = nil
-            if store.remembersLastInputSource {
+            if store.remembersLastInputSource, target.reason != .websiteRule {
                 store.remember(inputSourceID: target.source.id, for: bundleIdentifier)
             }
             onStateChange?()

@@ -19,8 +19,10 @@ final class AutoInputStore: ObservableObject {
         static let inputHUDSize = "inputHUDSize"
         static let inputHUDPosition = "inputHUDPosition"
         static let remembersLastInputSource = "remembersLastInputSource"
+        static let defaultInputSourceID = "defaultInputSourceID"
         static let rules = "rules"
         static let memories = "memories"
+        static let websiteRules = "websiteRules"
     }
 
     @Published private(set) var isAutoSwitchEnabled: Bool
@@ -32,7 +34,9 @@ final class AutoInputStore: ObservableObject {
     @Published private(set) var inputHUDSize: AutoInputHUDSize
     @Published private(set) var inputHUDPosition: AutoInputHUDPosition
     @Published private(set) var remembersLastInputSource: Bool
+    @Published private(set) var defaultInputSourceID: String
     @Published private(set) var rules: [AutoInputRule]
+    @Published private(set) var websiteRules: [AutoInputWebsiteRule]
     @Published private(set) var persistenceFailure: AutoInputStoreMutationResult?
 
     private(set) var memories: [String: String]
@@ -76,8 +80,12 @@ final class AutoInputStore: ObservableObject {
         self.remembersLastInputSource = storage.object(forKey: Keys.remembersLastInputSource) == nil
             ? true
             : storage.bool(forKey: Keys.remembersLastInputSource)
+        self.defaultInputSourceID = storage.string(forKey: Keys.defaultInputSourceID) ?? ""
         let decodedRules = Self.decode([AutoInputRule].self, from: storage.data(forKey: Keys.rules)) ?? []
         self.rules = Self.normalizedRules(decodedRules)
+        let websites = Self.decode([AutoInputWebsiteRule].self, from: storage.data(forKey: Keys.websiteRules)) ?? []
+        var websiteIDs = Set<UUID>()
+        self.websiteRules = websites.filter { $0.isValid && websiteIDs.insert($0.id).inserted }
         let decodedMemories = Self.decode([String: String].self, from: storage.data(forKey: Keys.memories)) ?? [:]
         self.memories = decodedMemories.filter { !$0.key.isEmpty && !$0.value.isEmpty }
     }
@@ -161,6 +169,14 @@ final class AutoInputStore: ObservableObject {
     }
 
     @discardableResult
+    func setDefaultInputSourceID(_ value: String) -> AutoInputStoreMutationResult {
+        guard defaultInputSourceID != value else { return record(.committed) }
+        let result = persist(value, forKey: Keys.defaultInputSourceID)
+        if result == .committed { defaultInputSourceID = value }
+        return record(result)
+    }
+
+    @discardableResult
     func upsertRule(_ rule: AutoInputRule) -> AutoInputStoreMutationResult {
         var candidate = rules
         if let index = candidate.firstIndex(where: { $0.bundleIdentifier == rule.bundleIdentifier }) {
@@ -217,6 +233,43 @@ final class AutoInputStore: ObservableObject {
 
     var hasKeyboardModeRules: Bool {
         rules.contains { $0.keyboardMode != .system }
+    }
+
+    var hasEnabledWebsiteRules: Bool {
+        websiteRules.contains(where: \.isEnabled)
+    }
+
+    @discardableResult
+    func upsertWebsiteRule(_ rule: AutoInputWebsiteRule) -> AutoInputStoreMutationResult {
+        guard rule.isValid else { return record(.rejected(rollbackSucceeded: true)) }
+        var candidate = websiteRules
+        if let index = candidate.firstIndex(where: { $0.id == rule.id }) {
+            candidate[index] = rule
+        } else {
+            candidate.append(rule)
+        }
+        return saveWebsiteRules(candidate)
+    }
+
+    @discardableResult
+    func removeWebsiteRule(id: UUID) -> AutoInputStoreMutationResult {
+        saveWebsiteRules(websiteRules.filter { $0.id != id })
+    }
+
+    @discardableResult
+    func moveWebsiteRule(id: UUID, offset: Int) -> AutoInputStoreMutationResult {
+        guard let index = websiteRules.firstIndex(where: { $0.id == id }),
+              websiteRules.indices.contains(index + offset) else { return record(.committed) }
+        var candidate = websiteRules
+        candidate.swapAt(index, index + offset)
+        return saveWebsiteRules(candidate)
+    }
+
+    private func saveWebsiteRules(_ candidate: [AutoInputWebsiteRule]) -> AutoInputStoreMutationResult {
+        guard candidate != websiteRules else { return record(.committed) }
+        let result = persist(candidate, forKey: Keys.websiteRules)
+        if result == .committed { websiteRules = candidate }
+        return record(result)
     }
 
     @discardableResult

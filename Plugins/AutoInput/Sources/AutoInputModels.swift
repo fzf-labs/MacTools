@@ -159,8 +159,11 @@ struct AutoInputRule: Codable, Identifiable, Equatable {
 }
 
 enum AutoInputSwitchReason: Equatable {
+    case websiteRule
     case fixedRule
     case remembered
+    case defaultSource
+    case browserRestore
 }
 
 struct AutoInputTarget: Equatable {

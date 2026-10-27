@@ -4206,62 +4206,74 @@
             "ar": [
               "تبديل مصادر الإدخال تلقائيًا",
               "مؤشر مصدر الإدخال",
-              "اختصارات مصادر الإدخال"
+              "اختصارات مصادر الإدخال",
+              "قواعد المواقع"
             ],
             "de": [
               "Eingabequelle automatisch wechseln",
               "Eingabequellenanzeige",
-              "Eingabequellen-Kurzbefehle"
+              "Eingabequellen-Kurzbefehle",
+              "Website-Regeln"
             ],
             "en": [
               "Auto Input",
               "Input Source HUD",
-              "Input Source Shortcuts"
+              "Input Source Shortcuts",
+              "Website Rules"
             ],
             "es": [
               "Cambio automático de entrada",
               "Indicador de fuente de entrada",
-              "Atajos de fuente de entrada"
+              "Atajos de fuente de entrada",
+              "Reglas de sitios web"
             ],
             "fr": [
               "Changement automatique de saisie",
               "Indicateur de source de saisie",
-              "Raccourcis de source de saisie"
+              "Raccourcis de source de saisie",
+              "Règles de sites web"
             ],
             "ja": [
               "入力ソースの自動切り替え",
               "入力ソース表示",
-              "入力ソースのショートカット"
+              "入力ソースのショートカット",
+              "Webサイトのルール"
             ],
             "ko": [
               "입력 소스 자동 전환",
               "입력 소스 표시",
-              "입력 소스 단축키"
+              "입력 소스 단축키",
+              "웹사이트 규칙"
             ],
             "pt": [
               "Troca automática de entrada",
               "Indicador de fonte de entrada",
-              "Atalhos de fonte de entrada"
+              "Atalhos de fonte de entrada",
+              "Regras de sites"
             ],
             "ru": [
               "Автопереключение источника ввода",
               "Индикатор источника ввода",
-              "Сочетания клавиш источников ввода"
+              "Сочетания клавиш источников ввода",
+              "Правила сайтов"
             ],
             "tr": [
               "Otomatik Giriş Kaynağı",
               "Giriş Kaynağı Göstergesi",
-              "Giriş Kaynağı Kısayolları"
+              "Giriş Kaynağı Kısayolları",
+              "Web Sitesi Kuralları"
             ],
             "zh-Hans": [
               "自动切换输入法",
               "输入法提示",
-              "输入法快捷键"
+              "输入法快捷键",
+              "网站规则"
             ],
             "zh-Hant": [
               "自動切換輸入法",
               "輸入法提示",
-              "輸入法快速鍵"
+              "輸入法快速鍵",
+              "網站規則"
             ]
           },
           "relatedPluginIDs": [],
@@ -4286,7 +4298,7 @@
           ]
         },
         "presentation": {
-          "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
+          "documentationURL": "https://github.com/mactools-app/MacTools/blob/main/docs/plugins/auto-input.md",
           "examples": [
             {
               "id": "primary-use",
@@ -4329,7 +4341,8 @@
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
             "foreground-application",
-            "input-source"
+            "input-source",
+            "browser-url"
           ],
           "dataPersisted": [
             "plugin-configuration"
@@ -4337,7 +4350,7 @@
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
           "networkUse": "none",
-          "processesSensitiveUserContent": false,
+          "processesSensitiveUserContent": true,
           "retention": {
             "policy": "user-controlled"
           },
