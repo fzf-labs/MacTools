@@ -7,73 +7,73 @@
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يستخدم MacTools أحداث Apple لفتح التواريخ في التقويم، وقراءة أيقونات الاختصارات وألوانها وحالة تشغيلها، وإظهار تأكيد تسجيل الخروج وإعادة التشغيل وإيقاف التشغيل في macOS."
+            "value": "يستخدم MacTools أحداث Apple لفتح التواريخ في التقويم، وقراءة أيقونات الاختصارات وألوانها وحالة تشغيلها، وإظهار تأكيد تسجيل الخروج وإعادة التشغيل وإيقاف التشغيل في macOS. كما يفتح المجلدات المحددة في iTerm2."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools verwendet Apple Events, um Daten im Kalender zu öffnen, Symbole, Farben und Ausführungsstatus von Kurzbefehlen zu lesen und macOS-Bestätigungen zum Abmelden, Neustarten und Ausschalten anzuzeigen."
+            "value": "MacTools verwendet Apple Events, um Daten im Kalender zu öffnen, Symbole, Farben und Ausführungsstatus von Kurzbefehlen zu lesen und macOS-Bestätigungen zum Abmelden, Neustarten und Ausschalten anzuzeigen. Außerdem öffnet es ausgewählte Ordner in iTerm2."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools uses Apple Events to open dates in Calendar, read Shortcuts icons, colors, and run status, and show macOS log out, restart, and shut down confirmations."
+            "value": "MacTools uses Apple Events to open dates in Calendar, read Shortcuts icons, colors, and run status, and show macOS log out, restart, and shut down confirmations. It also opens selected folders in iTerm2."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools usa Apple Events para abrir fechas en Calendario, leer iconos, colores y el estado de ejecución de Atajos, y mostrar confirmaciones de cierre de sesión, reinicio y apagado de macOS."
+            "value": "MacTools usa Apple Events para abrir fechas en Calendario, leer iconos, colores y el estado de ejecución de Atajos, y mostrar confirmaciones de cierre de sesión, reinicio y apagado de macOS. También abre las carpetas seleccionadas en iTerm2."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools utilise Apple Events pour ouvrir des dates dans Calendrier, lire les icônes, les couleurs et l’état d’exécution des raccourcis, et afficher les confirmations macOS de déconnexion, de redémarrage et d’extinction."
+            "value": "MacTools utilise Apple Events pour ouvrir des dates dans Calendrier, lire les icônes, les couleurs et l’état d’exécution des raccourcis, et afficher les confirmations macOS de déconnexion, de redémarrage et d’extinction. Il ouvre également les dossiers sélectionnés dans iTerm2."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools は Apple Events を使用してカレンダーで日付を開き、ショートカットのアイコン、カラー、実行状態を読み取り、macOS のログアウト、再起動、システム終了の確認を表示します。"
+            "value": "MacTools は Apple Events を使用してカレンダーで日付を開き、ショートカットのアイコン、カラー、実行状態を読み取り、macOS のログアウト、再起動、システム終了の確認を表示します。 また、選択したフォルダを iTerm2 で開きます。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools는 Apple Events를 사용하여 캘린더에서 날짜를 열고 단축어의 아이콘, 색상 및 실행 상태를 읽으며 macOS 로그아웃, 재시동 및 종료 확인을 표시합니다."
+            "value": "MacTools는 Apple Events를 사용하여 캘린더에서 날짜를 열고 단축어의 아이콘, 색상 및 실행 상태를 읽으며 macOS 로그아웃, 재시동 및 종료 확인을 표시합니다. 선택한 폴더를 iTerm2에서 여는 데도 사용됩니다."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "O MacTools usa Apple Events para abrir datas no Calendário, ler ícones, cores e o estado de execução dos Atalhos e mostrar confirmações de fim de sessão, reinício e encerramento do macOS."
+            "value": "O MacTools usa Apple Events para abrir datas no Calendário, ler ícones, cores e o estado de execução dos Atalhos e mostrar confirmações de fim de sessão, reinício e encerramento do macOS. Também abre as pastas selecionadas no iTerm2."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools использует Apple Events, чтобы открывать даты в Календаре, читать значки, цвета и состояние выполнения Команд, а также показывать подтверждения macOS при выходе из системы, перезагрузке и выключении."
+            "value": "MacTools использует Apple Events, чтобы открывать даты в Календаре, читать значки, цвета и состояние выполнения Команд, а также показывать подтверждения macOS при выходе из системы, перезагрузке и выключении. Также открывает выбранные папки в iTerm2."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools, tarihleri Takvim'de açmak, Shortcuts simgelerini, renklerini ve çalışma durumunu okumak ve macOS oturumu kapatma, yeniden başlatma ve kapatma onaylarını göstermek için Apple Events kullanır."
+            "value": "MacTools, tarihleri Takvim'de açmak, Shortcuts simgelerini, renklerini ve çalışma durumunu okumak ve macOS oturumu kapatma, yeniden başlatma ve kapatma onaylarını göstermek için Apple Events kullanır. Ayrıca seçilen klasörleri iTerm2 içinde açar."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools 使用 Apple Events 在系统日历中打开日期、读取 Apple“快捷指令”的图标、颜色和运行状态，并显示 macOS 退出登录、重新启动和关机确认。"
+            "value": "MacTools 使用 Apple Events 在系统日历中打开日期、读取 Apple“快捷指令”的图标、颜色和运行状态，并显示 macOS 退出登录、重新启动和关机确认。 还用于在 iTerm2 中打开所选文件夹。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools 使用 Apple Events 在系統行事曆中開啟日期、讀取 Apple「捷徑」的圖示、顏色和執行狀態，並顯示 macOS 登出、重新啟動和關機確認。"
+            "value": "MacTools 使用 Apple Events 在系統行事曆中開啟日期、讀取 Apple「捷徑」的圖示、顏色和執行狀態，並顯示 macOS 登出、重新啟動和關機確認。 也用於在 iTerm2 中打開所選檔案夾。"
           }
         }
       }

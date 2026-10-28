@@ -1,3 +1,5 @@
 core:
   sources:
     - ../../Sources/Core/RightClick/RightClickConfiguration.swift
+    - ../../Sources/Core/RightClick/RightClickModels.swift
+    - ../../Sources/Core/RightClick/RightClickResources.swift

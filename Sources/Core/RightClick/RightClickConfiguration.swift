@@ -8,83 +8,51 @@ import Foundation
 ///
 /// This type is compiled into BOTH the host app and the extension targets (they
 /// can't import each other); the JSON written by one is decoded by the other.
-struct RightClickConfiguration: Codable, Equatable {
-    var menuEnabled: Bool
+struct RightClickConfiguration: Codable, Equatable, Sendable {
+    static let currentSchemaVersion = 3
+    var schemaVersion = Self.currentSchemaVersion
+    var menuEnabled = false
     var preferredLanguages: [String]?
-    var newFolder: Bool
-    var copyFileName: Bool
-    var copyAbsolutePath: Bool
-    var copyRelativePath: Bool
-    var copyShellEscapedPath: Bool
-    var copyFileURL: Bool
-    var newFile: Bool
-    var openInTerminal: Bool
-    var openWithApps: [RightClickOpenWithApp]
+    var undoAvailable = false
+    var enabledActions: Set<RightClickAction> = [
+        .newFolder, .newFile, .terminal, .openWith,
+        .copyName, .copyPath, .copyRelative, .copyShell, .copyURL,
+        .copyTo, .moveTo, .goTo, .undo
+    ]
+    var categoryOrder = RightClickCategory.allCases
+    var actionOrder = RightClickAction.allCases
+    var locations = RightClickLocation.defaults
+    var resources: [RightClickResource] = []
+    var openWithApps: [RightClickOpenWithApp] = []
+    var preferredAppID: UUID?
+    var terminal = RightClickTerminal.terminal
+    var terminalNewTab = false
+    var enabledFileExtensions = RightClickNewFile.supportedExtensions
+    var showIcons = true
+    var askForName = false
+    var openAfterCreating = false
 
-    init(
-        menuEnabled: Bool = false,
-        preferredLanguages: [String]? = nil,
-        newFolder: Bool = true,
-        copyFileName: Bool = true,
-        copyAbsolutePath: Bool = true,
-        copyRelativePath: Bool = true,
-        copyShellEscapedPath: Bool = true,
-        copyFileURL: Bool = true,
-        newFile: Bool = true,
-        openInTerminal: Bool = true,
-        openWithApps: [RightClickOpenWithApp] = []
-    ) {
-        self.menuEnabled = menuEnabled
-        self.preferredLanguages = preferredLanguages
-        self.newFolder = newFolder
-        self.copyFileName = copyFileName
-        self.copyAbsolutePath = copyAbsolutePath
-        self.copyRelativePath = copyRelativePath
-        self.copyShellEscapedPath = copyShellEscapedPath
-        self.copyFileURL = copyFileURL
-        self.newFile = newFile
-        self.openInTerminal = openInTerminal
-        self.openWithApps = openWithApps
+    func isEnabled(_ action: RightClickAction) -> Bool { enabledActions.contains(action) }
+
+    mutating func setEnabled(_ action: RightClickAction, _ value: Bool) {
+        if value { enabledActions.insert(action) } else { enabledActions.remove(action) }
     }
 
-    /// Used when the shared file is missing or unreadable. The extension should
-    /// stay silent until the host plugin explicitly activates and writes state.
-    static let inactiveDefault = RightClickConfiguration(menuEnabled: false)
+    var orderedCategories: [RightClickCategory] { Self.unique(categoryOrder + RightClickCategory.allCases) }
+    var orderedActions: [RightClickAction] { Self.unique(actionOrder + RightClickAction.allCases) }
+    private static func unique<T: Hashable>(_ values: [T]) -> [T] {
+        var seen: Set<T> = []
+        return values.filter { seen.insert($0).inserted }
+    }
 
-    /// Menu defaults used once the host plugin is active.
+    /// Missing or invalid configuration keeps Finder menus inactive.
+    static let inactiveDefault = RightClickConfiguration()
     static let activeDefault = RightClickConfiguration(menuEnabled: true)
-
-    static let `default` = inactiveDefault
-
-    /// True when at least one copy action is enabled (used to skip the section).
-    var hasAnyCopyAction: Bool {
-        copyFileName || copyAbsolutePath || copyRelativePath || copyShellEscapedPath || copyFileURL
-    }
-
-    /// Decode tolerantly: keys added after a config was first written fall back
-    /// to their defaults instead of failing the whole decode.
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        let fallback = RightClickConfiguration.activeDefault
-        func flag(_ key: CodingKeys, _ defaultValue: Bool) -> Bool {
-            (try? container.decode(Bool.self, forKey: key)) ?? defaultValue
-        }
-        menuEnabled = flag(.menuEnabled, fallback.menuEnabled)
-        preferredLanguages = try? container.decodeIfPresent([String].self, forKey: .preferredLanguages)
-        newFolder = flag(.newFolder, fallback.newFolder)
-        copyFileName = flag(.copyFileName, fallback.copyFileName)
-        copyAbsolutePath = flag(.copyAbsolutePath, fallback.copyAbsolutePath)
-        copyRelativePath = flag(.copyRelativePath, fallback.copyRelativePath)
-        copyShellEscapedPath = flag(.copyShellEscapedPath, fallback.copyShellEscapedPath)
-        copyFileURL = flag(.copyFileURL, fallback.copyFileURL)
-        newFile = flag(.newFile, fallback.newFile)
-        openInTerminal = flag(.openInTerminal, fallback.openInTerminal)
-        openWithApps = (try? container.decode([RightClickOpenWithApp].self, forKey: .openWithApps)) ?? []
-    }
 }
 
 /// A user-configured "open with" application entry.
-struct RightClickOpenWithApp: Codable, Equatable, Identifiable {
+struct RightClickOpenWithApp: Codable, Equatable, Identifiable, Sendable {
+    var scope: RightClickAppScope = .all
     var id: UUID
     var name: String
     var appPath: String
@@ -96,6 +64,12 @@ struct RightClickOpenWithApp: Codable, Equatable, Identifiable {
         self.name = name
         self.appPath = appPath
         self.fileExtensions = fileExtensions
+    }
+
+    func matches(_ item: RightClickSelectionItem) -> Bool {
+        if scope == .files && item.isDirectory { return false }
+        if scope == .folders && !item.isDirectory { return false }
+        return matches(fileExtension: item.url.pathExtension)
     }
 
     /// Whether this entry should appear for a file with the given (lowercased)
@@ -144,7 +118,8 @@ enum RightClickConfigurationStore {
 
     static func load(from fileURL: URL = configFileURL) -> RightClickConfiguration {
         guard let data = try? Data(contentsOf: fileURL),
-              let configuration = try? JSONDecoder().decode(RightClickConfiguration.self, from: data)
+              let configuration = try? JSONDecoder().decode(RightClickConfiguration.self, from: data),
+              configuration.schemaVersion == RightClickConfiguration.currentSchemaVersion
         else {
             return .inactiveDefault
         }
@@ -156,6 +131,7 @@ enum RightClickConfigurationStore {
         if enabled, configuration == .inactiveDefault {
             configuration = .activeDefault
         }
+        configuration.undoAvailable = false
         configuration.menuEnabled = enabled
         _ = save(configuration, to: fileURL)
     }
@@ -169,6 +145,9 @@ enum RightClickConfigurationStore {
             )
             let data = try JSONEncoder().encode(configuration)
             try data.write(to: fileURL, options: .atomic)
+            DistributedNotificationCenter.default().postNotificationName(
+                Notification.Name("MacTools.RightClickConfigurationChanged"), object: fileURL.path, userInfo: nil, deliverImmediately: true
+            )
             return true
         } catch {
             return false

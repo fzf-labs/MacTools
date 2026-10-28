@@ -1,55 +1,55 @@
 {
   "id": "right-click",
   "displayName": "右键工具",
-  "summary": "为 Finder 右键菜单添加新建文件夹和路径复制",
+  "summary": "自定义 Finder 操作、模板、常用位置和文件工具。",
   "localizedMetadata": {
     "ar": {
       "displayName": "النقر بزر الماوس الأيمن",
-      "summary": "أضف إجراءات قائمة السياق Finder السريعة للمجلدات والمسارات."
+      "summary": "تخصيص إجراءات Finder والقوالب والمواقع وأدوات الملفات."
     },
     "de": {
       "displayName": "Rechtsklick",
-      "summary": "Fügen Sie schnelle Finder-Kontextmenüaktionen für Ordner und Pfade hinzu."
+      "summary": "Passen Sie Finder-Aktionen, Vorlagen, Speicherorte und Dateitools an."
     },
     "en": {
       "displayName": "Right Click",
-      "summary": "Add quick Finder context menu actions for folders and paths."
+      "summary": "Customize Finder actions, templates, locations and file tools."
     },
     "es": {
       "displayName": "Clic derecho",
-      "summary": "Agregue acciones rápidas del menú contextual Finder para carpetas y rutas."
+      "summary": "Personalice las acciones, plantillas, ubicaciones y herramientas de archivos del Finder."
     },
     "fr": {
       "displayName": "Clic droit",
-      "summary": "Ajoutez des actions rapides de menu contextuel Finder pour les dossiers et les chemins."
+      "summary": "Personnalisez les actions, les modèles, les emplacements et les outils de fichiers du Finder."
     },
     "ja": {
       "displayName": "右クリック",
-      "summary": "フォルダーとパスに対するクイック Finder コンテキスト メニュー アクションを追加します。"
+      "summary": "Finder のアクション、テンプレート、場所、ファイル ツールをカスタマイズします。"
     },
     "ko": {
       "displayName": "오른쪽 클릭",
-      "summary": "폴더 및 경로에 대한 빠른 Finder 컨텍스트 메뉴 작업을 추가합니다."
+      "summary": "Finder 작업, 템플릿, 위치 및 파일 도구를 사용자 정의하세요."
     },
     "pt": {
       "displayName": "Clique direito",
-      "summary": "Adicione ações rápidas do menu de contexto Finder para pastas e caminhos."
+      "summary": "Personalize ações, modelos, locais e ferramentas de arquivo do Finder."
     },
     "ru": {
       "displayName": "Правый клик",
-      "summary": "Добавьте быстрые действия контекстного меню Finder для папок и путей."
+      "summary": "Настраивайте действия, шаблоны, местоположения и инструменты Finder."
     },
     "tr": {
       "displayName": "Sağ Tıklama",
-      "summary": "Klasörler ve yollar için hızlı Finder bağlam menüsü eylemleri ekleyin."
+      "summary": "Finder eylemlerini, şablonlarını, konumlarını ve dosya araçlarını özelleştirin."
     },
     "zh-Hans": {
       "displayName": "右键工具",
-      "summary": "为 Finder 右键菜单添加新建文件夹和路径复制"
+      "summary": "自定义 Finder 操作、模板、常用位置和文件工具。"
     },
     "zh-Hant": {
       "displayName": "右鍵工具",
-      "summary": "為 Finder 右鍵菜單添加新建資料夾和路徑複製"
+      "summary": "自訂 Finder 操作、範本、位置和檔案工具。"
     }
   },
   "productStrings": {
@@ -78,7 +78,7 @@
     "discovery.copy-file-name": "@localizable.settings.copyFileName.title"
   },
   "version": "2.1.0",
-  "minHostVersion": "1.3.1",
+  "minHostVersion": "2.1.0",
   "pluginKitVersion": 7,
   "bundleRelativePath": "RightClick.bundle",
   "factoryClass": "RightClickPlugin.RightClickPluginFactory",
@@ -88,7 +88,7 @@
   },
   "capabilities": {
     "panelItems": [],
-    "settings": "form"
+    "settings": "workspace"
   },
   "permissions": [],
   "category": "productivity",
@@ -101,7 +101,7 @@
       }
     ],
     "screenshots": [],
-    "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
+    "documentationURL": "https://github.com/ggbond268/MacTools/blob/main/docs/plugins/right-click.md",
     "supportURL": "https://github.com/ggbond268/MacTools/issues",
     "publisher": "MacTools",
     "license": "GPL-3.0-only"
@@ -116,7 +116,13 @@
       "open in terminal",
       "open with",
       "copy path",
-      "copy file name"
+      "copy file name",
+      "file templates",
+      "move files",
+      "copy files",
+      "batch rename",
+      "Warp",
+      "image conversion"
     ],
     "localizedSynonyms": {
       "ar": [

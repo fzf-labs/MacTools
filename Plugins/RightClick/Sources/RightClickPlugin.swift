@@ -25,7 +25,19 @@ private enum RightClickPermissionID {
 }
 
 @MainActor
-final class RightClickPlugin: MacToolsPlugin {
+final class RightClickPlugin: MacToolsPlugin, PluginPortablePreferencesProviding,
+    PluginPortablePreferencesRestorationReporting, PluginPersistentPreferencesChangeSignaling {
+    private let preferencesChanges = PluginPersistentPreferencesChangeEmitter()
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { preferencesChanges.onChange }
+        set { preferencesChanges.onChange = newValue }
+    }
+    private lazy var session: RightClickSettingsSession = {
+        let session = RightClickSettingsSession(fileURL: configurationURL)
+        session.onPersist = { [weak self] in self?.preferencesChanges.didPersist() }
+        return session
+    }()
+
     var metadata: PluginMetadata {
         PluginMetadata(
             id: "right-click",
@@ -35,7 +47,7 @@ final class RightClickPlugin: MacToolsPlugin {
             order: 74,
             defaultDescription: localization.string(
                 "metadata.description",
-                defaultValue: "在 Finder 右键菜单中快速新建文件/文件夹、复制路径、在终端打开、用应用打开"
+                defaultValue: "自定义 Finder 操作、模板、常用位置和文件工具"
             )
         )
     }
@@ -44,6 +56,7 @@ final class RightClickPlugin: MacToolsPlugin {
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
 
+    private let configurationURL: URL
     private let localization: PluginLocalization
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "cc.ggbond.mactools",
@@ -51,12 +64,15 @@ final class RightClickPlugin: MacToolsPlugin {
     )
     private var activationObserver: NSObjectProtocol?
 
-    init(localization: PluginLocalization = PluginLocalization(bundle: .main)) {
+    init(localization: PluginLocalization = PluginLocalization(bundle: .main),
+         configurationURL: URL = RightClickConfigurationStore.configFileURL) {
+        self.configurationURL = configurationURL
         self.localization = localization
     }
 
     func activate(context _: PluginRuntimeContext) {
-        RightClickConfigurationStore.setMenuEnabled(true)
+        RightClickConfigurationStore.setMenuEnabled(true, fileURL: configurationURL)
+        session.startObserving()
 
         guard activationObserver == nil else {
             return
@@ -74,8 +90,9 @@ final class RightClickPlugin: MacToolsPlugin {
     }
 
     func deactivate(reason: PluginDeactivationReason) {
+        session.stopObserving()
         if reason.requiresStateCleanup {
-            RightClickConfigurationStore.setMenuEnabled(false)
+            RightClickConfigurationStore.setMenuEnabled(false, fileURL: configurationURL)
         }
 
         if let activationObserver {
@@ -99,70 +116,45 @@ final class RightClickPlugin: MacToolsPlugin {
     }
 
     var settingsPage: PluginSettingsPage? {
-        let session = RightClickSettingsSession()
-        return .form(
-            description: localization.string(
-                "configuration.description",
-                defaultValue: "选择 Finder 右键菜单显示哪些项，并管理「用应用打开」的应用列表。"
-            ),
-            sections: [
-                PluginSettingsSection(
-                    id: "directory-actions",
-                    title: localization.string("settings.directory.title", defaultValue: "目录操作"),
-                    systemImage: "folder",
-                    presentation: .edgeToEdge
-                ) { [localization, session] _ in
-                    RightClickMenuSettingsView(
-                        session: session,
-                        localization: localization,
-                        section: .directory
-                    )
-                },
-                PluginSettingsSection(
-                    id: "copy-actions",
-                    title: localization.string("settings.copy.title", defaultValue: "复制菜单项"),
-                    systemImage: "doc.on.doc",
-                    presentation: .edgeToEdge
-                ) { [localization, session] _ in
-                    RightClickMenuSettingsView(
-                        session: session,
-                        localization: localization,
-                        section: .copy
-                    )
-                },
-                PluginSettingsSection(
-                    id: "open-with",
-                    title: localization.string("settings.openWith.title", defaultValue: "用应用打开"),
-                    systemImage: "app.badge",
-                    footer: localization.string(
-                        "settings.openWith.footnote",
-                        defaultValue: "扩展名留空表示对所有文件显示，多个扩展名用逗号分隔。"
-                    ),
-                    presentation: .edgeToEdge
-                ) { [localization, session] _ in
-                    RightClickMenuSettingsView(
-                        session: session,
-                        localization: localization,
-                        section: .openWith
-                    )
-                }
-                .headerAccessory { [localization, session] _ in
-                    Button {
-                        RightClickMenuSettingsView.addApp(
-                            to: session,
-                            localization: localization
-                        )
-                    } label: {
-                        Label(
-                            localization.string("settings.addApp.button", defaultValue: "添加"),
-                            systemImage: "plus"
-                        )
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            ]
-        )
+        .workspace(description: localization.string("Configure Finder actions and menu layout", defaultValue: "设置 Finder 右键功能与菜单布局"), scrolling: .selfManaged) { [localization, session] _ in
+            RightClickWorkspaceView(session: session, localization: localization)
+        }
+    }
+
+    func makePortablePreferencesBackup() -> Data? {
+        var value = RightClickConfigurationStore.load(from: configurationURL)
+        value.undoAvailable = false
+        value.menuEnabled = false
+        value.preferredLanguages = nil
+        return try? JSONEncoder().encode(value)
+    }
+
+    func restorePortablePreferences(from data: Data) {
+        _ = restorePortablePreferencesReportingResult(from: data)
+    }
+
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard data.count <= 1_048_576,
+              var value = try? JSONDecoder().decode(RightClickConfiguration.self, from: data),
+              value.schemaVersion == RightClickConfiguration.currentSchemaVersion,
+              value.locations.count <= 256, value.openWithApps.count <= 256, value.resources.count <= 256,
+              Set(value.locations.map(\.id)).count == value.locations.count,
+              Set(value.resources.map(\.id)).count == value.resources.count,
+              Set(value.openWithApps.map(\.id)).count == value.openWithApps.count,
+              value.openWithApps.allSatisfy({ $0.appPath.hasPrefix("/") && $0.appPath.hasSuffix(".app") && !$0.appPath.utf8.contains(0) }),
+              value.locations.allSatisfy({ $0.path.hasPrefix("/") && !$0.path.utf8.contains(0) }),
+              value.resources.allSatisfy({ RightClickResourceStore.safeComponent($0.filename) && $0.filename.hasPrefix($0.id.uuidString) }),
+              value.enabledFileExtensions.allSatisfy({ RightClickNewFile.supportedExtensions.contains($0) })
+        else { return false }
+        let current = RightClickConfigurationStore.load(from: configurationURL)
+        value.undoAvailable = current.undoAvailable
+        value.menuEnabled = current.menuEnabled
+        value.preferredLanguages = current.preferredLanguages
+        guard RightClickConfigurationStore.save(value, to: configurationURL) else { return false }
+        session.reload()
+        preferencesChanges.didPersist()
+        onStateChange?()
+        return true
     }
 
     func permissionState(for permissionID: String) -> PluginPermissionState {

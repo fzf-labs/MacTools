@@ -305,6 +305,9 @@ targets:
     - path: Sources/Core/RightClick
       excludes:
       - RightClickURLRouter.swift
+      - RightClickFileOperations.swift
+      - RightClickPresentation.swift
+      - RightClickTerminalAdapter.swift
     - path: Sources/Shared/Localization
     settings:
       base:
