@@ -464,6 +464,71 @@ final class AutoInputControllerTests: XCTestCase {
         XCTAssertEqual(fixture.store.rememberedInputSourceID(for: browser.bundleIdentifier), "en")
     }
 
+    func testWebsiteRuleOrderAndEditsReevaluateTheFrontmostBrowser() {
+        let browser = makeApplication(bundleIdentifier: "com.google.Chrome", processIdentifier: 101)
+        let fixture = makeFixture(currentSourceID: "en", accessibilityGranted: true, application: browser)
+        fixture.sources.sources.append(AutoInputSource(id: "ja", name: "Japanese"))
+        fixture.store.upsertRule(makeRule(bundleID: browser.bundleIdentifier, sourceID: "en"))
+        fixture.store.remember(inputSourceID: "en", for: browser.bundleIdentifier)
+        var unavailable = AutoInputWebsiteRule()
+        unavailable.pattern = "example.com"
+        unavailable.inputSourceID = "missing"
+        var broad = AutoInputWebsiteRule()
+        broad.pattern = "example.com"
+        broad.inputSourceID = "zh"
+        var specific = AutoInputWebsiteRule()
+        specific.pattern = "work.example.com"
+        specific.match = .domain
+        specific.inputSourceID = "ja"
+        fixture.store.upsertWebsiteRule(unavailable)
+        fixture.store.upsertWebsiteRule(broad)
+        fixture.store.upsertWebsiteRule(specific)
+        fixture.controller.start()
+
+        fixture.browser.publish(browser, url: "https://work.example.com/edit")
+        XCTAssertEqual(fixture.sources.currentSourceID, "zh")
+
+        fixture.store.moveWebsiteRule(id: specific.id, offset: -1)
+        fixture.controller.configurationDidChange()
+        XCTAssertEqual(fixture.sources.currentSourceID, "ja")
+
+        specific.isEnabled = false
+        fixture.store.upsertWebsiteRule(specific)
+        fixture.controller.configurationDidChange()
+        XCTAssertEqual(fixture.sources.currentSourceID, "zh")
+
+        fixture.store.removeWebsiteRule(id: broad.id)
+        fixture.controller.configurationDidChange()
+        XCTAssertEqual(fixture.sources.currentSourceID, "en")
+        XCTAssertEqual(fixture.store.rememberedInputSourceID(for: browser.bundleIdentifier), "en")
+    }
+
+    func testWebsiteSelectionFailurePreservesMemoryWithoutTryingApplicationFallbacks() {
+        let browser = makeApplication(bundleIdentifier: "com.apple.Safari", processIdentifier: 101)
+        let fixture = makeFixture(currentSourceID: "en", accessibilityGranted: true, application: browser)
+        fixture.sources.sources.append(AutoInputSource(id: "ja", name: "Japanese"))
+        fixture.store.setDefaultInputSourceID("ja")
+        fixture.store.upsertRule(makeRule(bundleID: browser.bundleIdentifier, sourceID: "en"))
+        fixture.store.remember(inputSourceID: "en", for: browser.bundleIdentifier)
+        var rule = AutoInputWebsiteRule()
+        rule.pattern = "example.com"
+        rule.inputSourceID = "zh"
+        fixture.store.upsertWebsiteRule(rule)
+        fixture.controller.start()
+        fixture.sources.selectionError = AutoInputSourceError.selectionFailed(-1)
+
+        fixture.browser.publish(browser, url: "https://example.com/")
+
+        XCTAssertNotNil(fixture.controller.errorMessage)
+        XCTAssertEqual(fixture.sources.selectionAttemptIDs, ["zh"])
+        XCTAssertEqual(fixture.sources.currentSourceID, "en")
+        XCTAssertEqual(fixture.store.rememberedInputSourceID(for: browser.bundleIdentifier), "en")
+
+        fixture.browser.publish(browser, url: "https://other.test/")
+        XCTAssertNil(fixture.controller.errorMessage)
+        XCTAssertEqual(fixture.sources.selectionAttemptIDs, ["zh"])
+    }
+
     func testStopRemovesObservers() {
         let fixture = makeFixture(currentSourceID: "en")
         fixture.controller.start()

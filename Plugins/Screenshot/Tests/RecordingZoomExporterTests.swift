@@ -48,6 +48,53 @@ final class RecordingZoomExporterTests: XCTestCase {
         }
     }
 
+    func testBothAudioSourcesAreAudibleWithAndWithoutZoom() async throws {
+        for events in [[], [RecordingZoomEvent(time: 0.3, kind: .click, point: CGPoint(x: 0.5, y: 0.5))]] {
+            let folder = try temporaryFolder()
+            defer { try? FileManager.default.removeItem(at: folder) }
+            let source = folder.appendingPathComponent("two-sources.mov")
+            let destination = folder.appendingPathComponent("playable.mov")
+            try await makeMovie(at: source, rotated: false, frequencies: [440, 880])
+            try await RecordingZoomExporter.export(source: source, destination: destination, events: events)
+            let asset = AVURLAsset(url: destination)
+            let tracks = try await asset.loadTracks(withMediaType: .audio)
+            XCTAssertEqual(tracks.count, 1, "Ordinary playback must not require selecting a second source")
+            let reader = try AVAssetReader(asset: asset)
+            let output = AVAssetReaderAudioMixOutput(audioTracks: tracks, audioSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM, AVLinearPCMIsFloatKey: true,
+                AVLinearPCMBitDepthKey: 32, AVLinearPCMIsNonInterleaved: false,
+                AVSampleRateKey: 48000, AVNumberOfChannelsKey: 1,
+            ])
+            reader.add(output)
+            XCTAssertTrue(reader.startReading())
+            var samples: [Float] = []
+            while let buffer = output.copyNextSampleBuffer() {
+                let block = try XCTUnwrap(CMSampleBufferGetDataBuffer(buffer))
+                let length = CMBlockBufferGetDataLength(block)
+                var values = [Float](repeating: 0, count: length / MemoryLayout<Float>.size)
+                let status = values.withUnsafeMutableBytes {
+                    CMBlockBufferCopyDataBytes(block, atOffset: 0, dataLength: length, destination: $0.baseAddress!)
+                }
+                XCTAssertEqual(status, noErr)
+                samples.append(contentsOf: values)
+            }
+            XCTAssertEqual(reader.status, .completed)
+            XCTAssertGreaterThan(samples.count, 2 * 48000)
+            // Skip codec priming, and inspect a whole second of decoded ordinary playback.
+            let window = Array(samples[48000..<96000])
+            for frequency in [440.0, 880.0] {
+                var sine = 0.0, cosine = 0.0
+                for (index, sample) in window.enumerated() {
+                    let phase = 2 * Double.pi * frequency * Double(index) / 48000
+                    sine += Double(sample) * sin(phase)
+                    cosine += Double(sample) * cos(phase)
+                }
+                XCTAssertGreaterThan(2 * hypot(sine, cosine) / Double(window.count), 0.03,
+                                     "Both selected sources must survive audio mixing and video processing")
+            }
+        }
+    }
+
     func testSparseScreenUpdatesStillProduceSixtyFramesPerSecond() async throws {
         let folder = try temporaryFolder()
         defer { try? FileManager.default.removeItem(at: folder) }
@@ -146,7 +193,7 @@ final class RecordingZoomExporterTests: XCTestCase {
         return NSBitmapImageRep(cgImage: result.image)
     }
 
-    private func makeMovie(at url: URL, rotated: Bool, frameStride: Int = 1) async throws {
+    private func makeMovie(at url: URL, rotated: Bool, frameStride: Int = 1, frequencies: [Double] = [0]) async throws {
         let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
         let video = AVAssetWriterInput(mediaType: .video, outputSettings: [
             AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 320, AVVideoHeightKey: 240,
@@ -159,16 +206,18 @@ final class RecordingZoomExporterTests: XCTestCase {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferWidthKey as String: 320, kCVPixelBufferHeightKey as String: 240,
         ])
-        let audio = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+        let audioInputs = frequencies.map { _ in AVAssetWriterInput(mediaType: .audio, outputSettings: [
             AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: 48000, AVNumberOfChannelsKey: 1,
-        ])
+        ]) }
         writer.add(video)
-        writer.add(audio)
+        for audio in audioInputs { writer.add(audio) }
         XCTAssertTrue(writer.startWriting())
         writer.startSession(atSourceTime: .zero)
-        let samples = try silentAudio()
-        XCTAssertTrue(audio.append(samples))
-        audio.markAsFinished()
+        for (audio, frequency) in zip(audioInputs, frequencies) {
+            let samples = try toneAudio(frequency: frequency)
+            XCTAssertTrue(audio.append(samples))
+            audio.markAsFinished()
+        }
 
         var created: CVPixelBuffer?
         XCTAssertTrue(CVPixelBufferCreate(kCFAllocatorDefault, 320, 240, kCVPixelFormatType_32BGRA, nil, &created) == kCVReturnSuccess)
@@ -200,7 +249,7 @@ final class RecordingZoomExporterTests: XCTestCase {
         if let error = writer.error { throw error }
     }
 
-    private func silentAudio() throws -> CMSampleBuffer {
+    private func toneAudio(frequency: Double) throws -> CMSampleBuffer {
         var description = AudioStreamBasicDescription(mSampleRate: 48000, mFormatID: kAudioFormatLinearPCM,
             mFormatFlags: kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked,
             mBytesPerPacket: 2, mFramesPerPacket: 1, mBytesPerFrame: 2, mChannelsPerFrame: 1,
@@ -215,7 +264,11 @@ final class RecordingZoomExporterTests: XCTestCase {
             blockLength: count * 2, blockAllocator: kCFAllocatorDefault, customBlockSource: nil,
             offsetToData: 0, dataLength: count * 2, flags: 0, blockBufferOut: &block) == noErr)
         let data = try XCTUnwrap(block)
-        XCTAssertTrue(CMBlockBufferFillDataBytes(with: 0, blockBuffer: data, offsetIntoDestination: 0, dataLength: count * 2) == noErr)
+        let signal = (0..<count).map { Int16(0.2 * Double(Int16.max) * sin(2 * .pi * frequency * Double($0) / 48000)) }
+        let status = signal.withUnsafeBytes {
+            CMBlockBufferReplaceDataBytes(with: $0.baseAddress!, blockBuffer: data, offsetIntoDestination: 0, dataLength: count * 2)
+        }
+        XCTAssertEqual(status, noErr)
         var timing = CMSampleTimingInfo(duration: CMTime(value: 1, timescale: 48000), presentationTimeStamp: .zero,
                                        decodeTimeStamp: .invalid)
         var sample: CMSampleBuffer?

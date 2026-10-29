@@ -64,8 +64,12 @@
 	<string>$(RIGHT_CLICK_CONFIGURATION_HOME_RELATIVE_PATH)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>用于在系统日历中打开日期、读取 Apple“快捷指令”的图标、颜色和运行状态，显示 macOS 退出登录、重新启动和关机确认，并在 iTerm2 中打开所选文件夹。</string>
+	<key>MTScreenshotAudioRecordingSupported</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>仅在开启麦克风录制时收录讲解，并保存到录像。</string>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>仅在调节应用独立音量时于本机实时处理系统音频，不会录制、保存或上传声音。</string>
+	<string>用于在本机调节应用音量；开启录屏系统声音时，会将声音保存到录像，不会上传。</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>读取蓝牙外设电量，用于在设备电量组件中显示鼠标、键盘和耳机状态。</string>
 	<key>NSCalendarsUsageDescription</key>

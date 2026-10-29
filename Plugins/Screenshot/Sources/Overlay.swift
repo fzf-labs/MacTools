@@ -5,7 +5,9 @@ import MacToolsPluginKit
 final class OverlayWindow: NSPanel {
     var onComplete: ((Data, SaveMode) -> Void)?
     var onPin: ((Data, NSRect, Bool) -> Void)?
-    var onRecord: ((NSRect) -> Void)?
+    var onRecord: ((NSRect, RecordingControlsView.TargetKind) -> Void)?
+    var onWindowSelection: (() -> Void)?
+    var onRecordingFolder: (() -> Void)?
     var onScroll: ((NSRect) -> Void)?
     var onCancel: (() -> Void)?
 
@@ -43,27 +45,20 @@ final class OverlayWindow: NSPanel {
         prepare(screen: screen, frozen: frozen, windows: windows, quick: quick)
     }
 
-    func prepare(screen: NSScreen, frozen: CGImage, windows: [NSRect], quick: Bool) {
+    func prepare(screen: NSScreen, frozen: CGImage, windows: [NSRect], quick: Bool,
+                 initialMode: Mode = .shot) {
         guard let view = contentView as? OverlayView else { return }
         setFrame(screen.frame, display: false)
         colorSpace = frozen.colorSpace.flatMap(NSColorSpace.init(cgColorSpace:)) ?? screen.colorSpace
-        let obscuredArea: NSRect?
-        if let left = screen.auxiliaryTopLeftArea, let right = screen.auxiliaryTopRightArea,
-           !left.isEmpty, !right.isEmpty, right.minX > left.maxX {
-            obscuredArea = NSRect(x: left.maxX - screen.frame.minX,
-                                  y: min(left.minY, right.minY) - screen.frame.minY,
-                                  width: right.minX - left.maxX,
-                                  height: max(left.height, right.height))
-        } else {
-            obscuredArea = nil
-        }
-        view.prepare(frozen: frozen, windows: windows, quick: quick, topObscuredArea: obscuredArea)
+        view.prepare(frozen: frozen, windows: windows, quick: quick, initialMode: initialMode)
         view.onComplete = { [weak self] png, mode in self?.onComplete?(png, mode) }
         view.onPin = { [weak self] png, rect, shadowed in
             guard let self else { return }
             self.onPin?(png, self.convertToScreen(rect), shadowed)
         }
-        view.onRecord = { [weak self] rect in self?.onRecord?(rect) }
+        view.onRecord = { [weak self] rect, kind in self?.onRecord?(rect, kind) }
+        view.onWindowSelection = { [weak self] in self?.onWindowSelection?() }
+        view.onRecordingFolder = { [weak self] in self?.onRecordingFolder?() }
         view.onScroll = { [weak self] rect in self?.onScroll?(rect) }
         view.onCancel = { [weak self] in self?.onCancel?() }
         makeFirstResponder(view)
@@ -112,6 +107,8 @@ final class OverlayWindow: NSPanel {
         onComplete = nil
         onPin = nil
         onRecord = nil
+        onWindowSelection = nil
+        onRecordingFolder = nil
         onScroll = nil
         onCancel = nil
     }
@@ -128,7 +125,7 @@ private enum Tool: Int {
     var usesStroke: Bool { self != .none && self != .mosaic && self != .spotlight }
 }
 
-private enum Mode: Int { case shot = 0, ocr = 1, scroll = 2, record = 3 }
+enum Mode: Int { case shot = 0, ocr = 1, scroll = 2, record = 3 }
 
 private enum Edge { case min, mid, max }
 
@@ -263,10 +260,19 @@ final class BarButton: NSButton {
 final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     var onComplete: ((Data, SaveMode) -> Void)?
     var onPin: ((Data, NSRect, Bool) -> Void)?
-    var onRecord: ((NSRect) -> Void)?
+    var onRecord: ((NSRect, RecordingControlsView.TargetKind) -> Void)?
+    var onWindowSelection: (() -> Void)?
+    var onRecordingFolder: (() -> Void)?
     var onScroll: ((NSRect) -> Void)?
     var onCancel: (() -> Void)?
     var onPointerActivity: (() -> Void)?
+    var onSelectionClaim: (() -> Void)?
+    var onModeChange: ((Mode) -> Void)?
+    var hasSelection: Bool { anchor != nil || (editing && !selection.isEmpty) || isApplicationRecording }
+    var captureMode: Mode { mode }
+    private var ownsControls = true
+    private var dockOrigin: NSPoint?
+
 
     private var cgImage: CGImage?
     private var scale: CGFloat = 1
@@ -280,7 +286,6 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private let environment: ScreenshotEnvironment
 
     private var windowRects: [NSRect] = []
-    private var topObscuredArea: NSRect?
     private var quick = false
     private var tips: [NSButton: String] = [:]
     private var tipView: NSView!
@@ -294,7 +299,6 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var resultURL: URL?
     private lazy var maskButton = NSButton(title: environment.string("overlay.recognition.mask", "打码"), target: nil, action: nil)
     private lazy var openButton = NSButton(title: environment.string("overlay.recognition.open", "打开链接"), target: nil, action: nil)
-    private var toolbarPinned = false
     private var cornerRadius: CGFloat
     private var radiusRow: NSView!
     private let radiusSlider = NSSlider()
@@ -341,8 +345,9 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var textField: NSTextField?
 
     private var modeBar: NSView!
-    private var modeBarSize = NSSize.zero
-    private var modeBarPreferredX: CGFloat?
+    private let modeRow = NSStackView()
+    private let secondModeRow = NSStackView()
+    private var wrapsModes = false
     private var modeButtons: [BarButton] = []
     private static let segmentModes: [Mode] = [.shot, .scroll, .record, .ocr]
     private let toolbar = NSStackView()
@@ -354,8 +359,11 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     private var fillButton: BarButton!
     private var mode: Mode = .shot
     private var recordBar: NSView!
-    private lazy var autoZoomToggle = NSButton(checkboxWithTitle: environment.string("overlay.record.autoZoom", "自动缩放"),
-                                               target: self, action: #selector(toggleAutoZoom))
+    var recordingDisplay: CaptureDisplay?
+    var selectedRecordingApplication: RecordingTarget? { recordingControls.applications.selectedTarget }
+    var recordingWindows: [RecordingWindowSelection] = []
+    private(set) var selectedRecordingWindow: RecordingWindowSelection?
+    private var recordingControls: RecordingControlsView!
     private var scrollBar: NSView!
     private var ocrPanel: NSView?
     private var ocrTextView: NSTextView?
@@ -409,7 +417,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         buildTip()
     }
 
-    func prepare(frozen image: CGImage, windows: [NSRect], quick: Bool, topObscuredArea: NSRect? = nil) {
+    func prepare(frozen image: CGImage, windows: [NSRect], quick: Bool, initialMode: Mode = .shot) {
         stop()
         cgImage = image
         scale = CGFloat(image.width) / bounds.width
@@ -417,7 +425,6 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         magnifier.prepare(image: image, size: bounds.size)
         sizeBadge.prepare()
         windowRects = windows.map { $0.intersection(bounds) }
-        self.topObscuredArea = topObscuredArea
         self.quick = quick
         cornerRadius = min(80, max(0, CGFloat((environment.storage.object(forKey: "cornerRadius") as? NSNumber)?.doubleValue ?? 0)))
         shadowSize = min(60, max(0, CGFloat((environment.storage.object(forKey: "shadowSize") as? NSNumber)?.doubleValue ?? 0)))
@@ -430,7 +437,10 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         radiusRow.isHidden = cornerRadius == 0 && shadowSize == 0
         refreshShadowButtons()
         refreshStyleButtons()
-        autoZoomToggle.state = environment.recordingAutoZoom ? .on : .off
+        recordingWindows = []
+        selectedRecordingWindow = nil
+        recordingControls.selectTarget(.region, canStart: false)
+        recordingControls.setError(nil)
         for button in modeButtons { button.isSelectedLook = button.tag == 0 }
         for button in toolButtons { button.isSelectedLook = false }
         backdrop?.prepare(image: image, bounds: bounds, scale: scale)
@@ -440,10 +450,15 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             return event
         }
         invalidateAnnotations()
+        synchronizeMode(initialMode)
     }
 
     func prepareForPresentation() {
         updateSelectionPresentation()
+        if mode == .record, ownsControls {
+            recordingControls.activate()
+            placeRecordingBar()
+        }
     }
 
     /// Remove session state while keeping the native controls available for reuse.
@@ -484,14 +499,17 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         dragItems = nil
         origAnnotationRect = .zero
         editing = false
-        toolbarPinned = false
-        modeBarPreferredX = nil
-        topObscuredArea = nil
+        dockOrigin = nil
+        ownsControls = true
         tool = .none
         mode = .shot
         magnifierColorFormat = .rgb
         stroke = Stroke(color: .systemRed, width: 2)
         windowRects.removeAll()
+        recordingDisplay = nil
+        recordingWindows.removeAll()
+        selectedRecordingWindow = nil
+        recordingControls.deactivate()
         renderer = nil
         cgImage = nil
         backdrop?.clear()
@@ -503,9 +521,13 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         onComplete = nil
         onPin = nil
         onRecord = nil
+        onWindowSelection = nil
+        onRecordingFolder = nil
         onScroll = nil
         onCancel = nil
         onPointerActivity = nil
+        onSelectionClaim = nil
+        onModeChange = nil
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -520,12 +542,14 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         annotationView.needsDisplay = true
     }
 
+    private var isApplicationRecording: Bool { mode == .record && recordingControls.targetKind == .application }
+
     private func updateSelectionPresentation() {
         guard cgImage != nil else { return }
         // AppKit may invalidate transparent siblings when chrome moves. Keep the
         // annotation surface out of drawing until there are handles or marks.
-        annotationView.isHidden = !editing && items.isEmpty && draft == nil
-        let hole = selection.isEmpty ? (pointerInside ? hoverRect : nil) : selection
+        annotationView.isHidden = isApplicationRecording || (!editing && items.isEmpty && draft == nil)
+        let hole = isApplicationRecording ? nil : (selection.isEmpty ? (pointerInside ? hoverRect : nil) : selection)
         backdrop?.update(bounds: bounds, selection: hole, radius: selection.isEmpty ? 0 : radius)
         selectionChrome?.update(bounds: bounds, selection: hole, radius: selection.isEmpty ? 0 : radius,
                                 shadowSize: selection.isEmpty ? 0 : shadowBlur, shadowColor: shadowColor,
@@ -536,7 +560,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func updateMagnifier() {
-        magnifier.update(at: pointerInside && !editing ? lastMouse : nil,
+        magnifier.update(at: pointerInside && !editing && !isApplicationRecording ? lastMouse : nil,
                          format: magnifierColorFormat, in: bounds)
     }
 
@@ -657,8 +681,10 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func updateHover(at p: NSPoint) {
-        guard pointerInside, !editing else { return }
-        setHoverRect(Self.hoverTarget(at: p, in: bounds, windowRects: windowRects))
+        guard pointerInside, !editing, !isApplicationRecording else { return }
+        if mode == .record, recordingControls.targetKind == .window {
+            setHoverRect(recordingWindows.first { $0.rect.contains(p) }?.rect)
+        } else { setHoverRect(Self.hoverTarget(at: p, in: bounds, windowRects: windowRects)) }
     }
 
     static func hoverTarget(at point: NSPoint, in bounds: NSRect, windowRects: [NSRect]) -> NSRect? {
@@ -676,11 +702,13 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         guard pointerInside != isInside else { return }
         pointerInside = isInside
         if modeBar != nil { placeModeBar() }
+        if mode == .record, !editing || isApplicationRecording { placeRecordingBar() }
     }
 
     private func cursor(at p: NSPoint) -> NSCursor {
         let bars: [NSView] = [modeBar, toolbar, recordBar, scrollBar] + (ocrPanel.map { [$0] } ?? [])
         if bars.contains(where: { !$0.isHidden && $0.frame.contains(p) }) { return .arrow }
+        if isApplicationRecording { return .arrow }
         guard editing, tool == .none else { return .crosshair }
         if let rect = selectedAnnotationRect, let i = handleIndex(at: p, in: rect) {
             return resizeCursor(for: handleSpots[i])
@@ -842,12 +870,24 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     override func mouseDown(with event: NSEvent) {
         onPointerActivity?()
+        onSelectionClaim?()
         commitText()
         hideTip()
         let p = convert(event.locationInWindow, from: nil)
         lastMouse = p
         anchor = p
         origSelection = selection
+        if isApplicationRecording { dragMode = nil; return }
+        if mode == .record, recordingControls.targetKind == .window {
+            selectedRecordingWindow = recordingWindows.first { $0.rect.contains(p) }
+            selection = selectedRecordingWindow?.rect ?? .zero
+            editing = selectedRecordingWindow != nil
+            hoverRect = nil
+            dragMode = nil
+            invalidateAnnotations()
+            placeRecordingBar()
+            return
+        }
         dragItems = nil
         penPoints = []
         guard editing else { dragMode = .select; return }
@@ -933,8 +973,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                 toolbar.isHidden = true
                 recordBar.isHidden = true
                 scrollBar.isHidden = true
-                toolbarPinned = false
-                hideOcrPanel()
+                        hideOcrPanel()
                 items.removeAll()
                 selectedItemIndex = nil
                 undoHistory.removeAll()
@@ -1006,6 +1045,10 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func confirmSelection() {
+        onSelectionClaim?()
+        if mode == .record, recordingControls.targetKind != .window, !isApplicationRecording, selection != bounds {
+            recordingControls.selectTarget(.region, canStart: true)
+        }
         hoverRect = nil
         editing = true
         invalidateAnnotations()
@@ -1013,7 +1056,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         placeModeBar()
         switch mode {
         case .ocr: runOCR()
-        case .record: place(recordBar)
+        case .record: placeRecordingBar()
         case .scroll: place(scrollBar)
         case .shot: layoutToolbar()
         }
@@ -1023,7 +1066,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         placeModeBar()
         if ocrShowing { return }
         switch mode {
-        case .record: place(recordBar)
+        case .record: placeRecordingBar()
         case .scroll: place(scrollBar)
         case .shot: layoutToolbar()
         case .ocr: break  // The recognition panel follows the selection; the annotation toolbar stays hidden.
@@ -1051,8 +1094,12 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         let key = (event.charactersIgnoringModifiers ?? "").lowercased()
         switch event.keyCode {
         case 53: onCancel?(); return
-        case 36, 76: if editing { primaryAction() }; return
+        case 36, 76: if editing || isApplicationRecording { primaryAction() }; return
         case 48:
+            if mode == .record {
+                recordingControls.moveKeyboardFocus(backwards: flags.contains(.shift))
+                return
+            }
             guard !editing, lastMouse != nil else {
                 super.keyDown(with: event)
                 return
@@ -1061,6 +1108,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             updateMagnifier()
             return
         case 123, 124, 125, 126:
+            if mode == .record, recordingControls.targetKind == .window || isApplicationRecording { return }
             guard editing, dragMode == nil else { return }
             let step: CGFloat = flags.contains(.shift) ? 10 : 1
             let delta: [UInt16: (CGFloat, CGFloat)] = [123: (-step, 0), 124: (step, 0), 125: (0, -step), 126: (0, step)]
@@ -1081,6 +1129,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             return
         default: break
         }
+        if mode == .record { super.keyDown(with: event); return }
         if flags.contains(.command) {
             switch key {
             case "z": undoLast()
@@ -1101,8 +1150,8 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
     private func buildModeBar() {
         let handle = DragHandle()
-        handle.setAccessibilityLabel(environment.string("overlay.mode.move", "左右移动模式栏"))
-        handle.onDrag = { [weak self] delta in self?.moveModeBar(by: delta.width) }
+        handle.setAccessibilityLabel(environment.string("overlay.toolbar.move", "移动工具栏"))
+        handle.onDrag = { [weak self] delta in self?.moveDock(by: delta) }
         let titles = [environment.string("overlay.mode.screenshot", "截图"),
                       environment.string("overlay.mode.scroll", "滚动截图"),
                       environment.string("overlay.mode.record", "录屏"),
@@ -1127,70 +1176,126 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
             button.isSelectedLook = i == 0
             modeButtons.append(button)
         }
-        modeBar = capsule([handle] + modeButtons, spacing: 2, inset: 4)
+        for row in [modeRow, secondModeRow] { row.orientation = .horizontal; row.alignment = .centerY; row.spacing = 2 }
+        modeRow.addArrangedSubview(handle)
+        for button in modeButtons { modeRow.addArrangedSubview(button) }
+        secondModeRow.isHidden = true
+        let rows = NSStackView(views: [modeRow, secondModeRow])
+        rows.orientation = .vertical
+        rows.alignment = .centerX
+        rows.spacing = 2
+        rows.edgeInsets = NSEdgeInsets(top: 4, left: 4, bottom: 4, right: 4)
+        modeBar = Glass.wrap(rows, radius: 20)
         modeBar.identifier = NSUserInterfaceItemIdentifier("screenshot.modeBar")
-        modeBarSize = modeBar.fittingSize
         addSubview(modeBar)
         placeModeBar()
     }
 
+    private var dockAnchor: NSPoint { dockOrigin ?? NSPoint(x: bounds.midX, y: 24) }
+
     private func placeModeBar() {
-        guard Self.modeBarShouldBeVisible(quick: quick, pointerInside: pointerInside, overlapsSelection: false) else {
-            modeBar.isHidden = true
+        guard !quick, ownsControls, pointerInside || hasSelection else { modeBar.isHidden = true; return }
+        let fullWidth = modeButtons.reduce(CGFloat(26)) { $0 + $1.fittingSize.width + 2 }
+        let shouldWrap = fullWidth > bounds.width - 16
+        if wrapsModes != shouldWrap {
+            wrapsModes = shouldWrap
+            for button in modeButtons {
+                if button.superview === modeRow { modeRow.removeArrangedSubview(button) }
+                if button.superview === secondModeRow { secondModeRow.removeArrangedSubview(button) }
+                button.removeFromSuperview()
+            }
+            for (index, button) in modeButtons.enumerated() {
+                (shouldWrap && index >= 2 ? secondModeRow : modeRow).addArrangedSubview(button)
+            }
+            secondModeRow.isHidden = !shouldWrap
+        }
+        let size = modeBar.fittingSize
+        let point = dockAnchor
+        modeBar.frame = NSRect(x: min(max(8, point.x - size.width / 2), max(8, bounds.width - size.width - 8)),
+                               y: min(max(8, point.y), max(8, bounds.height - size.height - 8)),
+                               width: size.width, height: size.height)
+        modeBar.isHidden = false
+    }
+
+    private func moveDock(by delta: NSSize) {
+        dockOrigin = NSPoint(x: min(max(8, dockAnchor.x + delta.width), bounds.width - 8),
+                             y: min(max(8, dockAnchor.y + delta.height), bounds.height - 80))
+        placeModeBar()
+        if ocrShowing, let ocrPanel { place(ocrPanel) }
+        else if editing { layoutBars() }
+        else if mode == .record { placeRecordingBar() }
+    }
+
+    func setControlsOwner(_ value: Bool) {
+        guard ownsControls != value else { return }
+        ownsControls = value
+        if value, mode == .record { recordingControls.activate() }
+        placeModeBar()
+        guard value else {
+            for bar in [toolbar, recordBar, scrollBar, ocrPanel] { bar?.isHidden = true }
             return
         }
-        var frame = Self.modeBarFrame(size: modeBarSize, in: bounds,
-                                      preferredX: modeBarPreferredX ?? bounds.minX + 16,
-                                      obscuredArea: topObscuredArea)
-        let busy = editing ? selection.insetBy(dx: -8, dy: -8) : .zero
-        if busy.intersects(frame), modeBarPreferredX == nil {
-            frame = Self.modeBarFrame(size: modeBarSize, in: bounds,
-                                      preferredX: bounds.maxX - 16 - modeBarSize.width,
-                                      obscuredArea: topObscuredArea)
-        }
-        modeBar.frame = frame
-        modeBar.isHidden = !Self.modeBarShouldBeVisible(
-            quick: quick,
-            pointerInside: pointerInside,
-            overlapsSelection: busy.intersects(frame)
-        )
+        if ocrShowing, let ocrPanel { place(ocrPanel) }
+        else if editing { layoutBars() }
+        else if mode == .record { placeRecordingBar() }
     }
 
-    private func moveModeBar(by deltaX: CGFloat) {
-        guard deltaX != 0, !modeBar.isHidden else { return }
-        // Keep the unclipped horizontal preference so a single drag can cross the notch.
-        let proposedX = (modeBarPreferredX ?? modeBar.frame.minX) + deltaX
-        let bounded = Self.modeBarFrame(size: modeBarSize, in: bounds, preferredX: proposedX)
-        modeBarPreferredX = bounded.minX
-        let frame = Self.modeBarFrame(size: modeBarSize, in: bounds,
-                                      preferredX: bounded.minX, obscuredArea: topObscuredArea)
-        if modeBar.frame.origin != frame.origin { modeBar.setFrameOrigin(frame.origin) }
+    /// Clears the old display's editable state without releasing its frozen desktop or callbacks.
+    func discardSelectionForTransfer() {
+        exportTask?.cancel()
+        exportTask = nil
+        hideOcrPanel()
+        textField?.delegate = nil
+        textField?.removeFromSuperview()
+        textField = nil
+        selection = .zero
+        editing = false
+        anchor = nil
+        dragMode = nil
+        draft = nil
+        items.removeAll()
+        undoHistory.removeAll()
+        dragItems = nil
+        selectedItemIndex = nil
+        selectedRecordingWindow = nil
+        tool = .none
+        renderer?.clearCache()
+        recordingControls.deactivate()
+        recordingControls.selectTarget(.region, canStart: false)
+        for button in toolButtons { button.isSelectedLook = false }
+        for bar in [toolbar, recordBar, scrollBar] { bar?.isHidden = true }
+        invalidateAnnotations()
     }
 
-    static func modeBarFrame(size: NSSize, in bounds: NSRect, preferredX: CGFloat,
-                             obscuredArea: NSRect? = nil) -> NSRect {
-        let inset: CGFloat = 4
-        let minX = bounds.minX + inset
-        let maxX = max(minX, bounds.maxX - inset - size.width)
-        var frame = NSRect(x: min(max(preferredX, minX), maxX),
-                           y: bounds.maxY - inset - size.height, width: size.width, height: size.height)
-        if let obscuredArea, frame.intersects(obscuredArea.insetBy(dx: -inset, dy: 0)) {
-            let candidates = [obscuredArea.minX - inset - size.width, obscuredArea.maxX + inset]
-                .filter { $0 >= minX && $0 <= maxX }
-            if let nearest = candidates.min(by: { abs($0 - frame.minX) < abs($1 - frame.minX) }) {
-                frame.origin.x = nearest
-            }
-        }
-        return frame
-    }
-
-    static func modeBarShouldBeVisible(quick: Bool, pointerInside: Bool, overlapsSelection: Bool) -> Bool {
-        !quick && pointerInside && !overlapsSelection
+    func synchronizeMode(_ value: Mode) {
+        guard mode != value else { return }
+        hideOcrPanel()
+        mode = value
+        for button in modeButtons { button.isSelectedLook = Self.segmentModes[button.tag] == value }
+        recordingControls.deactivate()
+        for bar in [toolbar, recordBar, scrollBar] { bar?.isHidden = true }
+        updateSelectionPresentation()
+        placeModeBar()
     }
 
     @objc private func pickMode(_ sender: BarButton) {
         mode = Self.segmentModes[max(0, min(sender.tag, Self.segmentModes.count - 1))]
+        onModeChange?(mode)
         for b in modeButtons { b.isSelectedLook = b === sender }
+        if mode == .record {
+            recordingControls.activate()
+            if recordingControls.targetKind == .application, let recordingDisplay {
+                recordingControls.showApplications(displayID: recordingDisplay.id)
+            }
+        } else {
+            recordingControls.deactivate()
+            recordBar.isHidden = true
+            updateSelectionPresentation()
+        }
+        if mode == .record, !editing {
+            placeRecordingBar()
+            return
+        }
         guard editing else { return }
         hideOcrPanel()
         toolbar.isHidden = true
@@ -1224,23 +1329,76 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
     }
 
     private func buildRecordBar() {
-        let start = sessionButton(
-            title: environment.string("overlay.record.start", "开始录制"),
-            symbol: "record.circle",
-            tint: .systemRed,
-            action: #selector(startRecord),
-            isPrimary: true
-        )
-        let cancel = sessionButton(
-            title: environment.string("overlay.action.cancel", "取消"),
-            action: #selector(cancel)
-        )
-        autoZoomToggle.font = PluginTypography.body.nsFont
-        autoZoomToggle.toolTip = environment.string("settings.autoZoom.description", "点击或滚动时放大该位置，随后恢复全景。在保存的视频中生成，录制时不改变桌面。")
-        autoZoomToggle.setAccessibilityIdentifier("screenshot.record.autoZoom")
-        recordBar = CaptureActionBar.make([autoZoomToggle, start, cancel])
+        recordingControls = RecordingControlsView(environment: environment)
+        recordingControls.onStart = { [weak self] in self?.startRecord() }
+        recordingControls.onCancel = { [weak self] in self?.onCancel?() }
+        recordingControls.onChooseFolder = { [weak self] in self?.onRecordingFolder?() }
+        recordingControls.onTargetChange = { [weak self] kind in self?.selectRecordingTarget(kind) }
+        recordingControls.onLayoutChange = { [weak self] in self?.placeRecordingBar() }
+        recordBar = Glass.wrap(recordingControls, radius: 24, blending: .withinWindow)
         recordBar.isHidden = true
         addSubview(recordBar)
+    }
+
+    func beginWindowSelection() {
+        mode = .record
+        recordingControls.activate()
+        for button in modeButtons { button.isSelectedLook = button.tag == 2 }
+        editing = false
+        selection = .zero
+        selectedRecordingWindow = nil
+        toolbar.isHidden = true
+        scrollBar.isHidden = true
+        hideOcrPanel()
+        recordingControls.selectTarget(.window, canStart: false)
+        recordingControls.setError(nil)
+        if let lastMouse { updateHover(at: lastMouse) }
+        updateSelectionPresentation()
+        placeModeBar()
+        placeRecordingBar()
+    }
+
+    func selectRecordingTarget(_ kind: RecordingControlsView.TargetKind) {
+        onSelectionClaim?()
+        if kind == .window {
+            onWindowSelection?()
+            return
+        }
+        if kind == .application {
+            guard let recordingDisplay else { return }
+            toolbar.isHidden = true
+            scrollBar.isHidden = true
+            hideOcrPanel()
+            hoverRect = nil
+            recordingControls.showApplications(displayID: recordingDisplay.id)
+            updateSelectionPresentation()
+            placeRecordingBar()
+            return
+        }
+        if kind == .display {
+            selection = bounds
+            confirmSelection()
+        }
+        selectedRecordingWindow = nil
+        recordingControls.selectTarget(kind, canStart: editing && !selection.isEmpty)
+        recordingControls.setError(nil)
+        updateSelectionPresentation()
+        placeRecordingBar()
+    }
+
+    func showRecordingError(_ text: String) {
+        recordingControls.setError(text)
+        placeRecordingBar()
+    }
+
+    private func placeRecordingBar() {
+        guard mode == .record, ownsControls else { recordBar.isHidden = true; return }
+        let valid = isApplicationRecording ? selectedRecordingApplication != nil
+            : editing && !selection.isEmpty && (recordingControls.targetKind != .window || selectedRecordingWindow != nil)
+        recordingControls.selectTarget(recordingControls.targetKind, canStart: valid)
+        recordingControls.constrain(to: NSSize(width: bounds.width - 24, height: bounds.height - modeBar.fittingSize.height - 60))
+        if pointerInside || hasSelection { place(recordBar) }
+        else { recordBar.isHidden = true }
     }
 
     private func sessionButton(
@@ -1262,17 +1420,14 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         return button
     }
 
-    @objc private func toggleAutoZoom() {
-        environment.recordingAutoZoom = autoZoomToggle.state == .on
-    }
-
     @objc private func startRecord() {
+        guard isApplicationRecording ? selectedRecordingApplication != nil : (editing && !selection.isEmpty) else { return }
         guard #available(macOS 15, *) else {
-            environment.showToast(environment.string("overlay.record.unavailable", "录屏需要 macOS 15 或更高版本"))
+            showRecordingError(environment.string("overlay.record.unavailable", "录屏需要 macOS 15 或更高版本"))
             return
         }
         commitText()
-        onRecord?(selection)
+        onRecord?(isApplicationRecording ? bounds : selection, recordingControls.targetKind)
     }
 
     private func buildToolbar() {
@@ -1289,12 +1444,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
 
         let handle = DragHandle()
         handle.setAccessibilityLabel(environment.string("overlay.toolbar.move", "移动工具栏"))
-        handle.onDrag = { [weak self] delta in
-            guard let self else { return }
-            toolbar.setFrameOrigin(NSPoint(x: toolbar.frame.minX + delta.width,
-                                           y: toolbar.frame.minY + delta.height))
-            toolbarPinned = true
-        }
+        handle.onDrag = { [weak self] delta in self?.moveDock(by: delta) }
         var annotate: [NSView] = [handle]
         let drawTools: [(String, Tool, String)] = [
             ("rectangle", .rect, environment.string("overlay.tool.rectangle", "矩形 (R)")),
@@ -1374,7 +1524,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         style.append(fillButton)
         styleRow = capsule(style)
         styleRow.isHidden = true
-        toolbar.addArrangedSubview(styleRow)
+        toolbar.insertArrangedSubview(styleRow, at: 0)
         refreshStyleButtons()
 
         radiusSlider.minValue = 0
@@ -1414,7 +1564,7 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
                                  caption(environment.string("overlay.style.shadow", "阴影")), shadowSlider, shadowLabel] + shadowButtons
         radiusRow = capsule(effects, spacing: 8, inset: 12)
         radiusRow.isHidden = cornerRadius == 0 && shadowSize == 0
-        toolbar.addArrangedSubview(radiusRow)
+        toolbar.insertArrangedSubview(radiusRow, at: 0)
 
         toolbar.isHidden = true
         addSubview(toolbar)
@@ -1502,25 +1652,17 @@ final class OverlayView: NSView, NSTextFieldDelegate, NSTextViewDelegate {
         return line
     }
 
-    private func layoutToolbar() {
-        if toolbarPinned {
-            toolbar.layoutSubtreeIfNeeded()
-            let size = toolbar.fittingSize
-            toolbar.frame = NSRect(x: toolbar.frame.minX, y: toolbar.frame.maxY - size.height,
-                                   width: size.width, height: size.height)
-            reveal(toolbar)
-            return
-        }
-        place(toolbar)
-    }
+    private func layoutToolbar() { place(toolbar) }
 
+    /// The current tools grow upward from the shared mode strip; neither follows the crop edges.
     private func place(_ bar: NSView) {
+        guard ownsControls, !quick else { bar.isHidden = true; return }
+        placeModeBar()
         bar.layoutSubtreeIfNeeded()
         let size = bar.fittingSize
-        var origin = NSPoint(x: selection.maxX - size.width, y: selection.minY - 10 - size.height)
-        if origin.y < 0 { origin.y = selection.maxY + 10 }
-        if origin.y + size.height > bounds.maxY { origin.y = selection.minY + 10 }
-        origin.x = min(max(0, origin.x), bounds.maxX - size.width)
+        var origin = NSPoint(x: dockAnchor.x - size.width / 2, y: modeBar.frame.maxY + 6)
+        origin.x = max(8, min(origin.x, bounds.width - size.width - 8))
+        origin.y = max(8, min(origin.y, bounds.height - size.height - 8))
         bar.frame = NSRect(origin: origin, size: size)
         reveal(bar)
     }

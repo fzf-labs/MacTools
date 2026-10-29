@@ -4943,6 +4943,64 @@
       "action": {
         "automaticEligible": false,
         "description": {
+          "ar": "حدد منطقة لاستخراج نصها مباشرة.",
+          "de": "Bereich auswählen und Text direkt erkennen.",
+          "en": "Select an area to extract its text directly.",
+          "es": "Selecciona un área para extraer su texto.",
+          "fr": "Sélectionnez une zone pour en extraire le texte.",
+          "ja": "範囲を選択して文字を抽出します。",
+          "ko": "영역을 선택하면 바로 텍스트를 인식합니다.",
+          "pt": "Selecione uma área para extrair o texto.",
+          "ru": "Выберите область для распознавания текста.",
+          "tr": "Metni çıkarmak için bir alan seçin.",
+          "zh-Hans": "框选后直接识别文字。",
+          "zh-Hant": "框選後直接辨識文字。"
+        },
+        "externalInvocation": "unavailable",
+        "id": "extract-text",
+        "keywords": [
+          "screenshot",
+          "OCR",
+          "text"
+        ],
+        "parameters": [],
+        "permissionIDs": [
+          "screen-recording"
+        ],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "workflow",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "text.viewfinder",
+        "title": {
+          "ar": "استخراج النص",
+          "de": "Text extrahieren",
+          "en": "Extract Text",
+          "es": "Extraer texto",
+          "fr": "Extraire le texte",
+          "ja": "テキストを抽出",
+          "ko": "텍스트 추출",
+          "pt": "Extrair texto",
+          "ru": "Извлечь текст",
+          "tr": "Metni Çıkar",
+          "zh-Hans": "提取文字",
+          "zh-Hant": "擷取文字"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/screenshot?provider=screenshot&action=extract-text",
+      "pluginID": "screenshot",
+      "providerID": "screenshot",
+      "route": "/plugins/screenshot/actions/screenshot/extract-text/"
+    },
+    {
+      "action": {
+        "automaticEligible": false,
+        "description": {
           "ar": "حدد منطقة لنسخها فورًا إلى الحافظة.",
           "de": "Bereich auswählen und sofort in die Zwischenablage kopieren.",
           "en": "Select a region and immediately copy it to the clipboard.",
@@ -4996,6 +5054,122 @@
       "pluginID": "screenshot",
       "providerID": "screenshot",
       "route": "/plugins/screenshot/actions/screenshot/quick-capture/"
+    },
+    {
+      "action": {
+        "automaticEligible": false,
+        "description": {
+          "ar": "اختر الهدف والصوت، ثم ابدأ. نفّذ مرة أخرى أثناء التسجيل لإيقافه.",
+          "de": "Ziel und Audio wählen, dann starten. Während der Aufnahme erneut ausführen, um zu stoppen.",
+          "en": "Choose a target and audio, then start. Invoke again while recording to stop.",
+          "es": "Elige destino y audio e inicia. Vuelve a ejecutar durante la grabación para detenerla.",
+          "fr": "Choisissez la cible et le son, puis démarrez. Réexécutez pendant l’enregistrement pour arrêter.",
+          "ja": "対象と音声を選んで開始します。収録中にもう一度実行すると停止します。",
+          "ko": "대상과 오디오를 선택한 후 시작합니다. 녹화 중 다시 실행하면 중지합니다.",
+          "pt": "Escolha o alvo e o áudio e inicie. Execute novamente durante a gravação para parar.",
+          "ru": "Выберите источник и звук, затем начните. Повторный вызов во время записи остановит её.",
+          "tr": "Hedefi ve sesi seçip başlatın. Kayıt sırasında durdurmak için yeniden çalıştırın.",
+          "zh-Hans": "选择录制目标和声音后开始；录制中再次按下停止。",
+          "zh-Hant": "選擇錄製目標和聲音後開始；錄製中再次按下停止。"
+        },
+        "externalInvocation": "unavailable",
+        "id": "record",
+        "keywords": [
+          "screenshot",
+          "record",
+          "video"
+        ],
+        "parameters": [],
+        "permissionIDs": [
+          "screen-recording"
+        ],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "workflow",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "record.circle",
+        "title": {
+          "ar": "تسجيل",
+          "de": "Aufnahme",
+          "en": "Record",
+          "es": "Grabar",
+          "fr": "Enregistrer",
+          "ja": "録画",
+          "ko": "녹화",
+          "pt": "Gravar",
+          "ru": "Запись",
+          "tr": "Kayıt",
+          "zh-Hans": "录屏",
+          "zh-Hant": "螢幕錄影"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/screenshot?provider=screenshot&action=record",
+      "pluginID": "screenshot",
+      "providerID": "screenshot",
+      "route": "/plugins/screenshot/actions/screenshot/record/"
+    },
+    {
+      "action": {
+        "automaticEligible": false,
+        "description": {
+          "ar": "حدد منطقة لالتقاط التمرير، ثم ابدأ عندما تكون جاهزًا.",
+          "de": "Bereich für eine Scrollaufnahme wählen und bei Bereitschaft starten.",
+          "en": "Select a scrolling capture area, then start when ready.",
+          "es": "Selecciona el área de captura con desplazamiento e inicia cuando quieras.",
+          "fr": "Choisissez la zone de capture défilante, puis démarrez.",
+          "ja": "スクロール撮影する範囲を選び、準備ができたら開始します。",
+          "ko": "스크롤 캡처 영역을 선택하고 준비되면 시작합니다.",
+          "pt": "Selecione a área de captura com rolagem e inicie quando estiver pronto.",
+          "ru": "Выберите область прокрутки и начните, когда будете готовы.",
+          "tr": "Kaydırmalı yakalama alanını seçin ve hazır olduğunuzda başlatın.",
+          "zh-Hans": "直接选择滚动截图区域，准备好后开始。",
+          "zh-Hant": "直接選擇捲動截圖區域，準備好後開始。"
+        },
+        "externalInvocation": "unavailable",
+        "id": "scrolling-capture",
+        "keywords": [
+          "screenshot",
+          "scroll",
+          "long screenshot"
+        ],
+        "parameters": [],
+        "permissionIDs": [
+          "screen-recording"
+        ],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "workflow",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "arrow.down.doc",
+        "title": {
+          "ar": "لقطة شاشة بالتمرير",
+          "de": "Scroll-Screenshot",
+          "en": "Scrolling Screenshot",
+          "es": "Captura de pantalla con desplazamiento",
+          "fr": "Capture d'écran avec défilement",
+          "ja": "スクロールスクリーンショット",
+          "ko": "스크롤 스크린샷",
+          "pt": "Captura de tela de rolagem",
+          "ru": "Скриншот с прокруткой",
+          "tr": "Kaydırmalı Ekran Görüntüsü",
+          "zh-Hans": "滚动截图",
+          "zh-Hant": "捲動截圖"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/screenshot?provider=screenshot&action=scrolling-capture",
+      "pluginID": "screenshot",
+      "providerID": "screenshot",
+      "route": "/plugins/screenshot/actions/screenshot/scrolling-capture/"
     },
     {
       "action": {

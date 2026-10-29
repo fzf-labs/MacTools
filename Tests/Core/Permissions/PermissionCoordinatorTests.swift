@@ -52,6 +52,7 @@ final class PermissionCoordinatorTests: XCTestCase {
     }
 
     func testActionsUseGuidanceForSharedPermissionsAndPluginAdaptersForSpecialCases() throws {
+        XCTAssertEqual(HostPermissionKind.resolve(permissionID: "microphone", pluginKind: .screenRecording), .microphone)
         let notificationCenter = NotificationCenter()
         var guidedKinds: [HostPermissionKind] = []
         var specializedActions: [String] = []
@@ -70,6 +71,7 @@ final class PermissionCoordinatorTests: XCTestCase {
             requirement(pluginID: "input", permissionID: "input-monitoring", kind: .inputMonitoring),
             requirement(pluginID: "screen", permissionID: "screen-recording", kind: .screenRecording),
             requirement(pluginID: "calendar", permissionID: "events", kind: .calendarFullAccess),
+            requirement(pluginID: "screenshot", permissionID: "microphone", kind: .microphone),
             requirement(pluginID: "audio", permissionID: "system-audio-recording", kind: .systemAudioRecording),
             requirement(pluginID: "finder", permissionID: "finder", kind: .finderExtension),
             requirement(pluginID: "appearance", permissionID: "automation", kind: .automation),
@@ -88,6 +90,7 @@ final class PermissionCoordinatorTests: XCTestCase {
             Set(specializedActions),
             [
                 "calendar:events",
+                "screenshot:microphone",
                 "audio:system-audio-recording",
                 "finder:finder",
             ]

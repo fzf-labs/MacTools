@@ -120,6 +120,12 @@ def _localized_requirement(
 
 
 LOCALIZED_REQUIREMENT_NAMES = {
+    "microphone": _localized_requirement(
+        "Microphone permission", ar="إذن الميكروفون", de="Mikrofonberechtigung",
+        es="permiso de micrófono", fr="autorisation du microphone", ja="マイク権限",
+        ko="마이크 권한", pt="permissão de microfone", ru="доступ к микрофону",
+        tr="Mikrofon izni", zh_hans="麦克风权限", zh_hant="麥克風權限",
+    ),
     "built-in Force Touch trackpad": _localized_requirement(
         "built-in Force Touch trackpad", ar="لوحة Force Touch مدمجة", de="integriertes Force Touch Trackpad",
         es="trackpad Force Touch integrado", fr="trackpad Force Touch intégré", ja="内蔵Force Touchトラックパッド",
@@ -207,7 +213,7 @@ VALID_CATEGORIES = {
 }
 VALID_PERMISSION_IDS = {
     "accessibility", "automation", "calendarFullAccess", "inputMonitoring",
-    "screen-recording", "system-audio-recording", "full-disk-access"
+    "screen-recording", "system-audio-recording", "microphone", "full-disk-access"
 }
 VALID_SURFACES = {
     "unified-search", "global-shortcut", "run-link", "workflow", "automatic-rule",

@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import ScreenCaptureKit
 import VideoToolbox
 
@@ -6,8 +7,9 @@ import VideoToolbox
 @MainActor
 final class Recorder: NSObject, SCRecordingOutputDelegate {
     var onFinish: ((Result<URL, Error>) -> Void)?
-    /// Capture has ended and the auto-zoom movie is being rendered; other capture modes may run.
+    /// Capture has ended and the movie is being processed; other capture modes may run.
     var onProcessing: (() -> Void)?
+    let request: RecordingRequest
     let region: CaptureRegion
     let autoZoom: Bool
     private(set) var isProcessing = false
@@ -26,13 +28,20 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
     private var output: SCRecordingOutput?
     private var startupTask: Task<Void, Never>?
     private var timer: Timer?
+    private var sourceTask: Task<Void, Never>?
+    private var observers: [(NotificationCenter, NSObjectProtocol)] = []
+    private var interruption: Error?
+    private var fileFinalized = false
+
     private var startedAt: ContinuousClock.Instant?
     private lazy var lifecycle = RecordingLifecycle { [weak self] in self?.session?.stop() }
 
-    init(region: CaptureRegion, environment: ScreenshotEnvironment, autoZoom: Bool? = nil) {
+    init(request: RecordingRequest, environment: ScreenshotEnvironment) throws {
+        self.request = request
+        let region = try request.target.controlRegion()
         self.region = region
         self.environment = environment
-        let autoZoom = autoZoom ?? environment.recordingAutoZoom
+        let autoZoom = request.autoZoom && request.target.supportsAutoZoom
         self.autoZoom = autoZoom
         // Use a name whose movie and original are both unused, so neither can replace an existing file.
         let preferred = environment.fileURL(prefix: environment.string("record.filename", "录屏"), ext: "mov")
@@ -49,7 +58,7 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
             candidate = ScreenshotImageEncoder.numbered(preferred, index)
         }
         movieURL = candidate
-        url = autoZoom ? original(candidate) : candidate
+        url = autoZoom || request.audio.systemAudio || request.audio.microphone ? original(candidate) : candidate
         panel = CaptureStatusPanel(primaryTitle: environment.string("record.stop", "停止"), indicatorColor: .systemRed)
         outline = CaptureRegionOutlineWindow(region: region)
         controls = CaptureControls([outline, panel])
@@ -71,14 +80,13 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
                     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
                 }.value
                 try Task.checkCancellation()
-                let filter = try await CaptureSessionPreparation.filter(region: region, controls: controls)
+                let prepared = try await PreparedRecordingTarget.prepare(request, controls: controls)
                 try Task.checkCancellation()
-                let configuration = CaptureSessionPreparation.configuration(region: region, framesPerSecond: 30, showsCursor: true)
-                configuration.queueDepth = 5
+                let configuration = prepared.configuration
                 let recording = SCRecordingOutputConfiguration()
                 recording.outputURL = url
                 recording.outputFileType = .mov
-                let width = region.width, height = region.height
+                let width = configuration.width, height = configuration.height
                 recording.videoCodecType = try await Task.detached(priority: .userInitiated) {
                     try RecordingEncoding.codec(width: width, height: height)
                 }.value
@@ -88,11 +96,13 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
                       recording.availableOutputFileTypes.contains(.mov) else {
                     throw RecordingError.unsupportedResolution
                 }
-                let session = CaptureStreamSession(filter: filter, configuration: configuration)
+                let session = CaptureStreamSession(filter: prepared.filter, configuration: configuration)
                 self.session = session
                 session.onStopped = { [weak self, weak session] result in
                     guard let self else { return }
                     outline.orderOut(nil)
+                    stopObservingSources()
+                    if interruption == nil, case .failure(let error) = result { interruption = error }
                     if session?.failedToStart == true, case .failure(let error) = result {
                         lifecycle.failBeforeCapture(error)
                     } else { lifecycle.captureStopped(result) }
@@ -110,7 +120,8 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
                     self.activity = activity
                     guard activity.start() else { throw RecordingZoomError.pointerMonitorUnavailable }
                 }
-                outline.show()
+                observeSources(prepared)
+                if request.target.supportsAutoZoom { outline.show() }
                 panel.show(near: region.globalRect, displayID: region.display.id)
                 session.start()
             } catch {
@@ -139,6 +150,61 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
         do { try region.validate() } catch {
             outline.orderOut(nil)
             stop()
+        }
+    }
+
+    private func interrupt(_ error: Error) {
+        guard interruption == nil, lifecycle.result == nil else { return }
+        interruption = error
+        stop()
+    }
+
+    private func observeSources(_ prepared: PreparedRecordingTarget) {
+        func observe(_ center: NotificationCenter, _ name: Notification.Name,
+                     matching: @escaping @Sendable (Notification) -> Bool = { _ in true },
+                     handler: @escaping @MainActor () -> Void) {
+            let token = center.addObserver(forName: name, object: nil, queue: .main) { notification in
+                guard matching(notification) else { return }
+                MainActor.assumeIsolated { handler() }
+            }
+            observers.append((center, token))
+        }
+        observe(NSWorkspace.shared.notificationCenter, NSWorkspace.willSleepNotification) { [weak self] in
+            self?.stop()
+        }
+        if let pid = prepared.processID {
+            observe(NSWorkspace.shared.notificationCenter, NSWorkspace.didTerminateApplicationNotification, matching: { notification in
+                (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.processIdentifier == pid
+            }) { [weak self] in self?.interrupt(RecordingRequestError.targetUnavailable) }
+        }
+        if request.audio.microphone {
+            let deviceID = request.audio.microphoneID ?? AVCaptureDevice.default(for: .audio)?.uniqueID
+            observe(.default, AVCaptureDevice.wasDisconnectedNotification, matching: { notification in
+                (notification.object as? AVCaptureDevice)?.uniqueID == deviceID
+            }) { [weak self] in self?.interrupt(RecordingRequestError.microphoneUnavailable) }
+        }
+        // ScreenCaptureKit has no public window-closed observer on macOS 15.0.
+        // Check only while recording, with one bounded discovery in flight.
+        guard prepared.windowID != nil || request.audio.systemAudio || request.audio.microphone else { return }
+        sourceTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                guard let self, lifecycle.result == nil else { return }
+                do {
+                    try RecordingAuthorization.validate(request.audio)
+                    if let id = prepared.windowID {
+                        let content = try await CaptureSessionPreparation.content()
+                        try Task.checkCancellation()
+                        guard content.windows.contains(where: { $0.windowID == id && $0.owningApplication?.processID == prepared.processID }) else {
+                            throw RecordingRequestError.targetUnavailable
+                        }
+                    }
+                } catch {
+                    guard !Task.isCancelled else { return }
+                    interrupt(error)
+                    return
+                }
+            }
         }
     }
 
@@ -172,7 +238,15 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
         panel.update(String(format: "%02d:%02d", seconds / 60, seconds % 60))
     }
 
+    private func stopObservingSources() {
+        sourceTask?.cancel()
+        sourceTask = nil
+        for (center, token) in observers { center.removeObserver(token) }
+        observers.removeAll()
+    }
+
     private func finish(_ result: Result<URL, Error>) {
+        stopObservingSources()
         timer?.invalidate()
         timer = nil
         activity?.stop()
@@ -184,13 +258,23 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
         session = nil
         let activity = activity
         self.activity = nil
-        guard case .success(let source) = result, let activity else {
+        if let interruption, fileFinalized {
+            controls.hide()
+            deliver(.failure(RecordingInterruptedError(original: url, cause: interruption)))
+            return
+        }
+        guard case .success(let source) = result else {
+            controls.hide()
+            deliver(result)
+            return
+        }
+        guard activity != nil || request.audio.systemAudio || request.audio.microphone else {
             controls.hide()
             deliver(result)
             return
         }
         // Without a frame clock no event can be aligned, so the original becomes the movie unchanged.
-        let events = clock.startTime.map { activity.snapshot(startTime: $0) } ?? []
+        let events = clock.startTime.flatMap { time in activity.map { $0.snapshot(startTime: time) } } ?? []
         process(source, events: events)
     }
 
@@ -223,8 +307,9 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
 
     private nonisolated static func render(source: URL, destination: URL, events: [RecordingZoomEvent],
                                            progress: @escaping @Sendable (Double) -> Void) async throws -> URL {
-        // A clip without a deliberate interaction keeps the original bytes without re-encoding.
-        guard events.contains(where: { $0.kind == .click || $0.kind == .scroll }) else {
+        // A clip without zoom or separate audio sources keeps its original bytes.
+        let audioTracks = try await AVURLAsset(url: source).loadTracks(withMediaType: .audio)
+        guard events.contains(where: { $0.kind == .click || $0.kind == .scroll }) || audioTracks.count > 1 else {
             try FileManager.default.moveItem(at: source, to: destination)
             return destination
         }
@@ -238,7 +323,7 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
     private func updateProcessing(_ progress: Double) {
         guard isProcessing else { return }
         let percent = Int(min(1, max(0, progress)) * 100)
-        panel.update(environment.format("record.processing", "正在生成自动缩放视频 %@", "\(percent)%"))
+        panel.update(environment.format("record.processingMovie", "正在处理录屏 %@", "\(percent)%"))
     }
 
     private func deliver(_ result: Result<URL, Error>) {
@@ -252,7 +337,10 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
     }
 
     nonisolated func recordingOutputDidFinishRecording(_ recordingOutput: SCRecordingOutput) {
-        Task { @MainActor in lifecycle.fileCompleted(.success(url)) }
+        Task { @MainActor in
+            fileFinalized = true
+            lifecycle.fileCompleted(.success(url))
+        }
     }
 
     nonisolated func recordingOutput(_ recordingOutput: SCRecordingOutput, didFailWithError error: Error) {
@@ -263,6 +351,12 @@ final class Recorder: NSObject, SCRecordingOutputDelegate {
 enum RecordingError: Error { case unsupportedResolution }
 
 enum RecordingZoomError: Error { case pointerMonitorUnavailable }
+
+/// Capture was interrupted, but native output finalized a recoverable movie at `original`.
+struct RecordingInterruptedError: Error {
+    let original: URL
+    let cause: Error
+}
 
 /// Processing failed or was cancelled after capture; the original movie remains at `original`.
 struct RecordingProcessingError: Error {

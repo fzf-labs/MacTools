@@ -8,12 +8,13 @@ final class ScreenshotCoordinator {
     var isBusy: Bool { controller != nil || recorder != nil || scrollSession != nil || exportTask != nil }
     var isRecording: Bool { recorder != nil }
     var isScrolling: Bool { scrollSession != nil }
+    var isPreparingCapture: Bool { controller != nil }
 
     private let environment: ScreenshotEnvironment
     private let overlayPool: CaptureOverlayPool
     private var controller: CaptureController?
     private var recorder: AnyObject?
-    /// A recorder whose capture has ended while its auto-zoom movie renders. It does not block other modes.
+    /// A recorder whose capture has ended while its movie is processed. It does not block other modes.
     private var processingRecorder: AnyObject?
     private var scrollSession: ScrollSession?
     private var exportTask: Task<Void, Never>?
@@ -36,13 +37,14 @@ final class ScreenshotCoordinator {
         overlayPool.prepare()
     }
 
-    func capture(quick: Bool) {
+    func capture(entry: CaptureEntry) {
         if #available(macOS 15, *), let recorder = recorder as? Recorder { recorder.stop(); return }
         if let scrollSession { scrollSession.finish(); return }
+        if let controller { controller.focus(); return }
         guard !isBusy else { return }
         generation &+= 1
         let requestGeneration = generation
-        let controller = CaptureController(quick: quick, environment: environment, pool: overlayPool)
+        let controller = CaptureController(entry: entry, environment: environment, pool: overlayPool)
         self.controller = controller
         controller.onFinish = { [weak self] in
             guard let self, generation == requestGeneration else { return }
@@ -83,17 +85,19 @@ final class ScreenshotCoordinator {
         onStateChange?()
     }
 
-    private func startRecording(_ request: CaptureRegion) {
+    private func startRecording(_ request: RecordingRequest) {
         guard #available(macOS 15, *) else {
             report(environment.string("record.requiresNewerSystem", "录屏需要 macOS 15 或更高版本"))
             return
         }
         guard processingRecorder == nil else {
-            report(environment.string("record.processingBusy", "正在生成自动缩放视频，请稍后再录制"))
+            report(environment.string("record.processingBusyMovie", "正在处理录屏，请稍后再录制"))
             return
         }
         let requestSession = sessionToken
-        let session = Recorder(region: request, environment: environment)
+        let session: Recorder
+        do { session = try Recorder(request: request, environment: environment) }
+        catch { report(environment.recordingErrorDescription(error)); return }
         recorder = session
         session.onProcessing = { [weak self, weak session] in
             guard let self, let session, recorder === session else { return }
@@ -119,12 +123,17 @@ final class ScreenshotCoordinator {
         switch result {
         case .success(let url):
             let folderName = FileManager.default.displayName(atPath: url.deletingLastPathComponent().path)
-            environment.showToast(environment.format("record.saved", "录屏已保存到「%@」", folderName))
+            environment.showRecordingSaved(url, message: environment.format("record.saved", "录屏已保存到「%@」", folderName))
+        case .failure(let error as RecordingInterruptedError):
+            let message = environment.format("record.interrupted", "录屏已中断，已保留录像：%@", error.original.lastPathComponent)
+                + "\n" + environment.recordingErrorDescription(error.cause)
+            onError?(message)
+            environment.showRecordingSaved(error.original, message: message)
         case .failure(let error as RecordingProcessingError):
             let name = error.original.lastPathComponent
-            environment.showToast(error.cause is CancellationError
+            environment.showRecordingSaved(error.original, message: error.cause is CancellationError
                 ? environment.format("record.processingCancelled", "已保留原始录像：%@", name)
-                : environment.format("record.processingFailed", "自动缩放生成失败，已保留原始录像：%@", name))
+                : environment.format("record.processingFailedMovie", "录屏处理失败，已保留原始录像：%@", name))
         case .failure(let error):
             guard !(error is CancellationError) else { return }
             let message: String
@@ -134,7 +143,7 @@ final class ScreenshotCoordinator {
             case is RecordingZoomError:
                 message = environment.string("record.pointerMonitorUnavailable", "无法读取鼠标操作，请重试或关闭自动缩放")
             default:
-                message = environment.captureErrorDescription(error)
+                message = environment.recordingErrorDescription(error)
             }
             report(environment.format("record.failed", "录屏失败：%@", message))
         }

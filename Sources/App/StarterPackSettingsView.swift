@@ -373,7 +373,7 @@ struct StarterPackSettingsView: View {
 
     private func permissionTitle(_ id: String) -> String {
         let titles = ["accessibility": "辅助功能", "automation": "自动化", "screen-recording": "屏幕录制",
-                      "system-audio-recording": "系统音频录制", "calendarFullAccess": "日历", "full-disk-access": "完全磁盘访问权限"]
+                      "microphone": "麦克风", "system-audio-recording": "系统音频录制", "calendarFullAccess": "日历", "full-disk-access": "完全磁盘访问权限"]
         return FeatureL10n.string(titles[id] ?? id)
     }
 

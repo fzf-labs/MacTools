@@ -6116,7 +6116,7 @@ final class PluginHost: ObservableObject {
             return isGranted
                 ? AppL10n.plugins("plugin.permission.openSettings", defaultValue: "打开设置")
                 : AppL10n.plugins("plugin.permission.openAuthorization", defaultValue: "前往授权")
-        case .calendarFullAccess, .systemAudioRecording:
+        case .calendarFullAccess, .systemAudioRecording, .microphone:
             return isGranted
                 ? AppL10n.plugins("plugin.permission.checkStatus", defaultValue: "检查授权状态")
                 : AppL10n.plugins("plugin.permission.requestAuthorization", defaultValue: "请求授权")
@@ -6139,6 +6139,8 @@ final class PluginHost: ObservableObject {
             return "puzzlepiece.extension"
         case .screenRecording:
             return "rectangle.dashed.badge.record"
+        case .microphone:
+            return "mic"
         case .systemAudioRecording:
             return "waveform.badge.mic"
         case .fullDiskAccess:

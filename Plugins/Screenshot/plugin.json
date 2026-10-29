@@ -68,7 +68,8 @@
     "settings": "form"
   },
   "permissions": [
-    "screen-recording"
+    "screen-recording",
+    "microphone"
   ],
   "uninstallDataPolicy": "removePrivateData",
   "category": "productivity",
@@ -78,18 +79,18 @@
     "quick-capture-title": "@localizable.action.quickCapture.title",
     "quick-capture-description": "@localizable.action.quickCapture.description",
     "long-description": {
-      "ar": "أداة محلية بلقطات مناطق ونوافذ وتعليقات وإخفاء بالموزاييك والتعرّف على النصوص والرموز وتثبيت الصور ولقطات التمرير. تبدأ فقط بإجراء صريح في الواجهة. تسجيل المناطق بدون صوت يتطلب macOS 15 أو أحدث؛ الميزات الأخرى تعمل على macOS 14 أو أحدث.",
-      "de": "Lokale Bereichs- und Fensteraufnahmen mit Anmerkungen, Mosaik, Text- und Codeerkennung, angehefteten Bildern und Scrollaufnahmen. Start nur durch eine ausdrückliche Vordergrundaktion. Bereichsvideos ohne Ton benötigen macOS 15; alle anderen Funktionen macOS 14.",
-      "en": "Local region and window capture with annotations, mosaic, text and code recognition, pinned images, and scrolling screenshots. Starts only through an explicit foreground action. Silent region recording requires macOS 15 or later; other features support macOS 14 or later.",
-      "es": "Capturas locales de regiones y ventanas con anotaciones, mosaico, reconocimiento de texto y códigos, imágenes fijadas y capturas con desplazamiento. Solo comienza mediante una acción explícita en primer plano. La grabación de regiones sin audio requiere macOS 15; las otras funciones, macOS 14.",
-      "fr": "Captures locales de zones et fenêtres avec annotations, mosaïque, reconnaissance de texte et de codes, images épinglées et captures défilantes. Démarrage uniquement par une action explicite au premier plan. L’enregistrement de zones sans audio nécessite macOS 15 ; les autres fonctions, macOS 14.",
-      "ja": "範囲・ウインドウ撮影、注釈、モザイク、文字・コード認識、画像のピン留め、スクロール撮影をローカルで実行します。明示的な前面操作でのみ開始します。音声なしの範囲収録には macOS 15 以降、その他の機能には macOS 14 以降が必要です。",
-      "ko": "영역·창 캡처, 주석, 모자이크, 텍스트·코드 인식, 이미지 고정, 스크롤 캡처를 로컬에서 처리합니다. 명시적인 전경 작업으로만 시작합니다. 소리 없는 영역 녹화는 macOS 15 이상, 나머지 기능은 macOS 14 이상이 필요합니다.",
-      "pt": "Capturas locais de áreas e janelas com anotações, mosaico, reconhecimento de textos e códigos, imagens fixadas e rolagem. Inicia apenas por uma ação explícita em primeiro plano. A gravação de áreas sem áudio exige macOS 15; os demais recursos, macOS 14.",
-      "ru": "Локальные снимки областей и окон с пометками, мозаикой, распознаванием текста и кодов, закреплением изображений и прокруткой. Запуск только явным действием на переднем плане. Запись области без звука требует macOS 15; остальные функции — macOS 14.",
-      "tr": "Ek açıklamalar, mozaik, metin ve kod tanıma, sabitlenmiş görseller ve kaydırma ekran görüntüleriyle yerel bölge ve pencere yakalama. Yalnızca açık bir ön plan eylemiyle başlar. Sessiz bölge kaydı macOS 15 veya sonrasını gerektirir; diğer özellikler macOS 14 veya sonrasını destekler.",
-      "zh-Hans": "本地完成区域和窗口截图、标注、马赛克、文字与二维码识别、贴图和滚动截图。仅由明确的前台操作启动；无声区域录屏需要 macOS 15 或更高，其他功能支持 macOS 14 或更高。",
-      "zh-Hant": "在本機完成區域和視窗截圖、標註、馬賽克、文字與 QR 碼辨識、釘選圖片及捲動截圖。僅由明確的前景操作啟動；無聲區域錄製需要 macOS 15 或更新版本，其他功能支援 macOS 14 或更新版本。"
+      "en": "Local screenshots, annotations, recognition, pinned images, and scrolling capture. On macOS 15+, record a region, display, window, or application with optional system audio and microphone. Audio requires an updated host with recording permission support. Starts only through an explicit foreground action.",
+      "zh-Hans": "本地完成截图、标注、识别、贴图和滚动截图。macOS 15 或更高支持区域、显示器、窗口和应用录制，可选系统声音和麦克风。录音需要支持录音权限的新版主程序；仅由明确的前台操作启动。",
+      "zh-Hant": "在本機完成截圖、標註、辨識、釘選圖片和捲動截圖。macOS 15 或更新版本支援區域、顯示器、視窗和應用程式錄製，可選系統聲音和麥克風。錄音需要支援錄音權限的新版主程式；僅由明確的前景操作啟動。",
+      "ar": "لقطات شاشة وتعليقات وتعرّف وصور مثبتة والتقاط تمرير محليًا. على macOS 15 أو أحدث، سجّل منطقة أو شاشة أو نافذة أو تطبيقًا مع صوت النظام والميكروفون اختياريًا. يتطلب الصوت مضيفًا محدثًا يدعم أذونات التسجيل. يبدأ فقط بإجراء صريح في المقدمة.",
+      "de": "Lokale Screenshots, Anmerkungen, Erkennung, angeheftete Bilder und Scrollaufnahmen. Ab macOS 15 Bereiche, Bildschirme, Fenster oder Apps mit optionalem Systemaudio und Mikrofon aufnehmen. Audio erfordert einen aktualisierten Host mit Aufnahmeberechtigungen. Start nur durch eine ausdrückliche Vordergrundaktion.",
+      "es": "Capturas locales, anotaciones, reconocimiento, imágenes fijadas y capturas con desplazamiento. En macOS 15 o posterior, graba regiones, pantallas, ventanas o apps con audio del sistema y micrófono opcionales. El audio requiere un host actualizado con permisos de grabación. Solo se inicia con una acción explícita en primer plano.",
+      "fr": "Captures locales, annotations, reconnaissance, images épinglées et captures défilantes. Sous macOS 15 ou ultérieur, enregistrez une zone, un écran, une fenêtre ou une app avec audio système et micro facultatifs. L’audio nécessite un hôte à jour prenant en charge les autorisations. Démarrage uniquement par une action explicite au premier plan.",
+      "ja": "ローカルでスクリーンショット、注釈、認識、画像のピン留め、スクロール撮影を行います。macOS 15 以降では範囲、ディスプレイ、ウインドウ、アプリをシステム音声やマイクと共に収録できます。音声には収録権限対応の新しいホストが必要です。明示的な前面操作でのみ開始します。",
+      "ko": "로컬 스크린샷, 주석, 인식, 이미지 고정 및 스크롤 캡처를 제공합니다. macOS 15 이상에서는 영역, 디스플레이, 윈도우 또는 앱을 시스템 오디오와 마이크로 녹화할 수 있습니다. 오디오는 녹음 권한을 지원하는 업데이트된 호스트가 필요합니다. 명시적인 전경 작업으로만 시작합니다.",
+      "pt": "Capturas locais, anotações, reconhecimento, imagens fixadas e captura com deslocamento. No macOS 15 ou posterior, grave áreas, ecrãs, janelas ou aplicações com áudio do sistema e microfone opcionais. O áudio requer um anfitrião atualizado com permissões de gravação. Inicia apenas por uma ação explícita em primeiro plano.",
+      "ru": "Локальные снимки, пометки, распознавание, закрепление изображений и снимки с прокруткой. В macOS 15 и новее можно записывать область, дисплей, окно или приложение с системным звуком и микрофоном. Для звука нужен обновлённый хост с поддержкой разрешений записи. Запуск только явным действием на переднем плане.",
+      "tr": "Yerel ekran görüntüleri, açıklamalar, tanıma, sabitlenmiş görseller ve kaydırmalı yakalama. macOS 15 ve sonrasında bölge, ekran, pencere veya uygulamayı isteğe bağlı sistem sesi ve mikrofonla kaydedin. Ses için kayıt izinlerini destekleyen güncel ana uygulama gerekir. Yalnızca açık bir ön plan eylemiyle başlar."
     },
     "retention": {
       "ar": "تبقى الملفات المصدّرة ومحتويات الحافظة تحت تحكم المستخدم. تُزال إعدادات الإضافة وملفاتها الخاصة عند إلغاء تثبيتها؛ ولا تُحذف الملفات التي صدّرها المستخدم.",
@@ -152,7 +153,13 @@
       "tr": "Ekran kaydı",
       "zh-Hans": "录屏",
       "zh-Hant": "螢幕錄製"
-    }
+    },
+    "text-title": "@localizable.overlay.recognition.text",
+    "text-description": "@localizable.action.text.description",
+    "scroll-title": "@localizable.overlay.mode.scroll",
+    "scroll-description": "@localizable.action.scroll.description",
+    "record-title": "@localizable.overlay.mode.record",
+    "record-description": "@localizable.action.record.description"
   },
   "presentation": {
     "longDescription": "@productStrings.long-description",
@@ -269,7 +276,8 @@
     "applications": [],
     "executables": [],
     "permissionIDs": [
-      "screen-recording"
+      "screen-recording",
+      "microphone"
     ],
     "setupComplexity": "guided",
     "requiresRelaunch": false
@@ -279,7 +287,10 @@
       "screen-pixels",
       "window-geometry",
       "recognized-text-and-codes",
-      "pointer-events"
+      "pointer-events",
+      "system-audio",
+      "microphone-audio",
+      "application-identity"
     ],
     "dataPersisted": [
       "user-exported-screenshots",
@@ -364,6 +375,84 @@
               "clipboard"
             ],
             "systemImage": "camera",
+            "parameters": [],
+            "permissionIDs": [
+              "screen-recording"
+            ],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "workflow",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": false,
+            "externalInvocation": "unavailable"
+          },
+          {
+            "id": "extract-text",
+            "title": "@productStrings.text-title",
+            "description": "@productStrings.text-description",
+            "keywords": [
+              "screenshot",
+              "OCR",
+              "text"
+            ],
+            "systemImage": "text.viewfinder",
+            "parameters": [],
+            "permissionIDs": [
+              "screen-recording"
+            ],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "workflow",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": false,
+            "externalInvocation": "unavailable"
+          },
+          {
+            "id": "scrolling-capture",
+            "title": "@productStrings.scroll-title",
+            "description": "@productStrings.scroll-description",
+            "keywords": [
+              "screenshot",
+              "scroll",
+              "long screenshot"
+            ],
+            "systemImage": "arrow.down.doc",
+            "parameters": [],
+            "permissionIDs": [
+              "screen-recording"
+            ],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "workflow",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": false,
+            "externalInvocation": "unavailable"
+          },
+          {
+            "id": "record",
+            "title": "@productStrings.record-title",
+            "description": "@productStrings.record-description",
+            "keywords": [
+              "screenshot",
+              "record",
+              "video"
+            ],
+            "systemImage": "record.circle",
             "parameters": [],
             "permissionIDs": [
               "screen-recording"

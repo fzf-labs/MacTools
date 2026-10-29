@@ -19950,6 +19950,162 @@
                     "zh-Hans": "快速截图",
                     "zh-Hant": "快速截圖"
                   }
+                },
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "حدد منطقة لاستخراج نصها مباشرة.",
+                    "de": "Bereich auswählen und Text direkt erkennen.",
+                    "en": "Select an area to extract its text directly.",
+                    "es": "Selecciona un área para extraer su texto.",
+                    "fr": "Sélectionnez une zone pour en extraire le texte.",
+                    "ja": "範囲を選択して文字を抽出します。",
+                    "ko": "영역을 선택하면 바로 텍스트를 인식합니다.",
+                    "pt": "Selecione uma área para extrair o texto.",
+                    "ru": "Выберите область для распознавания текста.",
+                    "tr": "Metni çıkarmak için bir alan seçin.",
+                    "zh-Hans": "框选后直接识别文字。",
+                    "zh-Hant": "框選後直接辨識文字。"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "extract-text",
+                  "keywords": [
+                    "screenshot",
+                    "OCR",
+                    "text"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [
+                    "screen-recording"
+                  ],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "workflow",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "text.viewfinder",
+                  "title": {
+                    "ar": "استخراج النص",
+                    "de": "Text extrahieren",
+                    "en": "Extract Text",
+                    "es": "Extraer texto",
+                    "fr": "Extraire le texte",
+                    "ja": "テキストを抽出",
+                    "ko": "텍스트 추출",
+                    "pt": "Extrair texto",
+                    "ru": "Извлечь текст",
+                    "tr": "Metni Çıkar",
+                    "zh-Hans": "提取文字",
+                    "zh-Hant": "擷取文字"
+                  }
+                },
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "حدد منطقة لالتقاط التمرير، ثم ابدأ عندما تكون جاهزًا.",
+                    "de": "Bereich für eine Scrollaufnahme wählen und bei Bereitschaft starten.",
+                    "en": "Select a scrolling capture area, then start when ready.",
+                    "es": "Selecciona el área de captura con desplazamiento e inicia cuando quieras.",
+                    "fr": "Choisissez la zone de capture défilante, puis démarrez.",
+                    "ja": "スクロール撮影する範囲を選び、準備ができたら開始します。",
+                    "ko": "스크롤 캡처 영역을 선택하고 준비되면 시작합니다.",
+                    "pt": "Selecione a área de captura com rolagem e inicie quando estiver pronto.",
+                    "ru": "Выберите область прокрутки и начните, когда будете готовы.",
+                    "tr": "Kaydırmalı yakalama alanını seçin ve hazır olduğunuzda başlatın.",
+                    "zh-Hans": "直接选择滚动截图区域，准备好后开始。",
+                    "zh-Hant": "直接選擇捲動截圖區域，準備好後開始。"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "scrolling-capture",
+                  "keywords": [
+                    "screenshot",
+                    "scroll",
+                    "long screenshot"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [
+                    "screen-recording"
+                  ],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "workflow",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "arrow.down.doc",
+                  "title": {
+                    "ar": "لقطة شاشة بالتمرير",
+                    "de": "Scroll-Screenshot",
+                    "en": "Scrolling Screenshot",
+                    "es": "Captura de pantalla con desplazamiento",
+                    "fr": "Capture d'écran avec défilement",
+                    "ja": "スクロールスクリーンショット",
+                    "ko": "스크롤 스크린샷",
+                    "pt": "Captura de tela de rolagem",
+                    "ru": "Скриншот с прокруткой",
+                    "tr": "Kaydırmalı Ekran Görüntüsü",
+                    "zh-Hans": "滚动截图",
+                    "zh-Hant": "捲動截圖"
+                  }
+                },
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "اختر الهدف والصوت، ثم ابدأ. نفّذ مرة أخرى أثناء التسجيل لإيقافه.",
+                    "de": "Ziel und Audio wählen, dann starten. Während der Aufnahme erneut ausführen, um zu stoppen.",
+                    "en": "Choose a target and audio, then start. Invoke again while recording to stop.",
+                    "es": "Elige destino y audio e inicia. Vuelve a ejecutar durante la grabación para detenerla.",
+                    "fr": "Choisissez la cible et le son, puis démarrez. Réexécutez pendant l’enregistrement pour arrêter.",
+                    "ja": "対象と音声を選んで開始します。収録中にもう一度実行すると停止します。",
+                    "ko": "대상과 오디오를 선택한 후 시작합니다. 녹화 중 다시 실행하면 중지합니다.",
+                    "pt": "Escolha o alvo e o áudio e inicie. Execute novamente durante a gravação para parar.",
+                    "ru": "Выберите источник и звук, затем начните. Повторный вызов во время записи остановит её.",
+                    "tr": "Hedefi ve sesi seçip başlatın. Kayıt sırasında durdurmak için yeniden çalıştırın.",
+                    "zh-Hans": "选择录制目标和声音后开始；录制中再次按下停止。",
+                    "zh-Hant": "選擇錄製目標和聲音後開始；錄製中再次按下停止。"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "record",
+                  "keywords": [
+                    "screenshot",
+                    "record",
+                    "video"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [
+                    "screen-recording"
+                  ],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "workflow",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "record.circle",
+                  "title": {
+                    "ar": "تسجيل",
+                    "de": "Aufnahme",
+                    "en": "Record",
+                    "es": "Grabar",
+                    "fr": "Enregistrer",
+                    "ja": "録画",
+                    "ko": "녹화",
+                    "pt": "Gravar",
+                    "ru": "Запись",
+                    "tr": "Kayıt",
+                    "zh-Hans": "录屏",
+                    "zh-Hant": "螢幕錄影"
+                  }
                 }
               ]
             }
@@ -20183,18 +20339,18 @@
           ],
           "license": "GPL-3.0-only",
           "longDescription": {
-            "ar": "أداة محلية بلقطات مناطق ونوافذ وتعليقات وإخفاء بالموزاييك والتعرّف على النصوص والرموز وتثبيت الصور ولقطات التمرير. تبدأ فقط بإجراء صريح في الواجهة. تسجيل المناطق بدون صوت يتطلب macOS 15 أو أحدث؛ الميزات الأخرى تعمل على macOS 14 أو أحدث.",
-            "de": "Lokale Bereichs- und Fensteraufnahmen mit Anmerkungen, Mosaik, Text- und Codeerkennung, angehefteten Bildern und Scrollaufnahmen. Start nur durch eine ausdrückliche Vordergrundaktion. Bereichsvideos ohne Ton benötigen macOS 15; alle anderen Funktionen macOS 14.",
-            "en": "Local region and window capture with annotations, mosaic, text and code recognition, pinned images, and scrolling screenshots. Starts only through an explicit foreground action. Silent region recording requires macOS 15 or later; other features support macOS 14 or later.",
-            "es": "Capturas locales de regiones y ventanas con anotaciones, mosaico, reconocimiento de texto y códigos, imágenes fijadas y capturas con desplazamiento. Solo comienza mediante una acción explícita en primer plano. La grabación de regiones sin audio requiere macOS 15; las otras funciones, macOS 14.",
-            "fr": "Captures locales de zones et fenêtres avec annotations, mosaïque, reconnaissance de texte et de codes, images épinglées et captures défilantes. Démarrage uniquement par une action explicite au premier plan. L’enregistrement de zones sans audio nécessite macOS 15 ; les autres fonctions, macOS 14.",
-            "ja": "範囲・ウインドウ撮影、注釈、モザイク、文字・コード認識、画像のピン留め、スクロール撮影をローカルで実行します。明示的な前面操作でのみ開始します。音声なしの範囲収録には macOS 15 以降、その他の機能には macOS 14 以降が必要です。",
-            "ko": "영역·창 캡처, 주석, 모자이크, 텍스트·코드 인식, 이미지 고정, 스크롤 캡처를 로컬에서 처리합니다. 명시적인 전경 작업으로만 시작합니다. 소리 없는 영역 녹화는 macOS 15 이상, 나머지 기능은 macOS 14 이상이 필요합니다.",
-            "pt": "Capturas locais de áreas e janelas com anotações, mosaico, reconhecimento de textos e códigos, imagens fixadas e rolagem. Inicia apenas por uma ação explícita em primeiro plano. A gravação de áreas sem áudio exige macOS 15; os demais recursos, macOS 14.",
-            "ru": "Локальные снимки областей и окон с пометками, мозаикой, распознаванием текста и кодов, закреплением изображений и прокруткой. Запуск только явным действием на переднем плане. Запись области без звука требует macOS 15; остальные функции — macOS 14.",
-            "tr": "Ek açıklamalar, mozaik, metin ve kod tanıma, sabitlenmiş görseller ve kaydırma ekran görüntüleriyle yerel bölge ve pencere yakalama. Yalnızca açık bir ön plan eylemiyle başlar. Sessiz bölge kaydı macOS 15 veya sonrasını gerektirir; diğer özellikler macOS 14 veya sonrasını destekler.",
-            "zh-Hans": "本地完成区域和窗口截图、标注、马赛克、文字与二维码识别、贴图和滚动截图。仅由明确的前台操作启动；无声区域录屏需要 macOS 15 或更高，其他功能支持 macOS 14 或更高。",
-            "zh-Hant": "在本機完成區域和視窗截圖、標註、馬賽克、文字與 QR 碼辨識、釘選圖片及捲動截圖。僅由明確的前景操作啟動；無聲區域錄製需要 macOS 15 或更新版本，其他功能支援 macOS 14 或更新版本。"
+            "ar": "لقطات شاشة وتعليقات وتعرّف وصور مثبتة والتقاط تمرير محليًا. على macOS 15 أو أحدث، سجّل منطقة أو شاشة أو نافذة أو تطبيقًا مع صوت النظام والميكروفون اختياريًا. يتطلب الصوت مضيفًا محدثًا يدعم أذونات التسجيل. يبدأ فقط بإجراء صريح في المقدمة.",
+            "de": "Lokale Screenshots, Anmerkungen, Erkennung, angeheftete Bilder und Scrollaufnahmen. Ab macOS 15 Bereiche, Bildschirme, Fenster oder Apps mit optionalem Systemaudio und Mikrofon aufnehmen. Audio erfordert einen aktualisierten Host mit Aufnahmeberechtigungen. Start nur durch eine ausdrückliche Vordergrundaktion.",
+            "en": "Local screenshots, annotations, recognition, pinned images, and scrolling capture. On macOS 15+, record a region, display, window, or application with optional system audio and microphone. Audio requires an updated host with recording permission support. Starts only through an explicit foreground action.",
+            "es": "Capturas locales, anotaciones, reconocimiento, imágenes fijadas y capturas con desplazamiento. En macOS 15 o posterior, graba regiones, pantallas, ventanas o apps con audio del sistema y micrófono opcionales. El audio requiere un host actualizado con permisos de grabación. Solo se inicia con una acción explícita en primer plano.",
+            "fr": "Captures locales, annotations, reconnaissance, images épinglées et captures défilantes. Sous macOS 15 ou ultérieur, enregistrez une zone, un écran, une fenêtre ou une app avec audio système et micro facultatifs. L’audio nécessite un hôte à jour prenant en charge les autorisations. Démarrage uniquement par une action explicite au premier plan.",
+            "ja": "ローカルでスクリーンショット、注釈、認識、画像のピン留め、スクロール撮影を行います。macOS 15 以降では範囲、ディスプレイ、ウインドウ、アプリをシステム音声やマイクと共に収録できます。音声には収録権限対応の新しいホストが必要です。明示的な前面操作でのみ開始します。",
+            "ko": "로컬 스크린샷, 주석, 인식, 이미지 고정 및 스크롤 캡처를 제공합니다. macOS 15 이상에서는 영역, 디스플레이, 윈도우 또는 앱을 시스템 오디오와 마이크로 녹화할 수 있습니다. 오디오는 녹음 권한을 지원하는 업데이트된 호스트가 필요합니다. 명시적인 전경 작업으로만 시작합니다.",
+            "pt": "Capturas locais, anotações, reconhecimento, imagens fixadas e captura com deslocamento. No macOS 15 ou posterior, grave áreas, ecrãs, janelas ou aplicações com áudio do sistema e microfone opcionais. O áudio requer um anfitrião atualizado com permissões de gravação. Inicia apenas por uma ação explícita em primeiro plano.",
+            "ru": "Локальные снимки, пометки, распознавание, закрепление изображений и снимки с прокруткой. В macOS 15 и новее можно записывать область, дисплей, окно или приложение с системным звуком и микрофоном. Для звука нужен обновлённый хост с поддержкой разрешений записи. Запуск только явным действием на переднем плане.",
+            "tr": "Yerel ekran görüntüleri, açıklamalar, tanıma, sabitlenmiş görseller ve kaydırmalı yakalama. macOS 15 ve sonrasında bölge, ekran, pencere veya uygulamayı isteğe bağlı sistem sesi ve mikrofonla kaydedin. Ses için kayıt izinlerini destekleyen güncel ana uygulama gerekir. Yalnızca açık bir ön plan eylemiyle başlar.",
+            "zh-Hans": "本地完成截图、标注、识别、贴图和滚动截图。macOS 15 或更高支持区域、显示器、窗口和应用录制，可选系统声音和麦克风。录音需要支持录音权限的新版主程序；仅由明确的前台操作启动。",
+            "zh-Hant": "在本機完成截圖、標註、辨識、釘選圖片和捲動截圖。macOS 15 或更新版本支援區域、顯示器、視窗和應用程式錄製，可選系統聲音和麥克風。錄音需要支援錄音權限的新版主程式；僅由明確的前景操作啟動。"
           },
           "publisher": "MacTools",
           "screenshots": [],
@@ -20206,7 +20362,10 @@
             "screen-pixels",
             "window-geometry",
             "recognized-text-and-codes",
-            "pointer-events"
+            "pointer-events",
+            "system-audio",
+            "microphone-audio",
+            "application-identity"
           ],
           "dataPersisted": [
             "user-exported-screenshots",
@@ -20253,7 +20412,8 @@
           "hardware": [],
           "minimumMacOSVersion": "14.0",
           "permissionIDs": [
-            "screen-recording"
+            "screen-recording",
+            "microphone"
           ],
           "requiresRelaunch": false,
           "setupComplexity": "guided"
@@ -20265,18 +20425,18 @@
           "steps": [
             {
               "description": {
-                "ar": "قبل استخدام هذه الإضافة، راجع المتطلبات التالية واستوفها: إذن تسجيل الشاشة.",
-                "de": "Prüfe und erfülle vor der Verwendung dieses Plugins folgende Anforderungen: Bildschirmaufnahme-Berechtigung.",
-                "en": "Before using this plugin, review and satisfy these requirements: Screen Recording permission.",
-                "es": "Antes de usar este plugin, revisa y cumple estos requisitos: permiso de Grabación de pantalla.",
-                "fr": "Avant d’utiliser ce module, vérifiez et remplissez les conditions suivantes : autorisation Enregistrement de l’écran.",
-                "ja": "このプラグインを使用する前に、次の要件を確認して満たしてください：画面収録権限。",
-                "ko": "이 플러그인을 사용하기 전에 다음 요구 사항을 확인하고 충족하세요: 화면 기록 권한.",
-                "pt": "Antes de usar este plugin, revise e cumpra estes requisitos: permissão de Gravação de Tela.",
-                "ru": "Перед использованием плагина проверьте и выполните следующие требования: доступ к Записи экрана.",
-                "tr": "Bu eklentiyi kullanmadan önce şu gereksinimleri gözden geçirin ve karşılayın: Ekran Kaydı izni.",
-                "zh-Hans": "使用此插件前，请检查并满足以下要求：屏幕录制权限。",
-                "zh-Hant": "使用此外掛程式前，請檢查並滿足以下要求：螢幕錄製權限。"
+                "ar": "قبل استخدام هذه الإضافة، راجع المتطلبات التالية واستوفها: إذن تسجيل الشاشة، إذن الميكروفون.",
+                "de": "Prüfe und erfülle vor der Verwendung dieses Plugins folgende Anforderungen: Bildschirmaufnahme-Berechtigung, Mikrofonberechtigung.",
+                "en": "Before using this plugin, review and satisfy these requirements: Screen Recording permission, Microphone permission.",
+                "es": "Antes de usar este plugin, revisa y cumple estos requisitos: permiso de Grabación de pantalla, permiso de micrófono.",
+                "fr": "Avant d’utiliser ce module, vérifiez et remplissez les conditions suivantes : autorisation Enregistrement de l’écran, autorisation du microphone.",
+                "ja": "このプラグインを使用する前に、次の要件を確認して満たしてください：画面収録権限、マイク権限。",
+                "ko": "이 플러그인을 사용하기 전에 다음 요구 사항을 확인하고 충족하세요: 화면 기록 권한, 마이크 권한.",
+                "pt": "Antes de usar este plugin, revise e cumpra estes requisitos: permissão de Gravação de Tela, permissão de microfone.",
+                "ru": "Перед использованием плагина проверьте и выполните следующие требования: доступ к Записи экрана, доступ к микрофону.",
+                "tr": "Bu eklentiyi kullanmadan önce şu gereksinimleri gözden geçirin ve karşılayın: Ekran Kaydı izni, Mikrofon izni.",
+                "zh-Hans": "使用此插件前，请检查并满足以下要求：屏幕录制权限、麦克风权限。",
+                "zh-Hant": "使用此外掛程式前，請檢查並滿足以下要求：螢幕錄製權限、麥克風權限。"
               },
               "id": "review-requirements",
               "title": {

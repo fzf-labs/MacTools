@@ -278,7 +278,7 @@
       },
       "additionalProperties": false
     },
-    "permission": {"enum": ["accessibility", "automation", "calendarFullAccess", "inputMonitoring", "screen-recording", "system-audio-recording"]},
+    "permission": {"enum": ["accessibility", "automation", "calendarFullAccess", "inputMonitoring", "screen-recording", "system-audio-recording", "microphone"]},
     "surface": {"enum": ["unified-search", "global-shortcut", "run-link", "workflow", "automatic-rule", "action-grid", "trackpad-gesture", "app-intent", "manual"]},
     "parameter": {
       "type": "object",

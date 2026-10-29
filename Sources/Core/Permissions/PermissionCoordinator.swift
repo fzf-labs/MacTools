@@ -26,6 +26,7 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
     case calendarFullAccess
     case automation
     case systemAudioRecording
+    case microphone
     case fullDiskAccess
     case finderExtension
 
@@ -34,6 +35,8 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
         pluginKind: PluginPermissionKind
     ) -> HostPermissionKind {
         switch permissionID {
+        case "microphone":
+            return .microphone
         case "system-audio-recording":
             return .systemAudioRecording
         case "full-disk-access":
@@ -64,6 +67,7 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
         case .automation: 5
         case .fullDiskAccess: 6
         case .finderExtension: 7
+        case .microphone: 8
         }
     }
 }
@@ -368,6 +372,7 @@ final class PermissionCoordinator: ObservableObject {
             activationRefreshTarget = target
             guidanceHandler(kind, sourceFrame)
         case .calendarFullAccess,
+             .microphone,
              .systemAudioRecording,
              .finderExtension:
             pendingActivationRefreshCount = kind == .systemAudioRecording ? 2 : 1
@@ -408,6 +413,8 @@ final class PermissionFlowGuidancePresenter {
             SystemSettings.open(.privacy(anchor: .privacyAutomation))
         case .calendarFullAccess:
             SystemSettings.open(.privacy(anchor: .privacyCalendars))
+        case .microphone:
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") { NSWorkspace.shared.open(url) }
         case .systemAudioRecording:
             SystemSettings.open(.privacy(anchor: .privacyAudioCapture))
         case .finderExtension:

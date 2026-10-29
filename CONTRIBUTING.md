@@ -152,3 +152,9 @@ For an agent-assisted readiness review, use the repository skill [`mactools-rele
 ### Right Click changes
 
 Right Click spans its plugin settings, private Core executor, and embedded Finder Sync extension. Keep the shared menu/request models aligned, accept only the current configuration schema, and preserve build-channel isolation. See [Right Click](docs/plugins/right-click.md) for resource-package boundaries, recovery behavior, and the coordinated host/plugin release requirement. Use temporary directories for file-operation tests; never exercise replacement, Trash, or undo against real user files.
+
+### Screenshot recording audio
+
+Screenshot recording targets and audio use the plugin-private request model. Keep shared scrolling capture silent. Recording audio requires the host capability `MTScreenshotAudioRecordingSupported`, localized microphone/system-audio purpose strings, and the signed audio-input entitlement. The optional `microphone` permission ID routes through the host permission center without changing the PluginKit v7 permission enum. It must never gate ordinary screenshots or silent recording.
+
+After changing these contracts, run `make script-tests` and `make ci`, and use synthetic media for automated audio/export checks. Live microphone capture and target filtering require explicit manual acceptance in the signed app; see [Screenshot](docs/plugins/screenshot.md). At release preflight, align the plugin minimum-host version with the release containing this support and preserve historical signed catalogs.

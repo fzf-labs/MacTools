@@ -1,4 +1,5 @@
-import Foundation
+import AppKit
+import AVFoundation
 import MacToolsPluginKit
 import XCTest
 
@@ -13,9 +14,10 @@ final class ScreenshotPluginTests: XCTestCase {
         XCTAssertTrue(plugin.rowState.isEnabled)
         XCTAssertFalse(plugin.rowState.isOn)
         XCTAssertNil(plugin.rowState.errorMessage)
-        XCTAssertEqual(plugin.permissionRequirements.map(\.id), ["screen-recording"])
-        XCTAssertEqual(plugin.actionDefinitions.map(\.key.actionID), ["capture", "quick-capture"])
-        XCTAssertEqual(plugin.shortcutDefinitions.map(\.actionID), ["capture", "quick-capture"])
+        XCTAssertEqual(plugin.permissionRequirements.map(\.id),
+                       RecordingAuthorization.hostSupportsAudio ? ["screen-recording", "microphone"] : ["screen-recording"])
+        XCTAssertEqual(plugin.actionDefinitions.map(\.key.actionID), ["capture", "quick-capture", "extract-text", "scrolling-capture", "record"])
+        XCTAssertEqual(plugin.shortcutDefinitions.map(\.actionID), ["capture", "quick-capture", "extract-text", "scrolling-capture", "record"])
         XCTAssertTrue(plugin.shortcutDefinitions.allSatisfy { $0.scope == .global })
         for definition in plugin.actionDefinitions {
             XCTAssertEqual(definition.externalInvocationPolicy, .unavailable)
@@ -39,7 +41,7 @@ final class ScreenshotPluginTests: XCTestCase {
 
         XCTAssertEqual(
             plugin.actionShortcutSettingsConfiguration.actionIDs,
-            ["capture", "quick-capture"]
+            ["capture", "quick-capture", "extract-text", "scrolling-capture", "record"]
         )
         XCTAssertEqual(
             Set(plugin.legacyActionShortcutAssignments),
@@ -79,7 +81,7 @@ final class ScreenshotPluginTests: XCTestCase {
     }
 
     func testPanelAndShortcutsDispatchCaptureModesAndIgnoreUnknownControls() {
-        var modes: [Bool] = []
+        var modes: [CaptureEntry] = []
         let plugin = makePlugin(capture: { modes.append($0) })
         plugin.handleAction(.invokeAction(controlID: "unknown"))
         plugin.handleAction(.setSwitch(true))
@@ -88,7 +90,12 @@ final class ScreenshotPluginTests: XCTestCase {
         plugin.handleAction(.invokeAction(controlID: "execute"))
         plugin.handleShortcutAction(id: "capture")
         plugin.handleShortcutAction(id: "quick-capture")
-        XCTAssertEqual(modes, [false, false, true])
+        plugin.handleShortcutAction(id: "extract-text")
+        plugin.handleShortcutAction(id: "scrolling-capture")
+        if #available(macOS 15, *) { plugin.handleShortcutAction(id: "record") }
+        var expected: [CaptureEntry] = [.capture, .capture, .quickCapture, .text, .scroll]
+        if #available(macOS 15, *) { expected.append(.record) }
+        XCTAssertEqual(modes, expected)
     }
 
     func testDeniedPermissionRequestsHostGuidanceWithoutCapturing() {
@@ -134,13 +141,17 @@ final class ScreenshotPluginTests: XCTestCase {
     }
 
     func testCanonicalActionRunsOnlyWhenHandleIsExecuted() async throws {
-        var modes: [Bool] = []
+        var modes: [CaptureEntry] = []
         let plugin = makePlugin(capture: { modes.append($0) })
-        let handle = try plugin.beginAction(invocation(actionID: "quick-capture"))
-        XCTAssertTrue(modes.isEmpty)
-        let result = await handle.result()
-        XCTAssertEqual(result, .succeeded())
-        XCTAssertEqual(modes, [true])
+        for entry in CaptureEntry.allCases {
+            if entry == .record, #unavailable(macOS 15) { continue }
+            let previous = modes
+            let handle = try plugin.beginAction(invocation(actionID: entry.rawValue))
+            XCTAssertEqual(modes, previous)
+            let result = await handle.result()
+            XCTAssertEqual(result, .succeeded())
+            XCTAssertEqual(modes, previous + [entry])
+        }
     }
 
     func testCancelledHandleCannotLaunchCapture() async throws {
@@ -215,11 +226,85 @@ final class ScreenshotPluginTests: XCTestCase {
         XCTAssertEqual(picked, countBeforeDeactivation)
     }
 
+    func testRecordingSettingsShareToolbarPreferencesAndRefreshDisconnectedInputs() throws {
+        guard #available(macOS 15, *) else { throw XCTSkip("Recording requires macOS 15") }
+        let storage = ScreenshotTestStorage()
+        let microphoneFixture = MicrophoneFixture(RecordingMicrophoneSnapshot(
+            devices: [.init(id: "usb", name: "Studio Input")], defaultName: "Built-in Input"))
+        var discoveries = 0
+        var requests = 0
+        let plugin = ScreenshotPlugin(
+            context: PluginRuntimeContext(pluginID: "screenshot", storage: storage),
+            screenAccess: { true }, requestScreenAccess: { requests += 1 }, capture: { _ in },
+            discoverMicrophones: { discoveries += 1; return microphoneFixture.value }, hostSupportsAudio: { true }
+        )
+        let environment = ScreenshotEnvironment(context: PluginRuntimeContext(pluginID: "screenshot", storage: storage))
+        var updates = 0
+        plugin.onStateChange = { updates += 1 }
+        _ = plugin.settingsPage
+        XCTAssertEqual(discoveries, 0, "Reading a settings snapshot must not scan hardware")
+        plugin.settingsPage?.visibilityHandler?(true)
+        plugin.handleSettingsAction(.setBoolean(controlID: "recording-system-audio", value: true))
+        plugin.handleSettingsAction(.setBoolean(controlID: "recording-microphone", value: true))
+        plugin.handleSettingsAction(.setSelection(controlID: "recording-microphone-device", optionID: "usb"))
+        XCTAssertEqual(environment.recordingAudio, .init(systemAudio: true, microphone: true, microphoneID: "usb"))
+        XCTAssertGreaterThan(updates, 0)
+        XCTAssertEqual(requests, 0, "Changing preferences must not ask for capture permission")
+
+        let toolbar = RecordingControlsView(environment: environment, discoverMicrophones: { microphoneFixture.value })
+        toolbar.activate()
+        defer { toolbar.deactivate(); plugin.deactivate(reason: .disabled) }
+        XCTAssertEqual(toolbar.devices.itemTitle(at: 0), "Studio Input")
+        microphoneFixture.value = .init(devices: [], defaultName: nil)
+        NotificationCenter.default.post(name: AVCaptureDevice.wasDisconnectedNotification, object: nil)
+        let rows = try recordingRows(plugin)
+        let device = try XCTUnwrap(rows.first { $0.id == "recording-microphone-device" })
+        XCTAssertNotNil(device.help)
+        XCTAssertEqual(environment.recordingAudio.microphoneID, "usb", "Disconnection must not silently change the source")
+        plugin.handleSettingsAction(.setSelection(controlID: "recording-microphone-device", optionID: "invalid"))
+        XCTAssertEqual(environment.recordingAudio.microphoneID, "usb")
+        plugin.handleSettingsAction(.setSelection(controlID: "recording-microphone-device", optionID: "system-default"))
+        XCTAssertNil(environment.recordingAudio.microphoneID)
+        plugin.handleSettingsAction(.setBoolean(controlID: "recording-microphone", value: false))
+        XCTAssertFalse(try XCTUnwrap(recordingRows(plugin).first { $0.id == "recording-microphone-device" }).isEnabled)
+        plugin.handleSettingsAction(.setSelection(controlID: "recording-microphone-device", optionID: "usb"))
+        XCTAssertNil(environment.recordingAudio.microphoneID)
+        plugin.handleSettingsAction(.setBoolean(controlID: "recording-auto-zoom", value: false))
+        XCTAssertFalse(environment.recordingAutoZoom)
+    }
+
+    func testOlderHostCanDisableSavedAudioButCannotEnableItFromSettings() {
+        let storage = ScreenshotTestStorage()
+        let environment = ScreenshotEnvironment(context: PluginRuntimeContext(pluginID: "screenshot", storage: storage))
+        environment.recordingAudio = .init(systemAudio: true, microphone: true)
+        let plugin = ScreenshotPlugin(context: PluginRuntimeContext(pluginID: "screenshot", storage: storage),
+                                      screenAccess: { true }, capture: { _ in }, hostSupportsAudio: { false })
+        for id in ["recording-system-audio", "recording-microphone"] {
+            plugin.handleSettingsAction(.setBoolean(controlID: id, value: false))
+            plugin.handleSettingsAction(.setBoolean(controlID: id, value: true))
+        }
+        XCTAssertEqual(environment.recordingAudio, .init())
+    }
+
+    private func recordingRows(_ plugin: ScreenshotPlugin) throws -> [PluginSettingsRow] {
+        guard case .form(let sections) = plugin.settingsPage?.body,
+              case .rows(let rows) = sections.first(where: { $0.id == "recording" })?.content else {
+            XCTFail("Expected recording settings")
+            return []
+        }
+        return rows
+    }
+
+    private final class MicrophoneFixture {
+        var value: RecordingMicrophoneSnapshot
+        init(_ value: RecordingMicrophoneSnapshot) { self.value = value }
+    }
+
     private func makePlugin(
         storage: PluginStorage? = nil,
         screenAccess: @escaping @MainActor @Sendable () -> Bool = { true },
         requestScreenAccess: @escaping @MainActor @Sendable () -> Void = {},
-        capture: @escaping @MainActor @Sendable (Bool) -> Void = { _ in },
+        capture: @escaping @MainActor @Sendable (CaptureEntry) -> Void = { _ in },
         folderPicker: @escaping @MainActor @Sendable (URL) -> URL? = { _ in nil }
     ) -> ScreenshotPlugin {
         ScreenshotPlugin(

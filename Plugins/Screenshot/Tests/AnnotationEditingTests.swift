@@ -116,6 +116,110 @@ final class ScreenshotAnnotationEditingTests: XCTestCase {
         XCTAssertTrue(annotationTool.isHiddenOrHasHiddenAncestor)
     }
 
+    func testRecordingStartsFromTheSelectionAndWindowClickKeepsItsIdentity() throws {
+        let editor = try Editor()
+        defer { editor.close() }
+        var requests: [(NSRect, RecordingControlsView.TargetKind)] = []
+        editor.view.onRecord = { requests.append(($0, $1)) }
+        let modeBar = try XCTUnwrap(editor.descendants().first { $0.identifier?.rawValue == "screenshot.modeBar" })
+        try XCTUnwrap(editor.descendants(of: modeBar).compactMap { $0 as? NSButton }.first { $0.tag == 2 }).performClick(nil)
+        XCTAssertTrue(requests.isEmpty)
+        try editor.key(48)
+        let controls = try XCTUnwrap(editor.descendants().compactMap { $0 as? RecordingControlsView }.first)
+        XCTAssertTrue(editor.window.firstResponder === controls.targetPicker)
+        editor.window.makeFirstResponder(editor.view)
+        try editor.key(36)
+        XCTAssertEqual(requests.count, 1)
+        XCTAssertEqual(requests.first?.0, editor.crop)
+        XCTAssertEqual(requests.first?.1, .region)
+
+        let front = RecordingWindowSelection(rect: NSRect(x: 150, y: 150, width: 300, height: 200), windowID: 81, processID: 42)
+        let back = RecordingWindowSelection(rect: NSRect(x: 100, y: 100, width: 600, height: 400), windowID: 82, processID: 43)
+        editor.view.recordingWindows = [front, back]
+        editor.view.beginWindowSelection()
+        try editor.key(36)
+        XCTAssertEqual(requests.count, 1)
+        try editor.drag(from: NSPoint(x: 200, y: 200), to: NSPoint(x: 200, y: 200))
+        try editor.key(36)
+        XCTAssertEqual(requests.count, 2)
+        XCTAssertEqual(requests.last?.1, .window)
+        XCTAssertEqual(editor.view.selectedRecordingWindow?.windowID, front.windowID)
+        XCTAssertEqual(editor.view.selectedRecordingWindow?.processID, front.processID)
+    }
+
+    func testDirectRecordingAndScrollingEntriesWaitForExplicitStartAfterSelection() throws {
+        let editor = try Editor()
+        defer { editor.close() }
+        for entry in [CaptureEntry.record, .scroll] {
+            editor.view.prepare(frozen: editor.image, windows: [], quick: false, initialMode: entry.mode)
+            editor.view.prepareForPresentation()
+            var starts = 0
+            editor.view.onRecord = { _, _ in starts += 1 }
+            editor.view.onScroll = { _ in starts += 1 }
+            XCTAssertEqual(editor.view.captureMode, entry.mode)
+            try editor.key(36)
+            XCTAssertEqual(starts, 0)
+            try editor.drag(from: editor.crop.origin, to: NSPoint(x: editor.crop.maxX, y: editor.crop.maxY))
+            XCTAssertEqual(starts, 0, "Selecting the target only prepares the operation")
+            try editor.key(36)
+            XCTAssertEqual(starts, 1)
+        }
+    }
+
+    func testCrossDisplaySelectionReplacesTheOldCropAndKeepsKeyboardOwnership() throws {
+        let fixture = try Editor()
+        defer { fixture.close() }
+        let screen = try XCTUnwrap(NSScreen.screens.first)
+        let environment = ScreenshotEnvironment(context: PluginRuntimeContext(pluginID: "screenshot", storage: ScreenshotTestStorage()))
+        func overlay(at x: CGFloat) -> OverlayWindow {
+            let window = OverlayWindow(screen: screen, environment: environment)
+            window.setFrame(NSRect(x: x, y: 0, width: 1000, height: 760), display: false)
+            (window.contentView as? OverlayView)?.prepare(frozen: fixture.image, windows: [], quick: false)
+            return window
+        }
+        let first = overlay(at: -1000)
+        let second = overlay(at: 0)
+        defer { first.close(); second.close() }
+        let a = try XCTUnwrap(first.contentView as? OverlayView)
+        let b = try XCTUnwrap(second.contentView as? OverlayView)
+        var pointer = NSPoint(x: -900, y: 100)
+        let tracker = CapturePointerTracker(overlays: [first, second], mouseLocation: { pointer })
+        defer { tracker.stop() }
+        tracker.update()
+        func select(_ view: OverlayView, in window: NSWindow) throws {
+            func event(_ type: NSEvent.EventType, _ point: NSPoint) throws -> NSEvent {
+                try XCTUnwrap(NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
+                    windowNumber: window.windowNumber, context: nil, eventNumber: 0, clickCount: 1, pressure: 0))
+            }
+            view.mouseDown(with: try event(.leftMouseDown, NSPoint(x: 100, y: 100)))
+            view.mouseUp(with: try event(.leftMouseUp, NSPoint(x: 500, y: 400)))
+        }
+        try select(a, in: first)
+        XCTAssertTrue(a.hasSelection)
+        XCTAssertTrue(tracker.selectionOwner === first)
+        pointer = NSPoint(x: 100, y: 100)
+        tracker.update()
+        XCTAssertTrue(a.hasSelection)
+        XCTAssertTrue(tracker.selectionOwner === first, "Moving the pointer must not steal the selected display's keyboard focus")
+        try select(b, in: second)
+        XCTAssertFalse(a.hasSelection)
+        XCTAssertTrue(b.hasSelection)
+        XCTAssertTrue(tracker.selectionOwner === second)
+        func descendants(_ view: NSView) -> [NSView] { view.subviews.flatMap { [$0] + descendants($0) } }
+        let modes = try XCTUnwrap(descendants(b).first { $0.identifier?.rawValue == "screenshot.modeBar" })
+        try XCTUnwrap(descendants(modes).compactMap { $0 as? NSButton }.first { $0.tag == 2 }).performClick(nil)
+        XCTAssertEqual(a.captureMode, b.captureMode)
+        tracker.stop()
+        pointer = NSPoint(x: -900, y: 100)
+        let resumed = CapturePointerTracker(overlays: [first, second], mouseLocation: { pointer })
+        defer { resumed.stop() }
+        resumed.update()
+        XCTAssertTrue(resumed.selectionOwner === second, "Returning from a save or permission panel preserves selection ownership")
+        try select(a, in: first)
+        XCTAssertTrue(a.hasSelection)
+        XCTAssertFalse(b.hasSelection)
+    }
+
     private func item(_ shape: Shape, filled: Bool = false) -> Item {
         Item(shape: shape, stroke: Stroke(color: .systemRed, width: 2, filled: filled))
     }

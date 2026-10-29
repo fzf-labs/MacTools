@@ -24,7 +24,8 @@ enum RecordingZoomExporter {
             .appendingPathComponent(".mactools-zoom-\(UUID().uuidString).mov")
         guard !files.fileExists(atPath: partial.path) else { throw RecordingZoomExportError.destinationExists }
         defer { try? files.removeItem(at: partial) }
-        if !plan.hasZoom {
+        let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+        if !plan.hasZoom && audioTracks.count < 2 {
             progress?(0)
             try Task.checkCancellation()
             try files.copyItem(at: source, to: partial)
@@ -53,7 +54,16 @@ enum RecordingZoomExporter {
         composition.frameDuration = CMTime(value: 1, timescale: 60)
         guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality)
         else { throw RecordingZoomExportError.unsupportedMovie }
-        session.videoComposition = composition
+        if plan.hasZoom { session.videoComposition = composition }
+        if audioTracks.count > 1 {
+            let mix = AVMutableAudioMix()
+            mix.inputParameters = audioTracks.map { track in
+                let parameters = AVMutableAudioMixInputParameters(track: track)
+                parameters.setVolume(1 / Float(audioTracks.count), at: .zero)
+                return parameters
+            }
+            session.audioMix = mix
+        }
 
         let updates = session.states(updateInterval: 0.1)
         let observer = progress.map { report in

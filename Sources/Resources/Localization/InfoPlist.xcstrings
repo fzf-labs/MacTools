@@ -81,76 +81,76 @@
     "NSAudioCaptureUsageDescription": {
       "extractionState": "manual",
       "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "يعالج MacTools صوت التطبيقات محليًا وفي الوقت الفعلي فقط عند ضبط مستوى صوت كل تطبيق، ولا يسجل الصوت أو يحفظه أو يرفعه."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools verarbeitet App-Audio nur beim Anpassen der Lautstärke einzelner Apps lokal in Echtzeit und zeichnet, speichert oder lädt keinen Ton hoch."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "MacTools processes app audio locally in real time only when you adjust per-app volume, and never records, saves, or uploads audio."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools procesa el audio de las aplicaciones localmente y en tiempo real solo al ajustar el volumen de cada aplicación; nunca graba, guarda ni sube audio."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools traite localement et en temps réel le son des apps uniquement lors du réglage de leur volume, sans jamais l’enregistrer, le sauvegarder ni le téléverser."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools はアプリごとの音量を調整するときだけ、アプリの音声をローカルでリアルタイム処理し、録音、保存、アップロードは行いません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools는 앱별 음량을 조절할 때만 앱 오디오를 기기에서 실시간으로 처리하며 녹음, 저장 또는 업로드하지 않습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "O MacTools processa o áudio dos apps localmente e em tempo real apenas ao ajustar o volume de cada app, sem gravar, salvar ou enviar áudio."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools обрабатывает звук приложений локально в реальном времени только при настройке их громкости и не записывает, не сохраняет и не загружает аудио."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "MacTools, uygulama sesini yalnızca uygulamaya özel ses düzeyini ayarlarken yerel olarak ve gerçek zamanlı olarak işler; sesi hiçbir zaman kaydetmez, saklamaz veya karşıya yüklemez."
+            "value": "Processes app volume locally. When system audio recording is enabled, audio is saved in the movie and never uploaded."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "仅在调节应用独立音量时于本机实时处理系统音频，不会录制、保存或上传声音。"
+            "value": "用于在本机调节应用音量；开启录屏系统声音时，会将声音保存到录像，不会上传。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "僅在調整應用程式獨立音量時於本機即時處理系統音訊，不會錄製、儲存或上傳聲音。"
+            "value": "用於在本機調節應用程式音量；開啟錄製系統聲音時，會將聲音儲存到影片，不會上傳。"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يعالج مستوى صوت التطبيقات محليًا. عند تمكين تسجيل صوت النظام، يُحفظ الصوت في الفيديو ولا يُرفع أبدًا."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verarbeitet App-Lautstärke lokal. Bei aktivierter Systemaudioaufnahme wird Ton im Video gespeichert und nie hochgeladen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Procesa el volumen localmente. Al activar la grabación del sistema, el audio se guarda en el vídeo y nunca se sube."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Traite le volume des apps localement. Si l’enregistrement audio système est activé, le son est sauvegardé dans la vidéo et jamais envoyé."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリの音量をローカルで処理します。システム音声収録をオンにすると音声を動画に保存します。アップロードしません。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 볼륨을 로컬에서 처리합니다. 시스템 오디오 녹음을 켜면 오디오를 동영상에 저장하며 업로드하지 않습니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processa o volume localmente. Quando a gravação do áudio do sistema está ativa, guarda o som no vídeo e nunca o envia."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обрабатывает громкость приложений локально. При включённой записи системного звука сохраняет его в видео и не передаёт в сеть."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama sesini yerel olarak işler. Sistem sesi kaydı açıkken sesi videoya kaydeder, hiçbir zaman yüklemez."
           }
         }
       }
@@ -382,6 +382,83 @@
           "stringUnit": {
             "state": "translated",
             "value": "讀取系統日曆事件，用於在右鍵日曆組件中顯示當天行程。"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Records your narration only when microphone recording is enabled and saves it in the movie."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅在开启麦克风录制时收录讲解，并保存到录像。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "僅在開啟麥克風錄製時收錄講解，並儲存到影片。"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يسجل شرحك فقط عند تمكين تسجيل الميكروفون ويحفظه في الفيديو."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nimmt deinen Kommentar nur bei aktivierter Mikrofonaufnahme auf und speichert ihn im Video."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graba tu narración solo al activar el micrófono y la guarda en el vídeo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistre votre commentaire uniquement lorsque le micro est activé et le sauvegarde dans la vidéo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "マイク収録をオンにしたときだけ解説を収録し、動画に保存します。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "마이크 녹음을 켰을 때만 설명을 녹음하여 동영상에 저장합니다."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grava a narração apenas quando o microfone está ativado e guarda-a no vídeo."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Записывает комментарий только при включённой записи микрофона и сохраняет его в видео."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anlatımınızı yalnızca mikrofon kaydı açıkken kaydeder ve videoya ekler."
           }
         }
       }
