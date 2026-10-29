@@ -132,8 +132,12 @@ final class PluginPackageStoreTests: XCTestCase {
         UserDefaultsPluginStorage(pluginID: "com.example.private", userDefaults: defaults)
             .set(true, forKey: "enabled")
 
+        try DisabledPluginPreferencesStore(defaults: defaults).save(.init(
+            preferences: Data("portable settings".utf8), preferenceReferences: [],
+            shortcutIDs: [], portableActions: []), pluginID: "com.example.private")
         try store.uninstall(pluginID: "com.example.private", removeData: false)
 
+        XCTAssertNil(DisabledPluginPreferencesStore(defaults: defaults).snapshots["com.example.private"])
         XCTAssertEqual(removedKeyPluginIDs, ["com.example.private"])
         XCTAssertFalse(FileManager.default.fileExists(atPath: supportDirectory.path))
         XCTAssertNil(defaults.object(forKey: "plugin.com.example.private.enabled"))

@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import MacToolsPluginKit
 
 struct PluginExtractionMigrationPolicy {
@@ -70,6 +71,7 @@ struct PluginManagementItem: Identifiable, Equatable {
     let capabilities: PluginPackageManifest.Capabilities?
     let uninstallDataPolicy: PluginPackageManifest.UninstallDataPolicy
     let productMetadata: PluginProductMetadata?
+    let isEnabled: Bool
 
     var productSearchKeywords: [String] {
         productMetadata?.searchKeywords ?? []
@@ -88,7 +90,8 @@ struct PluginManagementItem: Identifiable, Equatable {
         releaseChannel: String? = nil,
         capabilities: PluginPackageManifest.Capabilities? = nil,
         uninstallDataPolicy: PluginPackageManifest.UninstallDataPolicy = .preserve,
-        productMetadata: PluginProductMetadata? = nil
+        productMetadata: PluginProductMetadata? = nil,
+        isEnabled: Bool = true
     ) {
         self.id = id
         self.title = title
@@ -103,6 +106,7 @@ struct PluginManagementItem: Identifiable, Equatable {
         self.capabilities = capabilities
         self.uninstallDataPolicy = uninstallDataPolicy
         self.productMetadata = productMetadata
+        self.isEnabled = isEnabled
     }
 
     var statusText: String {
@@ -179,6 +183,14 @@ struct PluginManagementItem: Identifiable, Equatable {
             return false
         }
     }
+
+    var canToggleEnabled: Bool {
+        guard packageURL != nil else { return false }
+        switch state {
+        case .installed, .updateAvailable, .restartRequired, .failed: return true
+        default: return isEnabled
+        }
+    }
 }
 
 struct PluginPackageUpdateFailure {
@@ -214,6 +226,7 @@ final class DynamicPluginManager: ObservableObject {
     private var catalogSnapshot: PluginCatalogSnapshot?
     private var managementResults: [DynamicPluginLoadResult] = []
     private var latestLoadErrorsByID: [String: String] = [:]
+    private var deactivationFailuresByID: [String: String] = [:]
     private var packageMutationGenerationsByPluginID: [String: UInt64] = [:]
 
     @Published private(set) var pluginManagementItems: [PluginManagementItem] = []
@@ -249,6 +262,51 @@ final class DynamicPluginManager: ObservableObject {
         loadInstalledPluginsAndMetadata().plugins
     }
 
+    var pluginEnabledStates: [String: Bool] {
+        Dictionary(uniqueKeysWithValues: packageStore.installedRecords().map {
+            ($0.id, packageStore.isPluginEnabled($0.id))
+        })
+    }
+
+    func isPluginEnabled(_ pluginID: String) -> Bool {
+        packageStore.isPluginEnabled(pluginID)
+    }
+
+    func setPluginEnabled(_ enabled: Bool, pluginID: String) throws {
+        guard let record = packageStore.installedRecords().first(where: { $0.id == pluginID }) else {
+            throw DynamicPluginManagerOperationError.pluginRecordNotFound(pluginID)
+        }
+        if let failure = deactivationFailuresByID[pluginID] {
+            throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(pluginID, failure)
+        }
+        guard packageStore.isPluginEnabled(pluginID) != enabled else { return }
+        let revocation = catalogSnapshot?.catalog.revoked.first {
+            $0.matches(pluginID: pluginID, version: record.manifest.version)
+        }
+        if enabled, let revocation {
+            throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(
+                pluginID, revocation.reason ?? AppL10n.plugins("plugin.detail.revoked", defaultValue: "此版本已被撤回。"))
+        }
+        if enabled {
+            switch record.state {
+            case .installed: break
+            case let .incompatible(reason), let .failed(reason):
+                throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(pluginID, reason)
+            }
+        }
+        packageStore.setPluginEnabled(enabled, pluginID: pluginID)
+        reloadInstalledPlugins()
+        if let failure = deactivationFailuresByID[pluginID] {
+            throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(pluginID, failure)
+        }
+        if enabled, let error = latestLoadErrorsByID[pluginID] {
+            packageStore.setPluginEnabled(false, pluginID: pluginID)
+            rebuildManagementItems(results: managementResults, catalogSnapshot: catalogSnapshot)
+            onPluginsChanged?(activePlugins(from: packageStore.installedRecords()))
+            throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(pluginID, error)
+        }
+    }
+
     func loadInstalledPluginsAndMetadata() -> (plugins: [any MacToolsPlugin], metadata: InstalledPluginMetadata) {
         let records = packageStore.installedRecords()
         deactivateMissingPlugins(records: records)
@@ -263,7 +321,7 @@ final class DynamicPluginManager: ObservableObject {
         let legacySourceIsAlreadyLoaded = loadedPluginsByID[extractionPolicy.sourcePluginID] != nil
 
         let recordsToLoad = records.filter { record in
-            guard case .installed = record.state else {
+            guard case .installed = record.state, packageStore.isPluginEnabled(record.id) else {
                 return false
             }
 
@@ -391,6 +449,7 @@ final class DynamicPluginManager: ObservableObject {
         guard let sourceRecord = installedRecords.first(where: { record in
             guard record.id == policy.sourcePluginID,
                   case .installed = record.state,
+                  packageStore.isPluginEnabled(record.id),
                   !deferredPluginIDs.contains(record.id)
             else {
                 return false
@@ -538,6 +597,11 @@ final class DynamicPluginManager: ObservableObject {
     /// loading, then immediately tears the instance down. A successful return proves a newly
     /// installed extraction destination can take over before its source package is retired.
     func validatePluginInstallationBeforeMigration(pluginID: String) throws {
+        guard packageStore.isPluginEnabled(pluginID) else {
+            throw DynamicPluginManagerOperationError.pluginRuntimeValidationFailed(
+                pluginID, AppL10n.plugins("plugin.status.disabled", defaultValue: "已停用")
+            )
+        }
         if let loadedPlugins = loadedPluginsByID[pluginID] {
             try validateFeatureExtractionReadiness(
                 plugins: loadedPlugins,
@@ -908,7 +972,7 @@ final class DynamicPluginManager: ObservableObject {
                 continue
             }
 
-            if record.state != .installed {
+            if record.state != .installed || !packageStore.isPluginEnabled(pluginID) {
                 deactivateLoadedPlugins(pluginID: pluginID, reason: .disabled)
             }
         }
@@ -934,10 +998,22 @@ final class DynamicPluginManager: ObservableObject {
         reason: PluginDeactivationReason
     ) {
         for plugin in plugins {
-            plugin.deactivate(reason: reason)
             plugin.onStateChange = nil
             plugin.requestPermissionGuidance = nil
             plugin.shortcutBindingResolver = nil
+            if case let .failure(failure) = PluginInvocationGuard.run(operation: "deactivate plugin \(plugin.metadata.id)", {
+                plugin.deactivate(reason: reason)
+            }) {
+                let id = plugin.metadata.id
+                let message = AppL10n.pluginsFormat(
+                    "plugin.marketplace.setup.runtimeIsolation.descriptionFormat",
+                    defaultValue: "%@\n请重启 MacTools，以重新加载此插件。", failure.localizedDescription)
+                deactivationFailuresByID[id] = message
+                deferredPluginIDs.insert(id)
+                loadedPluginIDs.insert(id)
+                packageStore.markRequiresRestartToFullyUnload(pluginID: id)
+                AppLog.pluginHost.error("Plugin \(id, privacy: .public) teardown failed: \(failure.localizedDescription, privacy: .public)")
+            }
         }
     }
 
@@ -1079,6 +1155,8 @@ final class DynamicPluginManager: ObservableObject {
 
         if let revocation {
             state = .revoked(revocation.reason)
+        } else if let failure = deactivationFailuresByID[record.id] {
+            state = .failed(failure)
         } else if record.requiresRestartToFullyUnload && record.state == .installed {
             state = .restartRequired
         } else if let errorMessage = result.errorMessage {
@@ -1121,7 +1199,8 @@ final class DynamicPluginManager: ObservableObject {
                 actions: catalogEntry?.actions ?? record.manifest.actions,
                 setup: catalogEntry?.setup ?? record.manifest.setup,
                 relationships: catalogEntry?.relationships ?? record.manifest.relationships
-            )
+            ),
+            isEnabled: packageStore.isPluginEnabled(record.id)
         )
     }
 

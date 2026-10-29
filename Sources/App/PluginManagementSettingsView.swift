@@ -92,6 +92,7 @@ struct PluginManagementSettingsView: View {
                                     ForEach(filteredItems) { item in
                                         PluginManagementRow(
                                             item: item,
+                                            pluginHost: pluginHost,
                                             hasSettings: configurationPluginIDs.contains(item.id),
                                             isBusy: activeOperationID == item.id
                                                 || presentation.automaticUpdateStatus.isUpdatingPlugin(id: item.id),
@@ -581,8 +582,45 @@ struct PluginManagementSettingsView: View {
     }
 }
 
+struct PluginActivationToggle: View {
+    @ObservedObject var pluginHost: PluginHost
+    let item: PluginManagementItem
+    let isDisabled: Bool
+    @State private var errorMessage: String?
+
+    var body: some View {
+        Toggle(AppL10n.plugins("plugin.empty.enable", defaultValue: "启用"), isOn: Binding(
+            get: { item.isEnabled },
+            set: { enabled in
+                do {
+                    try pluginHost.setPluginEnabled(enabled, pluginID: item.id)
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+        ))
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .fixedSize()
+        .disabled(isDisabled || !item.canToggleEnabled || pluginHost.isPreparingPlugins
+            || pluginHost.isCatalogMutationActive || pluginHost.starterPacks.isRunning
+            || pluginHost.automaticPluginUpdateStatus.isActive)
+        .accessibilityLabel(Text(AppL10n.pluginsFormat(
+            "plugin.activation.enableFormat", defaultValue: "启用%@", item.title
+        )))
+        .accessibilityIdentifier("mactools.marketplace.activation.\(item.id)")
+        .alert(AppL10n.plugins("plugin.marketplace.operationFailed.title", defaultValue: "插件操作失败"),
+               isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button(AppL10n.settings("common.ok", defaultValue: "好"), role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+}
+
 private struct PluginManagementRow: View {
     let item: PluginManagementItem
+    let pluginHost: PluginHost
     let hasSettings: Bool
     let isBusy: Bool
     let isInteractionDisabled: Bool
@@ -688,6 +726,9 @@ private struct PluginManagementRow: View {
 
     @ViewBuilder
     private var actionButtons: some View {
+        if item.packageURL != nil {
+            PluginActivationToggle(pluginHost: pluginHost, item: item, isDisabled: isInteractionDisabled)
+        }
         if item.canInstall {
             Button(action: onInstall) {
                 PluginManagementActionLabel(
@@ -738,6 +779,7 @@ private struct PluginManagementRow: View {
     }
 
     private var statusColor: Color {
+        if !item.isEnabled { return .secondary }
         switch item.state {
         case .available, .localDevelopment:
             return .blue
@@ -751,6 +793,7 @@ private struct PluginManagementRow: View {
     }
 
     private var statusImageName: String {
+        if !item.isEnabled { return "pause.circle" }
         switch item.state {
         case .available:
             return "arrow.down.circle.fill"

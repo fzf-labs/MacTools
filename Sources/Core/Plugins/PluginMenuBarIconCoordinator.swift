@@ -71,23 +71,26 @@ final class PluginMenuBarIconCoordinator: ObservableObject {
     }
 
     /// A nil pending set means initial dynamic discovery has not finished yet.
-    func synchronize(with plugins: [any MacToolsPlugin], pendingPluginIDs: Set<String>?) {
+    func synchronize(with plugins: [any MacToolsPlugin], pendingPluginIDs: Set<String>?,
+                     disabledPluginIDs: Set<String> = []) {
         let instances = Set(plugins.map(ObjectIdentifier.init))
         for (id, registration) in registrations {
             if registration.plugin.map({ !instances.contains(ObjectIdentifier($0)) }) ?? true {
-                unregister(pluginID: id, reason: plugins.contains { $0.metadata.id == id } ? .updating : .disabled)
+                unregister(pluginID: id, reason: plugins.contains { $0.metadata.id == id } ? .updating : .disabled,
+                           preservingSelection: disabledPluginIDs.contains(id))
             }
         }
         for plugin in plugins { register(plugin) }
         if let selected, let pendingPluginIDs,
            registrations[selected.pluginID]?.iconIDs.contains(selected.iconID) != true,
+           !disabledPluginIDs.contains(selected.pluginID),
            !pendingPluginIDs.contains(selected.pluginID) {
             setSelection(nil)
         }
         refreshPrimaryIconOwner(requiresRestart: pendingPluginIDs.map { $0.contains(selected?.pluginID ?? "") })
     }
 
-    func unregister(pluginID: String, reason: PluginDeactivationReason) {
+    func unregister(pluginID: String, reason: PluginDeactivationReason, preservingSelection: Bool = false) {
         let removed = registrations.removeValue(forKey: pluginID)
         (removed?.plugin as? any PluginMenuBarIconProviding)?.onMenuBarIconChange = nil
         // Revoke capabilities before calling plugin teardown, including a retained old context.
@@ -104,7 +107,13 @@ final class PluginMenuBarIconCoordinator: ObservableObject {
             invalidatePrimaryIcon()
             notifyPlacements()
         case .disabled:
-            setSelection(nil)
+            if preservingSelection {
+                refreshPrimaryIconOwner(requiresRestart: false)
+                invalidatePrimaryIcon()
+                notifyPlacements()
+            } else {
+                setSelection(nil)
+            }
         }
     }
 

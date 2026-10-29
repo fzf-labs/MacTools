@@ -607,6 +607,7 @@ final class CloudPreferencesSyncCoordinator {
 
         return PreferencesBackup(
             application: application,
+            pluginEnabledStates: backup.pluginEnabledStates,
             pluginDisplay: pluginDisplay,
             shortcutCustomizations: shortcutCustomizations,
             actionShortcutAssignments: actionShortcutAssignments,

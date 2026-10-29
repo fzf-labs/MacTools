@@ -78,7 +78,8 @@ struct MarketplacePluginDetailView: View {
     private var activeOperation: Bool { operation?.isActive == true }
 
     private var controlsDisabled: Bool {
-        activeOperation || pluginHost.isUpdatingAvailablePlugins || pluginHost.isPreparingPlugins
+        activeOperation || pluginHost.isCatalogMutationActive || pluginHost.starterPacks.isRunning
+            || pluginHost.isUpdatingAvailablePlugins || pluginHost.isPreparingPlugins
     }
 
     private var state: MarketplacePluginDetailState {
@@ -196,12 +197,13 @@ struct MarketplacePluginDetailView: View {
     }
 
     private func header(_ presentation: MarketplacePluginDetailPresentation) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: headerSymbol(for: presentation.item.state))
+        let color: Color = presentation.item.isEnabled ? headerColor(for: presentation.item.state) : .secondary
+        return HStack(alignment: .top, spacing: 14) {
+            Image(systemName: presentation.item.isEnabled ? headerSymbol(for: presentation.item.state) : "pause.circle")
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(headerColor(for: presentation.item.state))
+                .foregroundStyle(color)
                 .frame(width: 44, height: 44)
-                .background(headerColor(for: presentation.item.state).opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                .background(color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 5) {
@@ -237,6 +239,9 @@ struct MarketplacePluginDetailView: View {
     @ViewBuilder
     private func lifecycleControls(for item: PluginManagementItem) -> some View {
         VStack(alignment: .trailing, spacing: 8) {
+            if item.packageURL != nil {
+                PluginActivationToggle(pluginHost: pluginHost, item: item, isDisabled: controlsDisabled)
+            }
             if item.canInstall {
                 Button(AppL10n.plugins("plugin.marketplace.install", defaultValue: "安装")) { install(item) }
                     .buttonStyle(.borderedProminent)

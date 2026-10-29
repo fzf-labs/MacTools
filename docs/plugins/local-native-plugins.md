@@ -10,6 +10,20 @@ For a complete workspace-plugin example with a typed catalog, verified adapters,
 
 For a foreground capture plugin with native editing windows, host-owned permissions and shortcuts, local recognition, and capture-session cleanup, see [Screenshot](screenshot.md).
 
+## Plugin Activation
+
+New installations are enabled by default. The marketplace list and plugin detail page expose an enable switch. Disabling stops the plugin through `deactivate(reason: .disabled)` and removes its runtime panel items, menu-bar icons, searchable actions, and shortcut registrations. Installed files, plugin settings, shortcut bindings, ordering, and panel placements remain available for reactivation. A selected primary plugin icon falls back to the app icon while stopped and resumes on reactivation. A disabled plugin's custom settings page is unavailable until it is enabled.
+
+Activation preferences survive app restarts and package updates. Updating a disabled plugin must not activate it. Native code already loaded before an update still requires a restart before the replacement can run. Uninstalling and reinstalling starts enabled again. Manual backups and cloud sync include activation preferences under application preferences; importing older backups without them preserves current activation choices.
+
+Before stopping a plugin, the host snapshots its portable preferences and approved action references. Backups can reuse that snapshot after restart without activating the plugin. Imported settings for a stopped plugin remain pending until the user enables it; the plugin must validate and accept the payload before dependent actions become available. Rejected payloads remain recoverable, and private-data uninstall removes the cached snapshot. If teardown fails, the host reports the failure and blocks reactivation until restart.
+
+For a plugin already disabled by a host without snapshot support, enable it once and disable it again to create its first portable snapshot. The original local settings remain intact; backup export does not activate plugins to recover missing snapshots.
+
+Plugin teardown must cancel owned work, remove observers and event taps, close owned UI, and reject late callbacks. Preserve existing safe cancellation and system-state cleanup. Reactivation must not duplicate subscriptions. Feature-extraction migration preflight must not activate a disabled destination; enable it before completing that migration.
+
+Panel visibility is separate from activation: removing a placement does not stop a plugin's intentional background work. The legacy `plugins.dynamic.disabledPluginIDs` key continues to migrate panel visibility only; current activation preferences use a separate key.
+
 ## Package Layout
 
 Use a directory package with the `.mactoolsplugin` extension:

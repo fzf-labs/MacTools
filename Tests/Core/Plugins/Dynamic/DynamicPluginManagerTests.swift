@@ -92,12 +92,13 @@ final class DynamicPluginManagerTests: XCTestCase {
     }
 
     private func makeLifecycleHost(manager: DynamicPluginManager, service: SharedTrackpadInputService,
-                                   loadOnInit: Bool = true) -> PluginHost {
+                                   loadOnInit: Bool = true,
+                                   globalShortcutManager: GlobalShortcutManager? = nil) -> PluginHost {
         PluginHost(plugins: [], dynamicPluginManager: manager,
             shortcutStore: ShortcutStore(userDefaults: defaults),
             pluginOrderingStore: PluginOrderingStore(userDefaults: defaults),
             preferencesBackupStore: PreferencesBackupStore(userDefaults: defaults),
-            globalShortcutManager: GlobalShortcutManager(), makeTrackpadInputService: { service },
+            globalShortcutManager: globalShortcutManager ?? GlobalShortcutManager(), makeTrackpadInputService: { service },
             loadDynamicPluginsOnInit: loadOnInit)
     }
 
@@ -120,6 +121,201 @@ final class DynamicPluginManagerTests: XCTestCase {
 
         XCTAssertEqual(loader.receivedRecordIDBatches, [["com.example.demo"]])
         XCTAssertTrue(plugin.deactivationReasons.isEmpty)
+    }
+
+    func testDisabledPluginStaysStoppedAcrossUpdateAndRestartAndReinstallDefaultsToEnabled() throws {
+        let id = "com.example.demo"
+        let store = makeStore()
+        defaults.set([id], forKey: "plugins.dynamic.disabledPluginIDs")
+        _ = try store.installPackage(from: makePackage(id: id))
+        let loader = StubDynamicPluginLoader { records in
+            records.map { .init(record: $0, plugins: [MockDynamicPlugin(id: $0.id)], errorMessage: nil) }
+        }
+        let manager = DynamicPluginManager(packageStore: store, pluginLoader: loader)
+        let plugin = try XCTUnwrap(manager.loadInstalledPlugins().first as? MockDynamicPlugin)
+        store.runtimeContext(for: store.installedRecords()[0]).storage.set("retained", forKey: "setting")
+
+        try manager.setPluginEnabled(false, pluginID: id)
+        XCTAssertEqual(plugin.deactivationReasons, [.disabled])
+        XCTAssertNil(plugin.onStateChange)
+        XCTAssertTrue(manager.loadInstalledPlugins().isEmpty)
+        XCTAssertEqual(manager.pluginManagementItems.first?.isEnabled, false)
+        try manager.updatePluginPackage(from: makePackage(id: id, version: "2.0.0"))
+        XCTAssertEqual(loader.receivedRecordIDBatches.count, 1)
+
+        let restartedStore = makeStore()
+        let restarted = DynamicPluginManager(packageStore: restartedStore, pluginLoader: loader)
+        XCTAssertTrue(restarted.loadInstalledPlugins().isEmpty)
+        XCTAssertEqual(restarted.pluginEnabledStates[id], false)
+        try restarted.setPluginEnabled(true, pluginID: id)
+        XCTAssertEqual(restarted.loadInstalledPlugins().map(\.metadata.id), [id])
+        XCTAssertEqual(restartedStore.installedRecords().first?.manifest.version, "2.0.0")
+        XCTAssertEqual(restartedStore.runtimeContext(for: restartedStore.installedRecords()[0])
+            .storage.string(forKey: "setting"), "retained")
+
+        try restarted.setPluginEnabled(false, pluginID: id)
+        try restarted.uninstallPlugin(pluginID: id)
+        try restarted.installPluginPackage(from: makePackage(id: id, version: "3.0.0"))
+        XCTAssertEqual(restarted.pluginEnabledStates[id], true)
+    }
+
+    func testFailedEnableReturnsToDisabledAndDoesNotActivateDuringMigrationPreflight() throws {
+        let id = "com.example.demo"
+        let store = makeStore()
+        _ = try store.installPackage(from: makePackage(id: id))
+        store.setPluginEnabled(false, pluginID: id)
+        let loader = StubDynamicPluginLoader { records in
+            records.map { .init(record: $0, plugins: [], errorMessage: "Activation failed") }
+        }
+        let manager = DynamicPluginManager(packageStore: store, pluginLoader: loader)
+        XCTAssertThrowsError(try manager.validatePluginInstallationBeforeMigration(pluginID: id))
+        XCTAssertTrue(loader.receivedRecordIDBatches.isEmpty)
+        XCTAssertThrowsError(try manager.setPluginEnabled(true, pluginID: id))
+        XCTAssertFalse(store.isPluginEnabled(id))
+        XCTAssertEqual(manager.pluginManagementItems.first?.isEnabled, false)
+        XCTAssertEqual(manager.pluginManagementItems.first?.state, .failed("Activation failed"))
+    }
+
+    func testHostToggleReleasesInputAndPreservesLayoutAndBackupState() async throws {
+        let store = makeStore()
+        let id = "com.example.input"
+        _ = try store.installPackage(from: makePackage(id: id, capabilities: .init(panelItems: [.row])))
+        let plugin = LifecycleInputPlugin(id: id, purpose: .gestures, showsPanelItem: true)
+        let loader = PreparingDynamicPluginLoader(store: store) { _ in plugin }
+        let manager = DynamicPluginManager(packageStore: store, pluginLoader: loader)
+        let driver = LifecycleTestDriver()
+        let registrar = FakeCarbonHotKeyRegistrar()
+        let shortcuts = GlobalShortcutManager(registrar: registrar)
+        let host = makeLifecycleHost(manager: manager, service: makeInputService(driver: driver),
+                                     globalShortcutManager: shortcuts)
+        let shortcut = try XCTUnwrap(host.shortcutItems.first { $0.pluginID == id })
+        let binding = ShortcutBinding(keyCode: 3, modifiers: [.command, .option, .control])
+        XCTAssertNil(host.setShortcutBindingAndReturnError(binding, for: shortcut.id))
+        XCTAssertTrue(shortcuts.debugRegistrationsForTests.contains { $0.shortcutID == shortcut.id && $0.binding == binding })
+        let layout = host.menuBarPanelStore.configuration
+        XCTAssertNotNil(plugin.subscriptionID)
+        XCTAssertTrue(host.panelEntries(in: MenuBarPanelDefinition.featuresID).contains { $0.pluginID == id })
+
+        try host.setPluginEnabled(false, pluginID: id)
+        XCTAssertNil(plugin.subscriptionID)
+        XCTAssertFalse(shortcuts.debugRegistrationsForTests.contains { $0.shortcutID == shortcut.id })
+        XCTAssertEqual(ShortcutStore(userDefaults: defaults).customization(for: shortcut.id), .custom(binding))
+        XCTAssertEqual(driver.startCount, driver.stopCount)
+        XCTAssertFalse(host.panelEntries(in: MenuBarPanelDefinition.featuresID).contains { $0.pluginID == id })
+        XCTAssertEqual(host.menuBarPanelStore.configuration, layout)
+        XCTAssertTrue(try XCTUnwrap(host.marketplaceSetupPresentation(pluginID: id)).issues.isEmpty)
+        let backup = try PreferencesBackup.decodeJSON(host.makePreferencesBackup().encodedJSON())
+        XCTAssertEqual(backup.pluginEnabledStates?[id], false)
+        XCTAssertEqual(backup.pluginPreferences[id], plugin.makePortablePreferencesBackup())
+        XCTAssertEqual(backup.shortcutCustomizations[shortcut.id], .custom(binding))
+        XCTAssertEqual(CloudPreferencesSyncCoordinator.filterMachineSpecificPreferences(backup).pluginEnabledStates?[id], false)
+        XCTAssertTrue(try host.preferencesImportPreview(for: backup).unavailablePluginIDs.isEmpty)
+        let reference = ActionReference(key: ActionKey(providerID: id, actionID: "test"))
+        XCTAssertFalse(host.actionAvailability(for: reference).isAvailable)
+        XCTAssertNotNil(host.actionAvailability(for: reference).reason)
+        let outcome = await host.actionExecutor.execute(.init(reference: reference, source: .test, mode: .foreground))
+        XCTAssertEqual(outcome, .rejected(.unavailable(host.actionAvailability(for: reference).reason)))
+
+        try host.setPluginEnabled(true, pluginID: id)
+        XCTAssertNotNil(plugin.subscriptionID)
+        XCTAssertTrue(shortcuts.debugRegistrationsForTests.contains { $0.shortcutID == shortcut.id && $0.binding == binding })
+        XCTAssertEqual(host.menuBarPanelStore.configuration, layout)
+        XCTAssertTrue(host.panelEntries(in: MenuBarPanelDefinition.featuresID).contains { $0.pluginID == id })
+        let imported = try host.importPreferences(backup)
+        XCTAssertTrue(imported.shortcutErrors.isEmpty)
+        XCTAssertEqual(ShortcutStore(userDefaults: defaults).customization(for: shortcut.id), .custom(binding))
+        XCTAssertNil(plugin.subscriptionID)
+        XCTAssertEqual(host.makePreferencesBackup().pluginEnabledStates?[id], false)
+
+        // Older backups omit activation preferences and must preserve the current choice.
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: backup.encodedJSON()) as? [String: Any])
+        json.removeValue(forKey: "pluginEnabledStates")
+        let legacy = try PreferencesBackup.decodeJSON(JSONSerialization.data(withJSONObject: json))
+        try host.setPluginEnabled(true, pluginID: id)
+        _ = try host.importPreferences(legacy)
+        XCTAssertNotNil(plugin.subscriptionID)
+        host.deactivateAllPlugins()
+    }
+
+    func testStoppedPreferencesSurviveColdStartAndImportWaitsForEnable() throws {
+        let id = "com.example.backup"
+        let store = makeStore()
+        _ = try store.installPackage(from: makePackage(id: id, capabilities: .init(panelItems: [.row])))
+        let driver = LifecycleTestDriver()
+        let plugin = LifecycleInputPlugin(id: id, purpose: .gestures, showsPanelItem: true)
+        let loader = PreparingDynamicPluginLoader(store: store) { _ in plugin }
+        let manager = DynamicPluginManager(packageStore: store, pluginLoader: loader)
+        let host = makeLifecycleHost(manager: manager, service: makeInputService(driver: driver),
+            globalShortcutManager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))
+        let reference = ActionReference(key: .init(providerID: id, actionID: "portable-action"))
+        let binding = ShortcutBinding(keyCode: 7, modifiers: [.command, .option, .control])
+        XCTAssertNil(host.setActionShortcutBindingAndReturnError(binding, for: reference))
+        plugin.preferenceValue = "customized"
+        try host.setPluginEnabled(false, pluginID: id)
+        let backup = host.makePreferencesBackup()
+        XCTAssertEqual(backup.pluginPreferences[id], Data("customized".utf8))
+        XCTAssertTrue(backup.actionShortcutAssignments.contains { $0.reference == reference })
+        host.deactivateAllPlugins()
+
+        let replacement = LifecycleInputPlugin(id: id, purpose: .gestures, showsPanelItem: true)
+        var activations = 0
+        let restartedStore = makeStore()
+        let restartedLoader = PreparingDynamicPluginLoader(store: restartedStore) { _ in
+            activations += 1
+            return replacement
+        }
+        let restartedManager = DynamicPluginManager(packageStore: restartedStore, pluginLoader: restartedLoader)
+        let restarted = makeLifecycleHost(manager: restartedManager, service: makeInputService(driver: driver),
+            globalShortcutManager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))
+        XCTAssertEqual(activations, 0)
+        let afterRestart = restarted.makePreferencesBackup()
+        XCTAssertEqual(afterRestart.pluginPreferences[id], backup.pluginPreferences[id])
+        XCTAssertEqual(afterRestart.actionShortcutAssignments, backup.actionShortcutAssignments)
+
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: backup.encodedJSON()) as? [String: Any])
+        json["pluginPreferences"] = [id: Data("imported".utf8).base64EncodedString()]
+        let incoming = try PreferencesBackup.decodeJSON(JSONSerialization.data(withJSONObject: json))
+        let result = try restarted.importPreferences(incoming)
+        XCTAssertTrue(result.shortcutErrors.isEmpty)
+        XCTAssertEqual(result.deferredPluginPreferenceIDs, [id])
+        XCTAssertEqual(activations, 0)
+        XCTAssertEqual(restarted.makePreferencesBackup().pluginPreferences[id], Data("imported".utf8))
+        XCTAssertTrue(restarted.makePreferencesBackup().actionShortcutAssignments.contains { $0.reference == reference })
+        XCTAssertFalse(try XCTUnwrap(restarted.makePreferencesBackup().pluginEnabledStates?[id]))
+        try restarted.setPluginEnabled(true, pluginID: id)
+        XCTAssertEqual(activations, 1)
+        XCTAssertEqual(replacement.preferenceValue, "imported")
+        XCTAssertTrue(restarted.makePreferencesBackup().actionShortcutAssignments.contains { $0.reference == reference })
+        try restarted.setPluginEnabled(false, pluginID: id)
+        json["pluginPreferences"] = [id: Data("invalid".utf8).base64EncodedString()]
+        let invalid = try PreferencesBackup.decodeJSON(JSONSerialization.data(withJSONObject: json))
+        _ = try restarted.importPreferences(invalid)
+        XCTAssertThrowsError(try restarted.setPluginEnabled(true, pluginID: id))
+        XCTAssertEqual(replacement.preferenceValue, "imported")
+        XCTAssertEqual(restarted.makePreferencesBackup().pluginEnabledStates?[id], false)
+        XCTAssertEqual(restarted.makePreferencesBackup().pluginPreferences[id], Data("invalid".utf8))
+        restarted.deactivateAllPlugins()
+    }
+
+    func testTeardownFailureIsReportedAndPreventsReactivationUntilRestart() throws {
+        let id = "com.example.failure"
+        let store = makeStore()
+        _ = try store.installPackage(from: makePackage(id: id))
+        let plugin = MockDynamicPlugin(id: id)
+        plugin.failsDeactivation = true
+        let loader = StubDynamicPluginLoader { records in
+            records.map { .init(record: $0, plugins: [plugin], errorMessage: nil) }
+        }
+        let manager = DynamicPluginManager(packageStore: store, pluginLoader: loader)
+        _ = manager.loadInstalledPlugins()
+        XCTAssertThrowsError(try manager.setPluginEnabled(false, pluginID: id))
+        let item = try XCTUnwrap(manager.pluginManagementItems.first)
+        guard case .failed = item.state else { return XCTFail("Expected a teardown failure") }
+        XCTAssertFalse(item.isEnabled)
+        XCTAssertTrue(item.requiresRestartToFullyUnload)
+        XCTAssertTrue(manager.loadInstalledPlugins().isEmpty)
+        XCTAssertThrowsError(try manager.setPluginEnabled(true, pluginID: id))
+        XCTAssertEqual(loader.receivedRecordIDBatches.count, 1)
     }
 
     func testLoadingMetadataReflectsPackageChangesBetweenOperations() throws {
@@ -564,7 +760,8 @@ final class DynamicPluginManagerTests: XCTestCase {
         minHostVersion: String = "0.1.0",
         releaseChannel: String? = nil,
         uninstallDataPolicy: PluginPackageManifest.UninstallDataPolicy? = nil,
-        localizedMetadata: [String: PluginLocalizedMetadata]? = nil
+        localizedMetadata: [String: PluginLocalizedMetadata]? = nil,
+        capabilities: PluginPackageManifest.Capabilities = .init()
     ) throws -> URL {
         let packageURL = temporaryRoot
             .appendingPathComponent("Source", isDirectory: true)
@@ -581,6 +778,7 @@ final class DynamicPluginManagerTests: XCTestCase {
             minHostVersion: minHostVersion,
             pluginKitVersion: pluginKitVersion,
             bundleRelativePath: bundleRelativePath,
+            capabilities: capabilities,
             releaseChannel: releaseChannel,
             localizedMetadata: localizedMetadata,
             uninstallDataPolicy: uninstallDataPolicy
@@ -660,18 +858,47 @@ private final class PreparingDynamicPluginLoader: DynamicPluginLoading {
 }
 
 @MainActor
-private final class LifecycleInputPlugin: MacToolsPlugin, TrackpadInputServiceConsuming {
+private final class LifecycleInputPlugin: MacToolsPlugin, TrackpadInputServiceConsuming, PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting, PluginCommandProviding {
     let metadata: PluginMetadata
     var onStateChange: (() -> Void)?
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     private let purpose: TrackpadInputPurpose
+    private let showsPanelItem: Bool
     private var service: (any TrackpadInputService)?
     private var paused = false
     private(set) var subscriptionID: UUID?
     private(set) var startCount = 0
-    init(id: String, purpose: TrackpadInputPurpose) {
+    var panelItems: [PluginPanelItem] {
+        guard showsPanelItem else { return [] }
+        return [.row(id: "control", initialPlacement: .featurePanel,
+              descriptor: .init(controlStyle: .disclosure, menuActionBehavior: .keepPresented),
+              state: .init(subtitle: "Test", isOn: false, isEnabled: true,
+                           isAvailable: true, detail: nil, errorMessage: nil), action: { _ in })]
+    }
+    var preferenceValue = "original"
+    func makePortablePreferencesBackup() -> Data? { Data(preferenceValue.utf8) }
+    func restorePortablePreferences(from data: Data) {
+        _ = restorePortablePreferencesReportingResult(from: data)
+    }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard let value = String(data: data, encoding: .utf8), value != "invalid" else { return false }
+        preferenceValue = value
+        return true
+    }
+    var commandDefinitions: [PluginCommandDefinition] {
+        guard showsPanelItem else { return [] }
+        return [.init(id: "portable-action", title: "Test Action", description: "", systemImage: "bolt")]
+    }
+    func handleCommand(id: String) {}
+    var shortcutDefinitions: [PluginShortcutDefinition] {
+        guard showsPanelItem else { return [] }
+        return [.init(id: "test", title: "Test", description: "", actionID: "test",
+                      scope: .global, defaultBinding: nil, isRequired: false)]
+    }
+    init(id: String, purpose: TrackpadInputPurpose, showsPanelItem: Bool = false) {
         self.purpose = purpose
+        self.showsPanelItem = showsPanelItem
         metadata = PluginMetadata(id: id, title: id, iconName: "hand.point.up", iconTint: .primary,
             order: 0, defaultDescription: "")
     }
@@ -724,6 +951,7 @@ private final class MockDynamicPlugin: MacToolsPlugin, PluginFeatureExtractionRe
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     private(set) var deactivationReasons: [PluginDeactivationReason] = []
     private(set) var activationContexts: [PluginRuntimeContext] = []
+    var failsDeactivation = false
     private let readinessError: Error?
 
     init(id: String, readinessError: Error? = nil) {
@@ -744,6 +972,7 @@ private final class MockDynamicPlugin: MacToolsPlugin, PluginFeatureExtractionRe
 
     func deactivate(reason: PluginDeactivationReason) {
         deactivationReasons.append(reason)
+        if failsDeactivation { raiseTestPluginException(reason: "Teardown failed") }
     }
 
     func validateFeatureExtractionReadiness() throws {

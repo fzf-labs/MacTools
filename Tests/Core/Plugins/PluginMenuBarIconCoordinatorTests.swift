@@ -140,6 +140,32 @@ final class PluginMenuBarIconCoordinatorTests: XCTestCase {
         XCTAssertEqual(coordinator.primaryIconOwner?.pluginID, "first")
     }
 
+    func testDisabledIconFallsBackAndRestoresItsSelectionAfterRestart() throws {
+        let plugin = IconPlugin(id: "first")
+        coordinator.synchronize(with: [plugin], pendingPluginIDs: [])
+        let oldContext = plugin.context
+        try oldContext.requestPlacement(.primary, for: "status").get()
+        let stored = defaults.data(forKey: PluginMenuBarIconCoordinator.preferenceKey)
+
+        coordinator.unregister(pluginID: "first", reason: .disabled, preservingSelection: true)
+        coordinator.synchronize(with: [], pendingPluginIDs: [], disabledPluginIDs: ["first"])
+        XCTAssertNil(coordinator.snapshot(context: light))
+        XCTAssertEqual(defaults.data(forKey: PluginMenuBarIconCoordinator.preferenceKey), stored)
+        guard case .failure(.unavailable) = oldContext.requestPlacement(.standalone, for: "status") else {
+            return XCTFail("Disabled plugins must lose their host capabilities")
+        }
+
+        coordinator = PluginMenuBarIconCoordinator(userDefaults: defaults)
+        coordinator.synchronize(with: [], pendingPluginIDs: [], disabledPluginIDs: ["first"])
+        let replacement = IconPlugin(id: "first")
+        coordinator.synchronize(with: [replacement], pendingPluginIDs: [])
+        XCTAssertEqual(replacement.context.placement(for: "status"), .primary)
+        XCTAssertNotNil(coordinator.snapshot(context: light))
+        coordinator.unregister(pluginID: "first", reason: .uninstalling)
+        coordinator.synchronize(with: [], pendingPluginIDs: [])
+        XCTAssertNil(defaults.data(forKey: PluginMenuBarIconCoordinator.preferenceKey))
+    }
+
     func testUninstallClearsPendingUpdateEvenWithoutLoadedProvider() throws {
         let plugin = IconPlugin(id: "first")
         coordinator.synchronize(with: [plugin], pendingPluginIDs: [])

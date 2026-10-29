@@ -94,7 +94,7 @@ struct MarketplacePluginSetupPresentation {
                        failure
                    ),
                    symbol: "exclamationmark.triangle", action: settingsAction)
-        } else if isInstalled, !isRuntimeLoaded, problems.isEmpty {
+        } else if isInstalled, item.isEnabled, !isRuntimeLoaded, problems.isEmpty {
             append(.runtimeUnavailable,
                    title: AppL10n.plugins("plugin.marketplace.setup.runtimeUnavailable.title", defaultValue: "插件尚未就绪"),
                    detail: AppL10n.plugins("plugin.marketplace.setup.runtimeUnavailable.description", defaultValue: "插件包已安装，但尚未加载。请重新检查；若仍不可用，请重启 MacTools。"),

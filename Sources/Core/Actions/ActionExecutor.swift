@@ -802,6 +802,8 @@ final class ActionExecutor {
             return .providerChanged
         case let .providerFailure(message):
             return .providerFailure(message)
+        case let .providerUnavailable(reason):
+            return .unavailable(reason)
         }
     }
 }

@@ -70,6 +70,7 @@ final class PluginPackageStore {
         // Keep the previous key so upgrades can safely discover packages that
         // were disabled before the installed/uninstalled-only model.
         static let legacyDisabledPluginIDs = "plugins.dynamic.disabledPluginIDs"
+        static let inactivePluginIDs = "plugins.dynamic.inactivePluginIDs.v1"
         static let installedAtByPluginID = "plugins.dynamic.installedAtByPluginID"
         static let privateUninstallIntents = "plugins.dynamic.privateUninstallIntents"
     }
@@ -395,6 +396,7 @@ final class PluginPackageStore {
 
         clearPendingRestart(pluginID: manifest.id)
         if !hadExistingPackage {
+            setPluginEnabled(true, pluginID: manifest.id)
             recordFirstInstalledAt(pluginID: manifest.id, date: now())
         }
 
@@ -432,6 +434,16 @@ final class PluginPackageStore {
 
     func clearLegacyHiddenPluginIDs() {
         userDefaults.removeObject(forKey: DefaultsKey.legacyDisabledPluginIDs)
+    }
+
+    func isPluginEnabled(_ pluginID: String) -> Bool {
+        !Set(userDefaults.stringArray(forKey: DefaultsKey.inactivePluginIDs) ?? []).contains(pluginID)
+    }
+
+    func setPluginEnabled(_ enabled: Bool, pluginID: String) {
+        var inactive = Set(userDefaults.stringArray(forKey: DefaultsKey.inactivePluginIDs) ?? [])
+        if enabled { inactive.remove(pluginID) } else { inactive.insert(pluginID) }
+        userDefaults.set(inactive.sorted(), forKey: DefaultsKey.inactivePluginIDs)
     }
 
     func markRequiresRestartToFullyUnload(pluginID: String) {
@@ -491,6 +503,7 @@ final class PluginPackageStore {
         }
         removeInstalledAt(pluginID: pluginID)
         markPendingRestart(pluginID: pluginID)
+        setPluginEnabled(true, pluginID: pluginID)
 
         if removeData && record.manifest.effectiveUninstallDataPolicy != .removePrivateData {
             removePluginData(pluginID: pluginID)
@@ -780,6 +793,9 @@ final class PluginPackageStore {
 
     private func removePrivatePluginData(pluginID: String) throws {
         var firstError: Error?
+        do {
+            try DisabledPluginPreferencesStore(defaults: userDefaults).remove(pluginID)
+        } catch { firstError = error }
         let directories = [
             dataDirectory.appendingPathComponent(pluginID, isDirectory: true),
             cacheDirectory.appendingPathComponent(pluginID, isDirectory: true),

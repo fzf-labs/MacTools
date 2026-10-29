@@ -62,6 +62,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
     let formatVersion: Int
     let exportedAt: Date
     let application: ApplicationPreferences
+    let pluginEnabledStates: [String: Bool]?
     let pluginDisplay: PluginDisplayPreferencesBackup
     let shortcutCustomizations: [String: ShortcutCustomization]
     let actionShortcutAssignments: [ActionShortcutAssignmentRecord]
@@ -75,6 +76,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
 
     init(
         application: ApplicationPreferences,
+        pluginEnabledStates: [String: Bool]? = nil,
         pluginDisplay: PluginDisplayPreferencesBackup,
         shortcutCustomizations: [String: ShortcutCustomization],
         actionShortcutAssignments: [ActionShortcutAssignmentRecord] = [],
@@ -89,6 +91,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         self.formatVersion = Self.currentFormatVersion
         self.exportedAt = exportedAt
         self.application = application
+        self.pluginEnabledStates = pluginEnabledStates
         self.pluginDisplay = pluginDisplay
         self.shortcutCustomizations = shortcutCustomizations
         self.actionShortcutAssignments = actionShortcutAssignments
@@ -104,6 +107,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         case formatVersion
         case exportedAt
         case application
+        case pluginEnabledStates
         case pluginDisplay
         case shortcutCustomizations
         case actionShortcutAssignments
@@ -120,6 +124,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         formatVersion = try container.decode(Int.self, forKey: .formatVersion)
         exportedAt = try container.decode(Date.self, forKey: .exportedAt)
         application = try container.decode(ApplicationPreferences.self, forKey: .application)
+        pluginEnabledStates = try container.decodeIfPresent([String: Bool].self, forKey: .pluginEnabledStates)
         pluginDisplay = try container.decode(PluginDisplayPreferencesBackup.self, forKey: .pluginDisplay)
         shortcutCustomizations = try container.decode(
             [String: ShortcutCustomization].self,
@@ -234,6 +239,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
     /// Decoding has already migrated supported formats into the same preference models.
     func hasSameMeaningfulContent(as other: PreferencesBackup) -> Bool {
         application == other.application
+            && pluginEnabledStates == other.pluginEnabledStates
             && pluginDisplay == other.pluginDisplay
             && shortcutCustomizations == other.shortcutCustomizations
             && actionShortcutAssignments == other.actionShortcutAssignments
@@ -504,6 +510,7 @@ struct PreferencesImportPreview: Equatable {
             }
         })
         let backedUpPluginIDs = displayPluginIDs
+            .union(selection.includesApplicationPreferences ? Set(backup.pluginEnabledStates?.keys.map { $0 } ?? []) : [])
             .union(selection.pluginPreferenceIDs.intersection(backup.pluginPreferences.keys))
             .union(actionPluginIDs)
         let missingPluginIDs = backedUpPluginIDs.subtracting(availablePluginIDs)

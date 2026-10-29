@@ -19,6 +19,7 @@ enum ActionRegistryError: Error, Equatable {
     case invalidParameters(String)
     case providerChanged
     case providerFailure(String)
+    case providerUnavailable(String)
 }
 
 struct RegisteredAction: Equatable {
@@ -91,6 +92,11 @@ final class ActionRegistry: ObservableObject {
     private var catalogByReference: [ActionReference: ActionCatalogEntry] = [:]
     private var nextGeneration: UInt64 = 1
     private var synchronizedRegistrations: [ActionProviderRegistration] = []
+    var unavailableProviderReasons: [String: String] = [:] {
+        didSet {
+            if unavailableProviderReasons != oldValue { invalidateAvailability() }
+        }
+    }
 
     @discardableResult
     func synchronize(_ registrations: [ActionProviderRegistration]) -> [ActionRegistryIssue] {
@@ -221,6 +227,9 @@ final class ActionRegistry: ObservableObject {
     }
 
     func registeredAction(for reference: ActionReference) -> Result<RegisteredAction, ActionRegistryError> {
+        if let reason = unavailableProviderReasons[reference.key.providerID] {
+            return .failure(.providerUnavailable(reason))
+        }
         guard let definition = definitions[reference.key],
               let provider = providers[reference.key.providerID] else {
             return .failure(.unknownAction(reference.key))
@@ -312,6 +321,9 @@ final class ActionRegistry: ObservableObject {
     }
 
     func availability(for reference: ActionReference) -> ActionAvailability {
+        if let reason = unavailableProviderReasons[reference.key.providerID] {
+            return .unavailable(reason)
+        }
         guard case .success = registeredAction(for: reference),
               let provider = providers[reference.key.providerID] else {
             return .unavailable(FeatureL10n.string("操作不可用。"))
