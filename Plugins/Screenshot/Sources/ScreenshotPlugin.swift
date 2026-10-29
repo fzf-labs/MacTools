@@ -37,11 +37,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
         static let permission = "screen-recording"
         static let microphonePermission = "microphone"
         static let folder = "save-folder"
-        static let autoZoom = "recording-auto-zoom"
-        static let systemAudio = "recording-system-audio"
-        static let microphone = "recording-microphone"
-        static let microphoneDevice = "recording-microphone-device"
-        static let defaultMicrophone = "system-default"
     }
 
     var metadata: PluginMetadata {
@@ -65,10 +60,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
     private let capture: @MainActor (CaptureEntry) -> Void
     private let folderPicker: @MainActor (URL) -> URL?
     private let revealFolder: @MainActor (URL) throws -> Void
-    private let discoverMicrophones: @MainActor () -> RecordingMicrophoneSnapshot
-    private let hostSupportsAudio: @MainActor () -> Bool
-    private var microphones = RecordingMicrophoneSnapshot(devices: [], defaultName: nil)
-    private var settingsObservers: [NSObjectProtocol] = []
     private var isGranted: Bool
     private var isActive = true
     private var lastError: String?
@@ -83,9 +74,7 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
         revealFolder: @escaping @MainActor (URL) throws -> Void = { folder in
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
             NSWorkspace.shared.open(folder)
-        },
-        discoverMicrophones: @escaping @MainActor () -> RecordingMicrophoneSnapshot = { .current() },
-        hostSupportsAudio: @escaping @MainActor () -> Bool = { RecordingAuthorization.hostSupportsAudio }
+        }
     ) {
         let environment = ScreenshotEnvironment(context: context)
         let coordinator = ScreenshotCoordinator(environment: environment)
@@ -95,8 +84,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
         self.requestScreenAccess = requestScreenAccess
         self.capture = capture ?? { [weak coordinator] entry in coordinator?.capture(entry: entry) }
         self.revealFolder = revealFolder
-        self.discoverMicrophones = discoverMicrophones
-        self.hostSupportsAudio = hostSupportsAudio
         self.folderPicker = folderPicker ?? { folder in
             Self.chooseFolder(folder, environment: environment)
         }
@@ -139,7 +126,7 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
             title: environment.string("permission.screenRecording.title", "录屏权限"),
             description: environment.string("permission.screenRecording.description", "用于截取屏幕内容和录屏，图像与识别结果仅在本机处理。")
         )]
-        if hostSupportsAudio() {
+        if RecordingAuthorization.hostSupportsAudio {
             requirements.append(PluginPermissionRequirement(
                 id: ID.microphonePermission,
                 kind: .screenRecording,
@@ -235,68 +222,7 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
                     reveal: { self?.showSaveFolder() }
                 )
             },
-            PluginSettingsSection(
-                id: "recording",
-                title: environment.string("settings.recording.title", "录屏"),
-                systemImage: "record.circle",
-                footer: recordingSettingsDescription,
-                rows: recordingSettingsRows
-            ),
-        ]).onVisibilityChange { [weak self] visible in self?.setSettingsVisible(visible) }
-    }
-
-    private var recordingSettingsRows: [PluginSettingsRow] {
-        let audio = environment.recordingAudio
-        let supportsAudio = hostSupportsAudio() && supportsRecording
-        let defaultTitle = environment.string("record.audio.default", "系统默认")
-        let defaultName = microphones.defaultName.map { "\(defaultTitle) · \($0)" } ?? defaultTitle
-        var options = [PluginSettingsOption(id: ID.defaultMicrophone, title: defaultName)]
-        options += microphones.devices.map { PluginSettingsOption(id: $0.id, title: $0.name) }
-        let missing = audio.microphoneID.map { id in !microphones.devices.contains { $0.id == id } } ?? false
-        let unavailable = environment.string("record.microphone.unavailable", "所选麦克风已断开，请重新选择")
-        if let id = audio.microphoneID, missing { options.append(PluginSettingsOption(id: id, title: unavailable)) }
-        return [
-            PluginSettingsRow(
-                id: ID.systemAudio,
-                title: environment.string("record.audio.system", "系统声音"),
-                description: environment.string("settings.audio.system.description", "录下电脑播放的声音。"),
-                systemImage: "speaker.wave.2",
-                isEnabled: supportsAudio || audio.systemAudio,
-                control: .toggle(isOn: audio.systemAudio)
-            ),
-            PluginSettingsRow(
-                id: ID.microphone,
-                title: environment.string("record.audio.microphone", "麦克风"),
-                description: environment.string("settings.audio.microphone.description", "录下你的讲解。"),
-                systemImage: "mic",
-                isEnabled: supportsAudio || audio.microphone,
-                control: .toggle(isOn: audio.microphone)
-            ),
-            PluginSettingsRow(
-                id: ID.microphoneDevice,
-                title: environment.string("settings.audio.device", "输入设备"),
-                systemImage: "mic.badge.plus",
-                help: audio.microphone && missing ? unavailable : nil,
-                isEnabled: supportsAudio && audio.microphone,
-                control: .picker(selectionID: audio.microphoneID ?? ID.defaultMicrophone, options: options, style: .menu)
-            ),
-            PluginSettingsRow(
-                id: ID.autoZoom,
-                title: environment.string("settings.autoZoom.title", "自动缩放"),
-                description: environment.string("settings.autoZoom.description", "仅区域和显示器录制可用。点击或滚动时放大该位置，随后恢复全景。"),
-                systemImage: "plus.magnifyingglass",
-                isEnabled: supportsRecording,
-                control: .toggle(isOn: environment.recordingAutoZoom)
-            ),
-        ]
-    }
-
-    private var recordingSettingsDescription: String {
-        guard supportsRecording else { return environment.string("record.requiresNewerSystem", "录屏需要 macOS 15 或更高版本") }
-        guard hostSupportsAudio() else {
-            return environment.string("record.audio.hostUpdate", "当前版本的 MacTools 不支持录音，请更新主程序后使用。仍可无声录屏。")
-        }
-        return environment.string("settings.recording.sync", "与录屏工具栏同步；录制中的更改将在下次生效。")
+        ])
     }
 
     var actionShortcutSettingsConfiguration: PluginActionShortcutSettingsConfiguration {
@@ -349,7 +275,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
 
     func deactivate(reason: PluginDeactivationReason) {
         isActive = false
-        setSettingsVisible(false)
         microphoneAuthorizationTask?.cancel()
         microphoneAuthorizationTask = nil
         coordinator.cancel()
@@ -371,7 +296,7 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
     }
 
     func handlePermissionAction(id: String) {
-        if id == ID.microphonePermission, hostSupportsAudio() {
+        if id == ID.microphonePermission, RecordingAuthorization.hostSupportsAudio {
             guard microphoneAuthorizationTask == nil else { return }
             microphoneAuthorizationTask = Task { [weak self] in
                 let granted = await RecordingAuthorization.requestMicrophone()
@@ -435,26 +360,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
 
     func handleSettingsAction(_ action: PluginSettingsAction) {
         guard isActive else { return }
-        if case .setBoolean(ID.autoZoom, let isOn) = action {
-            environment.recordingAutoZoom = isOn
-            return
-        }
-        if case .setBoolean(let id, let isOn) = action, id == ID.systemAudio || id == ID.microphone {
-            guard !isOn || (hostSupportsAudio() && supportsRecording) else { return }
-            var audio = environment.recordingAudio
-            if id == ID.systemAudio { audio.systemAudio = isOn } else { audio.microphone = isOn }
-            environment.recordingAudio = audio
-            return
-        }
-        if case .setSelection(ID.microphoneDevice, let id) = action {
-            guard hostSupportsAudio(), supportsRecording, environment.recordingAudio.microphone else { return }
-            refreshMicrophones()
-            guard id == ID.defaultMicrophone || microphones.devices.contains(where: { $0.id == id }) else { return }
-            var audio = environment.recordingAudio
-            audio.microphoneID = id == ID.defaultMicrophone ? nil : id
-            environment.recordingAudio = audio
-            return
-        }
         guard case .invoke(ID.folder) = action,
               let folder = folderPicker(environment.saveFolder), isActive, folder.isFileURL else { return }
         environment.saveFolder = folder
@@ -464,24 +369,6 @@ final class ScreenshotPlugin: MacToolsPlugin, PluginActionProviding, PluginActio
         guard isActive else { return }
         do { try revealFolder(environment.saveFolder) }
         catch { environment.showToast(environment.captureErrorDescription(error)) }
-    }
-
-    private func setSettingsVisible(_ visible: Bool) {
-        for token in settingsObservers { NotificationCenter.default.removeObserver(token) }
-        settingsObservers.removeAll()
-        guard visible, isActive else { return }
-        for name in [AVCaptureDevice.wasConnectedNotification, AVCaptureDevice.wasDisconnectedNotification,
-                     NSApplication.didBecomeActiveNotification] {
-            settingsObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.refreshMicrophones() }
-            })
-        }
-        refreshMicrophones()
-    }
-
-    private func refreshMicrophones() {
-        microphones = discoverMicrophones()
-        onStateChange?()
     }
 
     private var supportsRecording: Bool {

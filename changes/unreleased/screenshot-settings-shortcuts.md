@@ -4,4 +4,4 @@ type: added
 area: Screenshot
 ---
 
-Add direct shortcuts for text extraction, scrolling capture, and recording. Share audio and input-device preferences with the recording toolbar, and make the save folder easier to copy and open.
+Add direct shortcuts for text extraction, scrolling capture, and recording, plus easier save-folder access. Keep recording preferences in the recording toolbar instead of Screenshot settings.
