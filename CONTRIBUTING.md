@@ -44,6 +44,12 @@ make run
 
 This builds the app and plugins, syncs the Debug catalog, and installs `~/Applications/MacTools Dev.app`. A full Debug sync moves packages absent from the checkout into a recoverable quarantine; a filtered sync preserves unrelated packages.
 
+Use a persistent signing identity for local updates. Keep the signing certificate, bundle identifier, installation path, and designated signing requirement stable so macOS can retain privacy permissions. Do not replace the installed app with an unsigned or ad-hoc-signed build, or bypass the installer's identity check. For Apple Development signing, sign in under Xcode > Settings > Apple Accounts, create a certificate under Manage Certificates, and configure the matching team in `LocalConfig.xcconfig`.
+
+For local development without an Apple account, create a persistent self-signed Code Signing certificate in Keychain Access and set `LOCAL_CODE_SIGN_IDENTITY` in `LocalConfig.xcconfig` to its 40-character SHA-1 fingerprint. Retain the certificate and private key in the login keychain; grant trust only for code signing. The repository's build wrapper uses this certificate with manual signing only for Debug builds that have no explicit signing overrides. An empty development team is allowed in this mode. Nightly and Release signing and unsigned XCTest builds are unchanged. Apple-team-dependent integrations still require Apple signing; the CLI peer verifier and the desktop E2E preflight enforce that requirement.
+
+Migrating an existing ad-hoc installation to a stable identity can require granting permissions once more. Keep a backup of the old app during this one-time migration, then use the guarded installer for subsequent updates. Do not weaken the designated requirement to match only the bundle identifier.
+
 | Command | Purpose |
 | --- | --- |
 | `make generate` | Generate plugin targets and the Xcode project. Use this instead of bare `xcodegen generate`. |

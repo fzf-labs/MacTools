@@ -1,6 +1,28 @@
 #!/bin/zsh
 set -o pipefail
 
+# A pinned local certificate is an opt-in for signed Debug builds only.
+# Explicit signing arguments (including unsigned XCTest builds) take precedence.
+configuration=""
+explicit_signing=false
+arguments=("$@")
+for (( index = 1; index <= ${#arguments}; index++ )); do
+    if [[ "${arguments[$index]}" == "-configuration" ]]; then
+        configuration="${arguments[$((index + 1))]:-}"
+    fi
+    case "${arguments[$index]}" in
+        CODE_SIGN*=*|DEVELOPMENT_TEAM=*) explicit_signing=true ;;
+    esac
+done
+if [[ "$configuration" == "Debug" && "$explicit_signing" == false ]]; then
+    repository_root="${0:A:h:h}"
+    local_identity="$("$repository_root/scripts/validate-local-debug-config.sh" \
+        "$repository_root/LocalConfig.xcconfig" --print-signing-identity)" || exit 1
+    if [[ -n "$local_identity" ]]; then
+        arguments+=("CODE_SIGN_STYLE=Manual" "CODE_SIGN_IDENTITY=$local_identity" "DEVELOPMENT_TEAM=")
+    fi
+fi
+
 if [[ -z "${PYTHON3:-}" ]]; then
     if [[ -x /usr/bin/python3 ]]; then
         PYTHON3=/usr/bin/python3
@@ -12,7 +34,7 @@ fi
 tmp_stderr="$(mktemp "${TMPDIR:-/tmp}/mactools-xcodebuild-stderr.XXXXXX")"
 trap 'rm -f "$tmp_stderr"' EXIT
 
-xcodebuild "$@" 2> "$tmp_stderr"
+xcodebuild "${arguments[@]}" 2> "$tmp_stderr"
 xcodebuild_status=$?
 
 "$PYTHON3" - "$tmp_stderr" <<'PY'

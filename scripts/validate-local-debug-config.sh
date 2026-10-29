@@ -3,13 +3,13 @@
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    print -u2 -r -- "usage: $0 <local-config> [--print-bundle-identifier]"
+    print -u2 -r -- "usage: $0 <local-config> [--print-bundle-identifier|--print-signing-identity]"
     exit 2
 fi
 
 config_path="${1:A}"
 mode="${2:-}"
-if [[ -n "$mode" && "$mode" != "--print-bundle-identifier" ]]; then
+if [[ -n "$mode" && "$mode" != "--print-bundle-identifier" && "$mode" != "--print-signing-identity" ]]; then
     print -u2 -r -- "error: unsupported option $mode"
     exit 2
 fi
@@ -34,8 +34,15 @@ read_setting() {
 
 development_team="$(read_setting DEVELOPMENT_TEAM)"
 bundle_identifier_prefix="$(read_setting BUNDLE_IDENTIFIER_PREFIX)"
+local_signing_identity="$(read_setting LOCAL_CODE_SIGN_IDENTITY)"
 
-[[ -n "$development_team" ]] || {
+if [[ -n "$local_signing_identity" ]]; then
+    [[ "$local_signing_identity" =~ '^[A-Fa-f0-9]{40}$' ]] || {
+        print -u2 -r -- "error: LOCAL_CODE_SIGN_IDENTITY must be a certificate SHA-1 fingerprint, not an ad-hoc identity or certificate name"
+        exit 1
+    }
+fi
+[[ -n "$development_team" || -n "$local_signing_identity" ]] || {
     print -u2 -r -- "error: DEVELOPMENT_TEAM must be configured in LocalConfig.xcconfig"
     exit 1
 }
@@ -54,4 +61,6 @@ bundle_identifier_prefix="$(read_setting BUNDLE_IDENTIFIER_PREFIX)"
 bundle_identifier="$bundle_identifier_prefix.mactools.dev"
 if [[ "$mode" == "--print-bundle-identifier" ]]; then
     print -r -- "$bundle_identifier"
+elif [[ "$mode" == "--print-signing-identity" ]]; then
+    print -r -- "$local_signing_identity"
 fi

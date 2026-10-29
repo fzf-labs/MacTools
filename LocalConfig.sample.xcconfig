@@ -1,2 +1,7 @@
 DEVELOPMENT_TEAM =
 BUNDLE_IDENTIFIER_PREFIX = com.example
+
+// Optional: pin a persistent local code-signing certificate for Debug builds.
+// Use its 40-character SHA-1 fingerprint, never "-". No development team is
+// required in this mode. Nightly and Release still require Apple signing.
+LOCAL_CODE_SIGN_IDENTITY =

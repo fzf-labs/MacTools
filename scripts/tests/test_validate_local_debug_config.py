@@ -45,6 +45,28 @@ class ValidateLocalDebugConfigTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("DEVELOPMENT_TEAM must be configured", result.stderr)
 
+    def test_accepts_pinned_local_certificate_without_development_team(self) -> None:
+        fingerprint = "0123456789ABCDEF0123456789ABCDEF01234567"
+        result = self.run_validation(
+            "DEVELOPMENT_TEAM =\nBUNDLE_IDENTIFIER_PREFIX = org.exampledeveloper\n"
+            f"LOCAL_CODE_SIGN_IDENTITY = {fingerprint}\n",
+            "--print-signing-identity",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), fingerprint)
+
+    def test_rejects_unpinned_local_signing_identity(self) -> None:
+        for identity in ("-", "MacTools Local Development"):
+            with self.subTest(identity=identity):
+                result = self.run_validation(
+                    "DEVELOPMENT_TEAM = ABC123\nBUNDLE_IDENTIFIER_PREFIX = org.exampledeveloper\n"
+                    f"LOCAL_CODE_SIGN_IDENTITY = {identity}\n"
+                )
+
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("certificate SHA-1 fingerprint", result.stderr)
+
     def test_rejects_malformed_prefix(self) -> None:
         result = self.run_validation(
             "DEVELOPMENT_TEAM = ABC123\nBUNDLE_IDENTIFIER_PREFIX = .mactools\n"
