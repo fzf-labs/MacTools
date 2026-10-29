@@ -120,6 +120,30 @@ enum PluginCategoryFilter: Hashable, Identifiable {
     }
 }
 
+enum PluginActivationFilter: String, CaseIterable, Identifiable {
+    case all
+    case enabled
+    case disabled
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all: AppL10n.plugins("plugin.category.all", defaultValue: "全部")
+        case .enabled: AppL10n.plugins("plugin.filter.enabled", defaultValue: "启用")
+        case .disabled: AppL10n.plugins("plugin.filter.disabled", defaultValue: "禁用")
+        }
+    }
+
+    func contains(_ item: PluginManagementItem) -> Bool {
+        switch self {
+        case .all: true
+        case .enabled: item.packageURL != nil && item.isEnabled
+        case .disabled: item.packageURL != nil && !item.isEnabled
+        }
+    }
+}
+
 enum PluginListFilter {
     static func normalized(_ query: String) -> String {
         // Match website search without depending on the current display language.
@@ -151,9 +175,10 @@ enum PluginListFilter {
     static func matches(
         managementItem item: PluginManagementItem,
         query: String,
-        filter: PluginCategoryFilter
+        filter: PluginCategoryFilter,
+        activationFilter: PluginActivationFilter = .all
     ) -> Bool {
-        guard filter.contains(category: item.category) else {
+        guard filter.contains(category: item.category), activationFilter.contains(item) else {
             return false
         }
 
@@ -166,9 +191,10 @@ enum PluginListFilter {
         ] + item.productSearchKeywords)
     }
 
-    static func countsByFilter(managementItems items: [PluginManagementItem], query: String) -> [PluginCategoryFilter: Int] {
+    static func countsByFilter(managementItems items: [PluginManagementItem], query: String,
+                               activationFilter: PluginActivationFilter = .all) -> [PluginCategoryFilter: Int] {
         var counts: [PluginCategoryFilter: Int] = [:]
-        let allFiltered = items.filter { matches(managementItem: $0, query: query, filter: .all) }
+        let allFiltered = items.filter { matches(managementItem: $0, query: query, filter: .all, activationFilter: activationFilter) }
         counts[.all] = allFiltered.count
 
         for category in PluginCategory.allCases {

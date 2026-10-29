@@ -16,6 +16,7 @@ struct PluginManagementSettingsView: View {
     @State private var activeOperationID: String?
     @State private var searchText: String = ""
     @State private var selectedFilter: PluginCategoryFilter = .all
+    @State private var activationFilter: PluginActivationFilter = .all
     @FocusState private var isSearchFocused: Bool
     @AppStorage(PluginMarketplaceSortMode.userDefaultsKey) private var sortMode = PluginMarketplaceSortMode.notInstalledFirst
     @State private var bulkUpdateProgressText: String?
@@ -69,16 +70,14 @@ struct PluginManagementSettingsView: View {
                             )
                             .frame(maxWidth: .infinity, minHeight: 260)
                         } else {
-                            VStack(alignment: .leading, spacing: 10) {
-                                PluginFilterBarView(
-                                    searchText: $searchText,
-                                    selectedFilter: $selectedFilter,
-                                    isSearchFocused: $isSearchFocused,
-                                    countsByFilter: countsByFilter
-                                )
-
-                                marketplaceSortPicker
-                            }
+                            PluginFilterBarView(
+                                searchText: $searchText,
+                                selectedFilter: $selectedFilter,
+                                activationFilter: $activationFilter,
+                                sortMode: $sortMode,
+                                isSearchFocused: $isSearchFocused,
+                                countsByFilter: countsByFilter
+                            )
 
                             LazyVStack(alignment: .leading, spacing: 10) {
                                 if filteredItems.isEmpty {
@@ -249,6 +248,7 @@ struct PluginManagementSettingsView: View {
         clearSearchTargetTask?.cancel()
         searchText = ""
         selectedFilter = .all
+        activationFilter = .all
         activeSearchTarget = target
 
         DispatchQueue.main.async {
@@ -271,7 +271,8 @@ struct PluginManagementSettingsView: View {
 
     private var filteredItems: [PluginManagementItem] {
         let filtered = presentation.items.filter {
-            PluginListFilter.matches(managementItem: $0, query: searchText, filter: selectedFilter)
+            PluginListFilter.matches(managementItem: $0, query: searchText, filter: selectedFilter,
+                                     activationFilter: activationFilter)
         }
         return PluginMarketplaceSortMode.sorted(filtered, by: sortMode)
     }
@@ -279,39 +280,9 @@ struct PluginManagementSettingsView: View {
     private var countsByFilter: [PluginCategoryFilter: Int] {
         PluginListFilter.countsByFilter(
             managementItems: presentation.items,
-            query: searchText
+            query: searchText,
+            activationFilter: activationFilter
         )
-    }
-
-    private var marketplaceSortPicker: some View {
-        let sortLabel = AppL10n.plugins("plugin.marketplace.sort.label", defaultValue: "排序")
-        let sortHelp = AppL10n.plugins(
-            "plugin.marketplace.sort.help",
-            defaultValue: "调整市场列表排序，不影响菜单栏功能顺序。"
-        )
-
-        return HStack(spacing: 8) {
-            Spacer(minLength: 0)
-
-            Text(sortLabel)
-                .font(PluginSettingsTheme.Typography.rowDescription)
-                .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
-
-            Picker(sortLabel, selection: $sortMode) {
-                ForEach(PluginMarketplaceSortMode.allCases) { mode in
-                    Text(mode.displayName)
-                        .tag(mode)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-            .fixedSize()
-            .help(sortHelp)
-            .accessibilityLabel(sortLabel)
-            .accessibilityValue(sortMode.displayName)
-            .accessibilityHint(sortHelp)
-        }
     }
 
     private var marketplaceIntroductionConfiguration: SettingsPageIntroductionConfiguration {
