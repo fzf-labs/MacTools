@@ -1,55 +1,55 @@
 {
   "id": "disk-clean",
   "displayName": "磁盘清理",
-  "summary": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
+  "summary": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
   "localizedMetadata": {
     "ar": {
       "displayName": "تنظيف القرص",
-      "summary": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف."
+      "summary": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة"
     },
     "de": {
       "displayName": "Datenträgerbereinigung",
-      "summary": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen."
+      "summary": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen"
     },
     "en": {
       "displayName": "Disk Cleanup",
-      "summary": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion"
+      "summary": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers"
     },
     "es": {
       "displayName": "Limpieza de disco",
-      "summary": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar."
+      "summary": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos"
     },
     "fr": {
       "displayName": "Nettoyage du disque",
-      "summary": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression."
+      "summary": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés"
     },
     "ja": {
       "displayName": "ディスククリーンアップ",
-      "summary": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。"
+      "summary": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います"
     },
     "ko": {
       "displayName": "디스크 정리",
-      "summary": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다."
+      "summary": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다"
     },
     "pt": {
       "displayName": "Limpeza de disco",
-      "summary": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar."
+      "summary": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos"
     },
     "ru": {
       "displayName": "Очистка диска",
-      "summary": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением."
+      "summary": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков"
     },
     "tr": {
       "displayName": "Disk Temizliği",
-      "summary": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır."
+      "summary": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin"
     },
     "zh-Hans": {
       "displayName": "磁盘清理",
-      "summary": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全"
+      "summary": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留"
     },
     "zh-Hant": {
       "displayName": "磁碟清理",
-      "summary": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+      "summary": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
     }
   },
   "productStrings": {
@@ -167,7 +167,10 @@
     "goalCategories": [
       "storage"
     ],
-    "relatedPluginIDs": [],
+    "relatedPluginIDs": [
+      "system-data",
+      "xcode-clean"
+    ],
     "alternativePluginIDs": [],
     "localizedSynonymRefs": [
       "@productStrings.discovery.app-caches",
@@ -193,12 +196,17 @@
   "privacy": {
     "dataObserved": [
       "filesystem-paths",
-      "file-sizes"
+      "file-sizes",
+      "installed-applications",
+      "application-bundle-identifiers",
+      "running-applications",
+      "process-executable-paths"
     ],
     "dataPersisted": [
       "plugin-configuration",
       "cleanup-audit-history",
-      "cleanup-staging-journal"
+      "cleanup-staging-journal",
+      "scan-root-preferences"
     ],
     "retention": {
       "policy": "user-controlled",
@@ -216,7 +224,10 @@
     "optionalSurfaces": []
   },
   "relationships": {
-    "relatedPluginIDs": [],
+    "relatedPluginIDs": [
+      "system-data",
+      "xcode-clean"
+    ],
     "includedPackIDs": [],
     "suggestedRecipeIDs": [],
     "supersedesPluginIDs": []

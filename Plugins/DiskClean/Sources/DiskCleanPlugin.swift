@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import SwiftUI
 import MacToolsPluginKit
 
@@ -23,11 +24,12 @@ private struct DiskCleanPluginProvider: PluginProvider {
         let journal = DiskCleanStagingJournal(directory: storageDirectory)
         let auditLog = DiskCleanAuditLog(directory: storageDirectory)
         let cleanupReadiness = DiskCleanCleanupReadiness(isReady: false)
-        let executor = DiskCleanExecutor(
+        let executor = DiskCleanSerialExecutor(base: DiskCleanExecutor(
             storageDirectory: storageDirectory,
             journal: journal,
-            auditLog: auditLog
-        )
+            auditLog: auditLog,
+            localization: localization
+        ))
 
         func makeController(scope: DiskCleanScanScope) -> DiskCleanController {
             DiskCleanController(
@@ -47,18 +49,17 @@ private struct DiskCleanPluginProvider: PluginProvider {
             )
         }
 
-        let purgeRoots = DiskCleanPurgeRootsModel()
         return [
             DiskCleanPlugin(
                 controller: makeController(scope: .rules(choices: Set(DiskCleanChoice.allCases))),
-                developerArtifactsController: makeController(scope: purgeRoots.scope),
+                developerArtifactsController: makeController(scope: .automaticProjects),
                 installersController: makeController(scope: .installers),
-                purgeRoots: purgeRoots,
                 localization: localization,
                 storageDirectory: storageDirectory,
                 journal: journal,
                 auditLog: auditLog,
-                cleanupReadiness: cleanupReadiness
+                cleanupReadiness: cleanupReadiness,
+                applicationExecutor: executor
             )
         ]
     }
@@ -95,7 +96,7 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
             order: 90,
             defaultDescription: localization.string(
                 "metadata.description",
-                defaultValue: "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全"
+                defaultValue: "清理缓存、安装包和项目产物，卸载应用并检查疑似残留"
             )
         )
     }
@@ -119,7 +120,6 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
     /// pure overhead.
     private let developerArtifactsController: DiskCleanController
     private let installersController: DiskCleanController
-    private let purgeRoots: DiskCleanPurgeRootsModel
     private let localization: PluginLocalization
     private let storageDirectory: URL
     private let journal: DiskCleanStagingJournal
@@ -127,37 +127,43 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
     private let cleanupReadiness: DiskCleanCleanupReadiness
     private let reconciler: any DiskCleanStagingReconciling
     private var isExpanded = false
+    private let applications: DiskCleanApplicationReviewModel
+    private let leftovers: DiskCleanApplicationReviewModel
+    private var applicationObserver: DiskCleanApplicationObserver?
 
     init(
         controller: DiskCleanControlling = DiskCleanController(),
         developerArtifactsController: DiskCleanController = DiskCleanController(),
         installersController: DiskCleanController = DiskCleanController(),
-        purgeRoots: DiskCleanPurgeRootsModel = DiskCleanPurgeRootsModel(),
         localization: PluginLocalization = PluginLocalization(bundle: .main),
         storageDirectory: URL = DiskCleanStorageLocation.fallbackDirectory,
         journal: DiskCleanStagingJournal? = nil,
         auditLog: DiskCleanAuditLog? = nil,
         cleanupReadiness: DiskCleanCleanupReadiness = DiskCleanCleanupReadiness(isReady: true),
-        reconciler: any DiskCleanStagingReconciling = DiskCleanStagingReconciler()
+        reconciler: any DiskCleanStagingReconciling = DiskCleanStagingReconciler(),
+        applicationExecutor: (any DiskCleanExecuting)? = nil
     ) {
         self.controller = controller
         self.developerArtifactsController = developerArtifactsController
         self.installersController = installersController
-        self.purgeRoots = purgeRoots
         self.localization = localization
         self.storageDirectory = storageDirectory
         self.journal = journal ?? DiskCleanStagingJournal(directory: storageDirectory)
         self.auditLog = auditLog ?? DiskCleanAuditLog(directory: storageDirectory)
         self.cleanupReadiness = cleanupReadiness
         self.reconciler = reconciler
+        let applicationRoots = DiskCleanScanRootsStore(key: "DiskClean.applicationRoots", defaults: DiskCleanApplicationInventory.defaultRoots, preservesDefaults: true)
+        let reviewExecutor = applicationExecutor ?? DiskCleanSerialExecutor(base: DiskCleanExecutor(storageDirectory: storageDirectory, journal: self.journal, auditLog: self.auditLog, localization: localization))
+        let roots = DiskCleanScanRoots(store: applicationRoots)
+        self.applications = DiskCleanApplicationReviewModel(executor: reviewExecutor, readiness: cleanupReadiness, localization: localization, roots: roots)
+        self.leftovers = DiskCleanApplicationReviewModel(executor: reviewExecutor, readiness: cleanupReadiness, localization: localization, roots: roots)
+        self.applications.onInventoryChange = { [weak self] in
+            guard let self, applicationObserver != nil else { return }
+            restartApplicationObserver()
+        }
+
         self.controller.onStateChange = { [weak self] in
             self?.onStateChange?()
-        }
-        // When scan roots change, push the new scope to the developer-artifacts section: if scope
-        // and result diverge the Controller marks "rescan required". If this wire breaks, users
-        // can clean with stale results against a folder they just removed.
-        self.purgeRoots.onRootsChange = { [weak developerArtifactsController] roots in
-            developerArtifactsController?.setScope(.developerArtifacts(roots: roots))
         }
     }
 
@@ -187,7 +193,7 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
                 ),
                 description: localization.string(
                     "permission.fullDiskAccess.description",
-                    defaultValue: "用于扫描受 macOS 保护的缓存与应用数据；未授权时会安全跳过这些位置。"
+                    defaultValue: "用于检查受保护的缓存与应用沙盒。"
                 )
             ),
         ]
@@ -258,19 +264,12 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
         let historyProvider = DiskCleanAuditLogHistoryProvider(directory: storageDirectory)
         let developerArtifactsController = developerArtifactsController
         let installersController = installersController
-        let purgeRoots = purgeRoots
-        return .workspace(description: metadata.defaultDescription, scrolling: .host) { _ in
-            DiskCleanDetailView(
-                controller: controller,
-                developerArtifactsController: developerArtifactsController,
+        let applications = applications
+        let leftovers = leftovers
+        return .workspace(description: metadata.defaultDescription, scrolling: .selfManaged) { _ in
+            DiskCleanWorkspaceView(controller: controller, developerController: developerArtifactsController,
                 installersController: installersController,
-                purgeRoots: purgeRoots,
-                localization: localization,
-                historyProvider: historyProvider,
-                showsHeader: false,
-                contentPadding: 0,
-                minimumContentHeight: 0
-            )
+                applications: applications, leftovers: leftovers, localization: localization, history: historyProvider)
         }
     }
 
@@ -283,6 +282,7 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
     /// protects these objects from every scan, and reconciliation is the only other path that can
     /// touch them. Cleanup stays disabled until this finishes so a live clean cannot race recovery.
     func activate(context: PluginRuntimeContext) {
+        restartApplicationObserver()
         let journal = journal
         let auditLog = auditLog
         let cleanupReadiness = cleanupReadiness
@@ -290,6 +290,8 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
         let rulesController = controller as? DiskCleanController
         let developerController = developerArtifactsController
         let installersController = installersController
+        let applications = applications
+        let leftovers = leftovers
         Task.detached(priority: .utility) {
             // Shared journal instance is required: separate journals have separate locks and can
             // compact a live begin record while rename is still in flight.
@@ -303,11 +305,36 @@ final class DiskCleanPlugin: MacToolsPlugin, PluginSettingsPresenting, PluginAct
                 rulesController?.refreshCleanupReadiness()
                 developerController.refreshCleanupReadiness()
                 installersController.refreshCleanupReadiness()
+                applications.controller?.refreshCleanupReadiness()
+                leftovers.controller?.refreshCleanupReadiness()
             }
         }
     }
 
+    private func restartApplicationObserver() {
+        applicationObserver?.stop()
+        let inventoryPaths = (applications.inventory?.applications ?? []).flatMap {
+            [URL(fileURLWithPath: $0.path).deletingLastPathComponent().path, $0.path + "/Contents"]
+        }
+        applicationObserver = DiskCleanApplicationObserver(roots: Array(Set(applications.roots.paths + inventoryPaths)).sorted()) { [weak self] change in
+            switch change {
+            case .inventory:
+                self?.applications.invalidate()
+                self?.leftovers.invalidate()
+            case let .running(ids):
+                self?.applications.applicationStateDidChange(ids)
+                self?.leftovers.applicationStateDidChange(ids)
+            }
+            (self?.controller as? DiskCleanController)?.invalidateResult()
+        }
+    }
+
     func deactivate(reason: PluginDeactivationReason) {
+        applicationObserver?.stop()
+        applicationObserver = nil
+        applications.stop()
+        leftovers.stop()
+
         controller.cancelCurrentOperation()
         developerArtifactsController.cancelCurrentOperation()
         installersController.cancelCurrentOperation()

@@ -30,14 +30,21 @@ protocol DiskCleanExternalExpanding: Sendable {
     ) async -> DiskCleanExternalExpansion
 }
 
+protocol DiskCleanProgressiveExternalExpanding: DiskCleanExternalExpanding {
+    func expand(scope: DiskCleanScanScope, catalog: DiskCleanRuleCatalogV2, localization: PluginLocalization,
+                onDiscovery: @escaping @Sendable ([DiskCleanTargetHit]) -> Void) async -> DiskCleanExternalExpansion
+}
+
 // MARK: - Purge / development products
 
 /// `DiskCleanPurgeScanner` → unified pipeline (design §10.1).
-struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
+struct DiskCleanDeveloperArtifactExpansion: DiskCleanProgressiveExternalExpanding {
     private let scanner: DiskCleanPurgeScanner
+    private let automaticLocations: DiskCleanDeveloperArtifactLocations
 
-    init(scanner: DiskCleanPurgeScanner = DiskCleanPurgeScanner()) {
+    init(scanner: DiskCleanPurgeScanner = DiskCleanPurgeScanner(), automaticHome: String? = nil) {
         self.scanner = scanner
+        automaticLocations = .init(home: automaticHome ?? NSHomeDirectory())
     }
 
     func expand(
@@ -45,9 +52,34 @@ struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
         catalog: DiskCleanRuleCatalogV2,
         localization: PluginLocalization
     ) async -> DiskCleanExternalExpansion {
+        await expand(scope: scope, catalog: catalog, localization: localization, onDiscovery: { _ in })
+    }
+
+    func expand(scope: DiskCleanScanScope, catalog: DiskCleanRuleCatalogV2, localization: PluginLocalization,
+                onDiscovery: @escaping @Sendable ([DiskCleanTargetHit]) -> Void) async -> DiskCleanExternalExpansion {
         var expansion = DiskCleanExternalExpansion()
-        let roots = scope.developerArtifactRoots
+        let roots: [String]
+        var repositories: [String: String] = [:]
+        let automatic = scope == .automaticProjects
+        let deadline = Date().addingTimeInterval(60)
+        if automatic {
+            let locations = automaticLocations
+            let resolved = await diskCleanBackground { locations.resolve() }
+            roots = resolved.roots
+            repositories = resolved.repositories
+            expansion.reservedRootPaths = resolved.reservedRoots
+            expansion.limitations = resolved.limitations
+        } else { roots = scope.developerArtifactRoots }
         guard !roots.isEmpty else { return expansion }
+
+        @Sendable func hits(for report: DiskCleanPurgeRootReport) -> [DiskCleanTargetHit] {
+            report.candidates.compactMap { candidate in
+                guard let target = catalog.target(id: candidate.kind.targetID) else { return nil }
+                return .init(target: target,
+                    item: .init(path: candidate.path, isDirectory: true, isSymlink: false, resolvedSymlinkTarget: nil),
+                    specificity: 0, facts: Self.facts(for: candidate))
+            }
+        }
 
         // **Every configured root enters the reserved set**, whether or not traversal succeeded.
         //
@@ -55,9 +87,18 @@ struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
         // reject any plan path that has a root as a descendant (e.g. `~` or a root's parent), while candidates **inside** a root
         // are unaffected—they are descendants of the root, not ancestors. Depth cap 6 and unexplored regions left by hit-and-prune
         // are covered by the same rule.
-        expansion.reservedRootPaths = roots
+        expansion.reservedRootPaths += roots
 
-        let result = await scanner.scan(roots: roots)
+        let result = await scanner.scan(roots: roots, repositories: repositories,
+            limits: automatic ? .init(deadline: deadline) : nil) { report in
+                if automatic { onDiscovery(hits(for: report)) }
+            }
+        if automatic, result.reports.contains(where: {
+            if case let .traversed(completeness) = $0.status { return !completeness.isComplete }
+            return false
+        }), !expansion.limitations.contains(.developerSearchLimited) {
+            expansion.limitations.append(.developerSearchLimited)
+        }
         for report in result.reports {
             switch report.status {
             case let .unreadable(reason):
@@ -84,25 +125,10 @@ struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
                 )
             }
 
-            for candidate in report.candidates {
-                guard let target = catalog.target(id: candidate.kind.targetID) else {
-                    expansion.logMessages.append(Self.missingTargetLog(candidate.kind.targetID, localization: localization))
-                    continue
-                }
-                expansion.hits.append(
-                    DiskCleanTargetHit(
-                        target: target,
-                        item: DiskCleanFileItem(
-                            path: candidate.path,
-                            isDirectory: true,
-                            isSymlink: false,
-                            resolvedSymlinkTarget: nil
-                        ),
-                        specificity: 0,
-                        facts: Self.facts(for: candidate)
-                    )
-                )
+            for candidate in report.candidates where catalog.target(id: candidate.kind.targetID) == nil {
+                expansion.logMessages.append(Self.missingTargetLog(candidate.kind.targetID, localization: localization))
             }
+            expansion.hits += hits(for: report)
         }
 
         return expansion
@@ -118,7 +144,9 @@ struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
         }
         return DiskCleanCandidateFacts(
             risk: candidate.isSelectedByDefault ? .low : nil,
-            notes: notes
+            notes: notes,
+            rejection: candidate.protectionReason,
+            validation: .project
         )
     }
 
@@ -140,95 +168,69 @@ struct DiskCleanDeveloperArtifactExpansion: DiskCleanExternalExpanding {
 // MARK: - Leftover installers
 
 /// `DiskCleanInstallerScanner` → unified pipeline (design §10.2).
-struct DiskCleanInstallerExpansion: DiskCleanExternalExpanding {
-    private let scanner: DiskCleanInstallerScanner
+struct DiskCleanInstallerExpansion: DiskCleanProgressiveExternalExpanding {
+    private let scanner: DiskCleanInstallerScanner?
+    private let homeScanner: DiskCleanInstallerHomeScanner
 
-    init(scanner: DiskCleanInstallerScanner = DiskCleanInstallerScanner()) {
+    init(scanner: DiskCleanInstallerScanner? = nil,
+         homeScanner: DiskCleanInstallerHomeScanner = .init(home: NSHomeDirectory())) {
         self.scanner = scanner
+        self.homeScanner = homeScanner
     }
 
-    func expand(
-        scope: DiskCleanScanScope,
-        catalog: DiskCleanRuleCatalogV2,
-        localization: PluginLocalization
-    ) async -> DiskCleanExternalExpansion {
-        var expansion = DiskCleanExternalExpansion()
-        // Scope is fixed; reserved roots come from the synthetic target's own declaration—same source as rule targets.
-        // Five targets declare the same `~/Downloads`; after dedupe only one remains.
-        var seenRoots: Set<String> = []
-        expansion.reservedRootPaths = DiskCleanInstallerKind.allCases
-            .compactMap { catalog.target(id: $0.targetID) }
-            .flatMap { $0.expandedReservedRootPaths() }
-            .filter { seenRoots.insert($0).inserted }
+    func expand(scope: DiskCleanScanScope, catalog: DiskCleanRuleCatalogV2,
+                localization: PluginLocalization) async -> DiskCleanExternalExpansion {
+        await expand(scope: scope, catalog: catalog, localization: localization, onDiscovery: { _ in })
+    }
 
-        switch await scanInBackground() {
-        case let .denied(path):
-            // TCC denial (`~/Downloads` is the kind that prompts). The directory may hold tens of GB;
-            // reporting "nothing to clean" would be lying to the user.
-            expansion.limitations.append(.scanRootUnreadable(path: path, reason: .permissionDenied))
-
-        case let .unavailable(path, reason):
-            expansion.limitations.append(.scanRootUnreadable(path: path, reason: reason))
-
-        case let .scanned(candidates):
-            for candidate in candidates {
-                guard let target = catalog.target(id: candidate.kind.targetID) else {
-                    expansion.logMessages.append(
-                        DiskCleanScanLogMessage(
-                            text: localization.format(
-                                "scanLog.missingTarget",
-                                defaultValue: "规则目录缺少 target %@，已跳过对应候选",
-                                candidate.kind.targetID
-                            ),
-                            tone: .error
-                        )
-                    )
-                    continue
-                }
-                expansion.hits.append(
-                    DiskCleanTargetHit(
-                        target: target,
-                        item: DiskCleanFileItem(
-                            path: candidate.path,
-                            isDirectory: false,
-                            isSymlink: false,
-                            resolvedSymlinkTarget: nil
-                        ),
-                        specificity: 0,
-                        facts: Self.facts(for: candidate)
-                    )
-                )
+    func expand(scope: DiskCleanScanScope, catalog: DiskCleanRuleCatalogV2, localization: PluginLocalization,
+                onDiscovery: @escaping @Sendable ([DiskCleanTargetHit]) -> Void) async -> DiskCleanExternalExpansion {
+        @Sendable func hits(_ candidates: [DiskCleanInstallerCandidate]) -> [DiskCleanTargetHit] {
+            candidates.compactMap { candidate in
+                guard let target = catalog.target(id: candidate.kind.targetID) else { return nil }
+                return DiskCleanTargetHit(target: target,
+                    item: .init(path: candidate.path,
+                        isDirectory: (try? URL(fileURLWithPath: candidate.path).resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true,
+                        isSymlink: false, resolvedSymlinkTarget: nil),
+                    specificity: 0, facts: Self.facts(for: candidate))
             }
         }
-
+        var expansion = DiskCleanExternalExpansion()
+        expansion.reservedRootPaths = Array(Set(DiskCleanInstallerKind.allCases
+            .compactMap { catalog.target(id: $0.targetID) }.flatMap { $0.expandedReservedRootPaths() })).sorted()
+        let report: DiskCleanInstallerHomeScan
+        if let scanner {
+            let outcome = await diskCleanBackground { scanner.scan() }
+            switch outcome {
+            case let .scanned(candidates): report = .init(candidates: candidates)
+            case let .denied(path): report = .init(limitations: [.scanRootUnreadable(path: path, reason: .permissionDenied)])
+            case let .unavailable(path, reason): report = .init(limitations: [.scanRootUnreadable(path: path, reason: reason)])
+            }
+            onDiscovery(hits(report.candidates))
+        } else {
+            let search = homeScanner
+            report = await diskCleanBackground {
+                search.scan { candidates in onDiscovery(hits(candidates)) }
+            }
+        }
+        expansion.hits = hits(report.candidates)
+        expansion.reservedRootPaths += report.reservedRoots
+        expansion.limitations = report.limitations
+        for id in Set(report.candidates.map { $0.kind.targetID }) where catalog.target(id: id) == nil {
+            expansion.logMessages.append(.init(text: localization.format("scanLog.missingTarget",
+                defaultValue: "规则目录缺少 target %@，已跳过对应候选", id), tone: .error))
+        }
         return expansion
     }
 
-    /// `.zip` and "downloaded within 7 days" keep the target's medium risk; everything else drops to low and is selected by default.
     static func facts(for candidate: DiskCleanInstallerCandidate) -> DiskCleanCandidateFacts {
         var notes: [DiskCleanCandidateNote] = []
         switch candidate.note {
-        case .mayNotBeInstaller:
-            notes.append(.mayNotBeInstaller)
-        case .recentlyModified:
-            notes.append(.recentlyDownloaded(modifiedAt: candidate.modifiedAt))
-        case nil:
-            break
+        case .mayNotBeInstaller: notes.append(.mayNotBeInstaller)
+        case .recentlyModified: notes.append(.recentlyDownloaded(modifiedAt: candidate.modifiedAt))
+        case nil: break
         }
-        return DiskCleanCandidateFacts(
-            risk: candidate.isSelectedByDefault ? .low : nil,
-            notes: notes
-        )
-    }
-
-    /// The scan is blocking (one top-level `readdir` + per-entry `fstatat`) and must not occupy Swift concurrency's cooperative thread pool.
-    /// The same call may also trigger the `~/Downloads` TCC prompt, which must not happen on a cooperative thread either.
-    private func scanInBackground() async -> DiskCleanInstallerScanOutcome {
-        let scanner = self.scanner
-        return await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                continuation.resume(returning: scanner.scan())
-            }
-        }
+        return DiskCleanCandidateFacts(risk: candidate.isSelectedByDefault ? .low : nil,
+            notes: notes, validation: .installer)
     }
 }

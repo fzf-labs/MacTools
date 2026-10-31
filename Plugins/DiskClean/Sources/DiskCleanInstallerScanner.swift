@@ -7,6 +7,7 @@ import Foundation
 enum DiskCleanInstallerKind: String, CaseIterable, Equatable, Sendable {
     case diskImage = "dmg"
     case installerPackage = "pkg"
+    case multiPackage = "mpkg"
     case discImage = "iso"
     case signedArchive = "xip"
     /// A `.zip` may be an installer or a user archive. Never selected by default.
@@ -14,13 +15,19 @@ enum DiskCleanInstallerKind: String, CaseIterable, Equatable, Sendable {
 
     var fileExtension: String { rawValue }
 
-    /// Whether this format is almost certainly an installer. `.zip` is the only exception.
-    var isLikelyInstaller: Bool { self != .zipArchive }
+    /// Disk images and ZIPs need explicit selection because their contents may be user data.
+    var isLikelyInstaller: Bool {
+        switch self {
+        case .installerPackage, .multiPackage, .signedArchive: true
+        case .diskImage, .discImage, .zipArchive: false
+        }
+    }
 
     var displayName: String {
         switch self {
         case .diskImage:
             return "磁盘映像"
+        case .multiPackage: return "多组件安装包"
         case .installerPackage:
             return "安装包"
         case .discImage:
@@ -50,11 +57,11 @@ struct DiskCleanInstallerCandidate: Identifiable, Equatable, Sendable {
     enum Note: Equatable, Sendable {
         /// Modified within 7 days; may still be in use (just downloaded, pending install).
         case recentlyModified
-        /// A `.zip` is not necessarily an installer.
+        /// An archive or disk image may contain user data.
         case mayNotBeInstaller
     }
 
-    /// Physical path (Downloads directory realpath-normalized, then filename appended; leaf not resolved).
+    /// Physical parent path with the unresolved filename appended.
     let path: String
     let kind: DiskCleanInstallerKind
     /// Logical size for preview. **Authoritative size still comes from the unified sizing pipeline**
@@ -182,23 +189,12 @@ struct DiskCleanInstallerScanner: Sendable {
                     guard case let .resolved(resolved) = entry else { continue }
                     // Regular files only: do not follow symlinks (would delete the link, not the installer),
                     // and do not recurse into directories.
-                    guard resolved.fileType == .regularFile else { continue }
-                    guard
-                        let name = Self.name(of: resolved),
-                        let kind = DiskCleanInstallerKind.byExtension[(name as NSString).pathExtension.lowercased()],
-                        let status = Self.status(name: name, directoryFileDescriptor: source.directoryFileDescriptor)
-                    else { continue }
-
-                    let modifiedAt = DiskCleanRootIdentity.date(from: status.st_mtimespec)
-                    candidates.append(
-                        makeCandidate(
-                            path: directoryPath + "/" + name,
-                            kind: kind,
-                            byteSize: max(status.st_size, 0),
-                            modifiedAt: modifiedAt,
-                            observedAt: observedAt
-                        )
-                    )
+                    guard resolved.fileType == .regularFile || resolved.fileType == .directory else { continue }
+                    guard let name = Self.name(of: resolved),
+                          let status = Self.status(name: name, directoryFileDescriptor: source.directoryFileDescriptor),
+                          let candidate = candidate(name: name, directoryPath: directoryPath, status: status,
+                              observedAt: observedAt) else { continue }
+                    candidates.append(candidate)
                 }
             }
         } catch {
@@ -213,12 +209,32 @@ struct DiskCleanInstallerScanner: Sendable {
         return .scanned(candidates: candidates.sorted { $0.path < $1.path })
     }
 
+    func candidate(name: String, directoryPath: String, status: stat, observedAt: Date,
+                   allowsDefaultSelection: Bool = true) -> DiskCleanInstallerCandidate? {
+        let type = DiskCleanRootIdentity.FileType(mode: status.st_mode)
+        guard type == .regularFile || type == .directory,
+              let kind = DiskCleanInstallerKind.byExtension[(name as NSString).pathExtension.lowercased()],
+              status.st_flags & UInt32(SF_DATALESS) == 0 else { return nil }
+        let path = directoryPath + "/" + name
+        if type == .directory {
+            guard kind == .multiPackage || kind == .installerPackage,
+                  DiskCleanProjectRecognition.readSmallFile(path + "/Contents/Info.plist") != nil,
+                  FileManager.default.fileExists(atPath: path + "/Contents/Archive.bom")
+                    || FileManager.default.fileExists(atPath: path + "/Contents/Packages") else { return nil }
+        }
+        if kind == .zipArchive && !DiskCleanInstallerArchive.isInstaller(path: path) { return nil }
+        return makeCandidate(path: path, kind: kind, byteSize: max(status.st_size, 0),
+            modifiedAt: DiskCleanRootIdentity.date(from: status.st_mtimespec), observedAt: observedAt,
+            allowsDefaultSelection: allowsDefaultSelection)
+    }
+
     private func makeCandidate(
         path: String,
         kind: DiskCleanInstallerKind,
         byteSize: Int64,
         modifiedAt: Date,
-        observedAt: Date
+        observedAt: Date,
+        allowsDefaultSelection: Bool
     ) -> DiskCleanInstallerCandidate {
         let isStale = observedAt.timeIntervalSince(modifiedAt) > staleAge
         let note: DiskCleanInstallerCandidate.Note?
@@ -235,7 +251,7 @@ struct DiskCleanInstallerScanner: Sendable {
             kind: kind,
             byteSize: byteSize,
             modifiedAt: modifiedAt,
-            isSelectedByDefault: kind.isLikelyInstaller && isStale,
+            isSelectedByDefault: allowsDefaultSelection && kind.isLikelyInstaller && isStale,
             note: note
         )
     }
@@ -246,13 +262,16 @@ struct DiskCleanInstallerScanner: Sendable {
         var status = stat()
         guard fstatat(directoryFileDescriptor, name, &status, AT_SYMLINK_NOFOLLOW) == 0 else { return nil }
         // The entry may have changed since the bulk read. Only a current regular file is an installer.
-        guard DiskCleanRootIdentity.FileType(mode: status.st_mode) == .regularFile else { return nil }
+        guard [.regularFile, .directory].contains(DiskCleanRootIdentity.FileType(mode: status.st_mode)) else { return nil }
         return status
     }
 
-    private static func name(of entry: DiskCleanResolvedEntry) -> String? {
+    static func name(of entry: DiskCleanResolvedEntry) -> String? {
         let bytes = entry.nameBytes.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
         // Invalid UTF-8 names cannot safely become candidate paths; prefer under-reporting.
-        return String(bytes: bytes, encoding: .utf8)
+        guard let name = String(bytes: bytes, encoding: .utf8), !name.isEmpty,
+              name != ".", name != "..", !name.contains("/"),
+              name.rangeOfCharacter(from: .controlCharacters) == nil else { return nil }
+        return name
     }
 }

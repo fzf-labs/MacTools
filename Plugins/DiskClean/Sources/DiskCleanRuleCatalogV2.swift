@@ -1680,9 +1680,7 @@ struct DiskCleanRuleCatalogV2: Sendable {
 
     // MARK: - P2 leftover installers (design §10.2)
 
-    /// Synthetic targets, one per extension. Risk and reserved-root handling match developer
-    /// artifacts; the difference is a fixed top-level `~/Downloads` scope, so reserved roots can
-    /// be hard-coded.
+    /// Synthetic format targets. The installer expander also reserves the actual home search root.
     private static let installerTargets: [DiskCleanRuleTarget] = DiskCleanInstallerKind.allCases.map { kind in
         DiskCleanRuleTarget(
             id: kind.targetID,

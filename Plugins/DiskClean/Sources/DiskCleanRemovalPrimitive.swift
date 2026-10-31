@@ -10,8 +10,8 @@ import Foundation
 enum DiskCleanRemovalDisposition: Equatable, Sendable {
     /// Permanent delete finished; staged object no longer exists.
     case removed
-    /// Moved to Trash. Restoring will land under the staged name, so that name is returned too
-    /// (design §7.4 trade-off).
+    /// Moved to Trash. The name is staged for ordinary cleanup, or the native Trash name
+    /// for installed-app removal.
     case trashed(stagedName: String)
     /// Identity recheck mismatch: object was replaced or changed after the scan. Original object
     /// was **not touched**.

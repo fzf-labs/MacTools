@@ -74,6 +74,8 @@ Stable plugin publication reuses one aggregate `Release` build for package signi
 
 Ordinary plugins do not need root `project.yml` edits. Put necessary build overrides in the plugin's own `project.yml`; app extensions such as Finder Sync must be embedded by the host.
 
+The [Wallpaper plugin](docs/plugins/wallpaper.md) is an example of a settings workspace with local and online image sources. Its plugin-local project fragment links `MacToolsFileSystem`; use `make build-plugin PLUGIN=Wallpaper` and its focused tests when changing the image pipeline or rotation behavior. Desktop-dependent acceptance is manual; automated tests must use a fake wallpaper adapter.
+
 ## Development standards
 
 Follow the [plugin development standards](docs/plugins/development-guidelines.md) and the adjacent implementation. The common requirements are:
@@ -165,3 +167,11 @@ Right Click spans its plugin settings, private Core executor, and embedded Finde
 Screenshot recording targets and audio use the plugin-private request model. Keep shared scrolling capture silent. Recording audio requires the host capability `MTScreenshotAudioRecordingSupported`, localized microphone/system-audio purpose strings, and the signed audio-input entitlement. The optional `microphone` permission ID routes through the host permission center without changing the PluginKit v7 permission enum. It must never gate ordinary screenshots or silent recording.
 
 After changing these contracts, run `make script-tests` and `make ci`, and use synthetic media for automated audio/export checks. Live microphone capture and target filtering require explicit manual acceptance in the signed app; see [Screenshot](docs/plugins/screenshot.md). At release preflight, align the plugin minimum-host version with the release containing this support and preserve historical signed catalogs.
+
+### Disk Clean changes
+
+Keep Disk Clean self-contained. Disk-usage visualization belongs to the independent Storage Explorer plugin and must not appear as a Disk Clean destination or cross-plugin navigation.
+
+Disk Clean development must preserve validated deletion plans, shared mutation serialization, per-path recovery, and application ownership checks. Use synthetic applications and temporary roots for tests; follow the [Disk Clean guide](docs/plugins/disk-clean.md) for uninstall, leftover, installer, and project boundaries. The [uninstall specification](docs/superpowers/specs/2026-10-30-app-uninstall-final.md) defines automatic inventory, categorized application review, and ownership checks; extending those rules requires temporary-fixture safety coverage. Product rules must use exact leaves and preserve shared-data boundaries; keep the per-location coverage report accurate for failed or skipped reads.
+
+Disk Clean app-removal tests must inject process, service, and Trash adapters. Keep its private Objective-C file-reference bridge: converting a reference through Swift `URL` resolves it to a replaceable pathname. Size-cache data can improve presentation but must never replace independent content, identity, and execution-time ownership checks.

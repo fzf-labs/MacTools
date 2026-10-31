@@ -173,210 +173,184 @@ struct DiskCleanAuditLogHistoryProvider: DiskCleanCleanupHistoryProviding {
 
 // MARK: - View
 
-/// Cleanup history section. Load from disk only when expanded—rescanning the log every time settings appear is unnecessary.
+/// A visible, searchable history workspace; attention records remain pinned before filtering.
 struct DiskCleanCleanupHistorySection: View {
-    let provider: any DiskCleanCleanupHistoryProviding
     let localization: PluginLocalization
-
-    private static let recordLimit = 100
-
-    enum HistoryViewMode: String, CaseIterable, Identifiable {
-        case runs
-        case items
-
-        var id: String { rawValue }
-    }
-
-    @State private var isExpanded = false
-    @State private var entries: [DiskCleanCleanupHistoryEntry] = []
-    @State private var runs: [DiskCleanRunHistoryEntry] = []
-    @State private var isLoading = false
+    let reloadToken: DiskCleanHistoryReloadToken
+    @StateObject private var model: DiskCleanCleanupHistoryModel
     @State private var viewMode: HistoryViewMode = .runs
+    @State private var query = ""
     @State private var isCopied = false
 
+    private enum HistoryViewMode { case runs, items }
+
+    init(provider: any DiskCleanCleanupHistoryProviding, localization: PluginLocalization,
+         reloadToken: DiskCleanHistoryReloadToken) {
+        self.localization = localization
+        self.reloadToken = reloadToken
+        _model = StateObject(wrappedValue: DiskCleanCleanupHistoryModel(provider: provider))
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.sectionHeaderContent) {
-            DisclosureGroup(isExpanded: $isExpanded) {
-                content
-                    .padding(.top, PluginSettingsTheme.Spacing.sectionHeaderContent)
-            } label: {
-                Text(localization.string("detail.history.title", defaultValue: "清理历史"))
-                    .font(PluginSettingsTheme.Typography.rowTitle)
-            }
-        }
-        .task(id: isExpanded) {
-            guard isExpanded else { return }
-            await loadData()
-        }
-    }
-
-    private func loadData() async {
-        isLoading = true
-        async let loadedEntries = provider.recentEntries(limit: Self.recordLimit)
-        async let loadedRuns = provider.recentRuns(limit: Self.recordLimit)
-        entries = await loadedEntries
-        runs = await loadedRuns
-        isLoading = false
-    }
-
-    private var reloadButton: some View {
-        Button {
-            Task { await loadData() }
-        } label: {
-            Label(
-                localization.string("detail.history.reload", defaultValue: "刷新"),
-                systemImage: "arrow.clockwise"
-            )
-            .font(PluginSettingsTheme.Typography.controlLabel)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .disabled(isLoading)
-    }
-
-    private var copyDiagnosticsButton: some View {
-        Button {
-            copyDiagnostics()
-            isCopied = true
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                isCopied = false
-            }
-        } label: {
-            Label(
-                isCopied
-                    ? localization.string("detail.history.diagnosticsCopied", defaultValue: "已复制诊断信息")
-                    : localization.string("detail.history.copyDiagnostics", defaultValue: "复制诊断信息"),
-                systemImage: isCopied ? "checkmark" : "doc.on.doc"
-            )
-            .font(PluginSettingsTheme.Typography.controlLabel)
-        }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
-        .disabled(isLoading || (entries.isEmpty && runs.isEmpty))
-    }
-
-    private func copyDiagnostics() {
-        let home = NSHomeDirectory()
-        var lines: [String] = ["=== DiskClean Cleanup History Diagnostics ==="]
-        for run in runs {
-            let mode = run.isRecovery ? "Recovery" : (run.isTrash ? "Trash" : "Permanent")
-            lines.append("Run [\(DiskCleanFormat.timestamp(run.timestamp))] Status: \(run.status), Mode: \(mode), Removed: \(run.itemsRemoved) items (\(run.bytesRemoved) bytes), Categories: \(run.categoriesCleaned.joined(separator: ", "))")
-            for error in run.errorsEncountered {
-                lines.append("  Error: \(error.replacingOccurrences(of: home, with: "~"))")
-            }
-        }
-        lines.append("\n=== Recent Items ===")
-        for entry in entries.prefix(50) {
-            let path = (entry.path ?? "nil").replacingOccurrences(of: home, with: "~")
-            lines.append("[\(entry.timestamp)] \(path) - Status: \(entry.status.symbolName) - \(entry.estimatedBytes ?? 0) bytes")
-        }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if isLoading {
-            HStack(spacing: PluginSettingsTheme.Spacing.controlCluster) {
-                ProgressView().controlSize(.small)
-                Text(localization.string("detail.history.loading", defaultValue: "正在读取记录…"))
-                    .font(PluginSettingsTheme.Typography.rowDescription)
-                    .foregroundStyle(.secondary)
-            }
-            .pluginSettingsListRowPadding()
-        } else if entries.isEmpty && runs.isEmpty {
-            Text(localization.string("detail.history.empty", defaultValue: "还没有清理记录"))
-                .font(PluginSettingsTheme.Typography.rowDescription)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .pluginSettingsListRowPadding()
-                .pluginSettingsCardBackground(.standard)
-        } else {
-            VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.sectionHeaderContent) {
-                if let attentionCount {
-                    attentionBanner(count: attentionCount)
+        VStack(spacing: 0) {
+            toolbar
+            Divider()
+            if attentionCount > 0 { attentionBanner; Divider() }
+            if model.isLoading && !hasRecords {
+                VStack(spacing: PluginSettingsTheme.Spacing.rowContentControl) {
+                    ProgressView().controlSize(.small)
+                    Text(copy("detail.history.loading", "正在读取记录…"))
+                        .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.secondary)
                 }
-
-                HStack {
-                    Picker("", selection: $viewMode) {
-                        Text(localization.format("detail.history.view.runs", defaultValue: "按次汇总 (%d)", runs.count))
-                            .tag(HistoryViewMode.runs)
-                        Text(localization.format("detail.history.view.items", defaultValue: "项目明细 (%d)", entries.count))
-                            .tag(HistoryViewMode.items)
-                    }
-                    .pickerStyle(.segmented)
-                    .controlSize(.small)
-                    .frame(maxWidth: 240)
-
-                    Spacer()
-
-                    copyDiagnosticsButton
-                    reloadButton
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if !hasRecords {
+                emptyState(copy("detail.history.empty", "还没有清理记录"), symbol: "clock.arrow.circlepath")
+            } else if (viewMode == .runs && filteredRuns.isEmpty) || (viewMode == .items && filteredEntries.isEmpty) {
+                VStack(spacing: PluginSettingsTheme.Spacing.rowContentControl) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: PluginSettingsTheme.Size.emptyStateIcon)).foregroundStyle(.secondary)
+                    Text(copy("settings.noMatchingRecords", "未找到匹配记录"))
+                        .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.secondary)
+                    Button(copy("settings.clearSearch", "清除搜索")) { query = "" }
+                        .buttonStyle(.bordered).controlSize(.small)
                 }
-
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(PluginSettingsTheme.Spacing.rowVertical)
+            } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
                         if viewMode == .runs {
-                            ForEach(runs) { run in
-                                DiskCleanRunHistoryRow(run: run, localization: localization)
-                                if run.id != runs.last?.id {
-                                    PluginSettingsListDivider()
-                                }
+                            ForEach(filteredRuns) { run in
+                                DiskCleanRunHistoryRow(run: run, localization: localization, expandsMatches: !query.isEmpty)
+                                if run.id != filteredRuns.last?.id { PluginSettingsListDivider() }
                             }
                         } else {
-                            ForEach(entries) { entry in
+                            ForEach(filteredEntries) { entry in
                                 DiskCleanCleanupHistoryRow(entry: entry, localization: localization)
-                                if entry.id != entries.last?.id {
-                                    PluginSettingsListDivider()
-                                }
+                                if entry.id != filteredEntries.last?.id { PluginSettingsListDivider() }
                             }
                         }
                     }
                 }
-                .frame(maxHeight: 280)
-                .pluginSettingsCardBackground(.standard)
             }
+        }
+        .frame(minHeight: 160, maxHeight: .infinity)
+        .pluginSettingsCardBackground(.standard)
+        .task(id: reloadToken) { await reload() }
+        .task(id: isCopied) {
+            guard isCopied else { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
+            isCopied = false
         }
     }
 
-    private var attentionCount: Int? {
-        let count = entries.filter(\.needsAttention).count
-        return count > 0 ? count : nil
+    private var hasRecords: Bool { !model.entries.isEmpty || !model.runs.isEmpty }
+    private var filteredRuns: [DiskCleanRunHistoryEntry] {
+        model.runs.filter { DiskCleanHistorySearch.matches($0, query: query, localization: localization) }
+    }
+    private var filteredEntries: [DiskCleanCleanupHistoryEntry] {
+        model.entries.filter { DiskCleanHistorySearch.matches($0, query: query, localization: localization) }
+    }
+    private var attentionCount: Int {
+        viewMode == .runs ? model.runs.filter(\.needsAttention).count : model.entries.filter(\.needsAttention).count
     }
 
-    private func attentionBanner(count: Int) -> some View {
-        HStack(alignment: .top, spacing: PluginSettingsTheme.Spacing.controlCluster) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-                .frame(width: PluginSettingsTheme.Size.rowIcon)
-
-            VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) {
-                Text(
-                    localization.format(
-                        "detail.history.attention.title",
-                        defaultValue: "有 %d 项清理未完成",
-                        count
-                    )
-                )
-                .font(PluginSettingsTheme.Typography.rowTitle)
-
-                Text(
-                    localization.string(
-                        "detail.history.attention.description",
-                        defaultValue: "这些项目在磁盘上留下了以 .mactools-staged- 开头的暂存对象，可在下方记录里查看原路径后自行处理。"
-                    )
-                )
-                .font(PluginSettingsTheme.Typography.rowDescription)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+    private var toolbar: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: PluginSettingsTheme.Spacing.controlCluster) {
+                displayPicker
+                if hasRecords { searchField }
+                Spacer(minLength: 0)
+                toolbarActions
             }
+            VStack(spacing: PluginSettingsTheme.Spacing.controlCluster) {
+                HStack { displayPicker; Spacer(minLength: 0); toolbarActions }
+                if hasRecords { searchField }
+            }
+        }
+        .pluginSettingsListRowPadding(interactive: true)
+    }
 
+    private var displayPicker: some View {
+        Picker(copy("settings.historyDisplay", "显示方式"), selection: $viewMode) {
+            Text(copy("settings.historyRuns", "按次汇总")).tag(HistoryViewMode.runs)
+            Text(copy("settings.historyItems", "文件明细")).tag(HistoryViewMode.items)
+        }
+        .labelsHidden().controlSize(.small).fixedSize(horizontal: true, vertical: false)
+        .disabled(!hasRecords)
+    }
+
+    private var searchField: some View {
+        TextField(copy("settings.searchRecords", "搜索记录"), text: $query)
+            .textFieldStyle(.roundedBorder).controlSize(.small)
+            .frame(minWidth: 140, idealWidth: 200, maxWidth: .infinity)
+            .accessibilityLabel(copy("settings.searchRecords", "搜索记录"))
+            .onExitCommand { query = "" }
+    }
+
+    private var toolbarActions: some View {
+        HStack(spacing: PluginSettingsTheme.Spacing.controlCluster) {
+            if model.isLoading { ProgressView().controlSize(.small) }
+            Button { Task { await reload() } } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(.borderless).disabled(model.isLoading)
+                .help(copy("detail.history.reload", "刷新")).accessibilityLabel(copy("detail.history.reload", "刷新"))
+            Menu {
+                Button(copy("detail.history.copyDiagnostics", "复制诊断信息"), systemImage: "doc.on.doc") { copyDiagnostics() }
+                    .disabled(model.isLoading || !hasRecords)
+            } label: { Image(systemName: isCopied ? "checkmark" : "ellipsis.circle") }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+            .help(isCopied ? copy("detail.history.diagnosticsCopied", "已复制诊断信息") : copy("settings.moreActions", "更多操作"))
+            .accessibilityLabel(copy("settings.moreActions", "更多操作"))
+        }
+        .font(PluginSettingsTheme.Typography.controlLabel)
+    }
+
+    private var attentionBanner: some View {
+        HStack(spacing: PluginSettingsTheme.Spacing.rowContentControl) {
+            Label(localization.format("settings.attentionRecords", defaultValue: "%d 条记录需要关注", attentionCount), systemImage: "exclamationmark.triangle.fill")
+                .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.orange)
             Spacer(minLength: 0)
+            Button(copy("settings.viewAttention", "查看")) {
+                query = ""
+                if model.entries.contains(where: \.needsAttention) { viewMode = .items }
+            }
+            .buttonStyle(.bordered).controlSize(.small)
         }
         .pluginSettingsListRowPadding()
-        .pluginSettingsCardBackground(.standard)
     }
+
+    private func emptyState(_ title: String, symbol: String) -> some View {
+        VStack(spacing: PluginSettingsTheme.Spacing.sectionHeaderContent) {
+            Image(systemName: symbol).font(.system(size: PluginSettingsTheme.Size.emptyStateIcon))
+            Text(title).font(PluginSettingsTheme.Typography.rowDescription)
+        }
+        .foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(PluginSettingsTheme.Spacing.rowHorizontal)
+    }
+
+    private func reload() async {
+        await model.reload()
+        if model.runs.isEmpty && !model.entries.isEmpty { viewMode = .items }
+    }
+
+    private func copyDiagnostics() {
+        let home = NSHomeDirectory()
+        var lines = ["=== DiskClean Cleanup History Diagnostics ==="]
+        for run in model.runs {
+            let mode = run.isRecovery ? "Recovery" : (run.isTrash ? "Trash" : "Permanent")
+            lines.append("Run [\(DiskCleanFormat.timestamp(run.timestamp))] Status: \(run.status), Mode: \(mode), Removed: \(run.itemsRemoved) items (\(run.bytesRemoved) bytes), Categories: \(run.categoriesCleaned.joined(separator: ", "))")
+            for error in run.errorsEncountered { lines.append("  Error: " + error.replacingOccurrences(of: home, with: "~")) }
+        }
+        lines.append("\n=== Recent Items ===")
+        for entry in model.entries.prefix(50) {
+            lines.append("[\(entry.timestamp)] \((entry.path ?? "nil").replacingOccurrences(of: home, with: "~")) - Status: \(entry.status.symbolName) - \(entry.estimatedBytes ?? 0) bytes")
+        }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
+        isCopied = true
+    }
+
+    private func copy(_ key: String, _ fallback: String) -> String { localization.string(key, defaultValue: fallback) }
 }
 
 private struct DiskCleanCleanupHistoryRow: View {
@@ -388,177 +362,119 @@ private struct DiskCleanCleanupHistoryRow: View {
             Image(systemName: entry.status.symbolName)
                 .foregroundStyle(entry.needsAttention ? Color.orange : Color.secondary)
                 .frame(width: PluginSettingsTheme.Size.rowIcon)
-
             VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) {
-                HStack(alignment: .firstTextBaseline, spacing: PluginSettingsTheme.Spacing.controlCluster) {
-                    Text(entry.status.title(localization: localization))
-                        .font(PluginSettingsTheme.Typography.rowTitle)
-                    Spacer(minLength: PluginSettingsTheme.Spacing.rowContentControl)
-                    Text(DiskCleanFormat.timestamp(entry.timestamp))
-                        .font(PluginSettingsTheme.Typography.statusBadge)
-                        .foregroundStyle(.secondary)
+                HStack(alignment: .firstTextBaseline) {
+                    Text(entry.path.map { URL(fileURLWithPath: $0).lastPathComponent } ?? entry.status.title(localization: localization))
+                        .font(PluginSettingsTheme.Typography.rowTitle).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 0)
+                    if let bytes = entry.estimatedBytes {
+                        Text(DiskCleanFormat.approximateBytes(bytes, localization: localization))
+                            .font(PluginSettingsTheme.Typography.monospacedValue).foregroundStyle(.secondary)
+                    }
                 }
-
                 if let path = entry.path {
-                    Text(path)
-                        .font(PluginSettingsTheme.Typography.monospacedValue)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .textSelection(.enabled)
+                    Text((path as NSString).abbreviatingWithTildeInPath)
+                        .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle).help(path).textSelection(.enabled)
                 }
-
-                // Objects in Trash land under the staged name; without showing it the user cannot find them (design §7.4).
+                Text(entry.status.title(localization: localization) + " · " + DiskCleanFormat.timestamp(entry.timestamp))
+                    .font(PluginSettingsTheme.Typography.statusBadge)
+                    .foregroundStyle(entry.needsAttention ? Color.orange : Color.secondary)
                 if let stagedName = entry.stagedName {
-                    Text(
-                        localization.format(
-                            "detail.history.stagedName",
-                            defaultValue: "暂存名：%@",
-                            stagedName
-                        )
-                    )
-                    .font(PluginSettingsTheme.Typography.monospacedValue)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .textSelection(.enabled)
+                    Text(localization.format("detail.history.stagedName", defaultValue: "暂存名：%@", stagedName))
+                        .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle).help(stagedName).textSelection(.enabled)
                 }
-
-                if let errorMessage = entry.errorMessage {
-                    Text(errorMessage)
-                        .font(PluginSettingsTheme.Typography.rowDescription)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                if let error = entry.errorMessage {
+                    Text(error).font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.orange)
+                        .lineLimit(2).help(error).textSelection(.enabled)
                 }
-            }
-
-            if let bytes = entry.estimatedBytes {
-                Text(DiskCleanFormat.approximateBytes(bytes, localization: localization))
-                    .font(PluginSettingsTheme.Typography.monospacedValue)
-                    .foregroundStyle(.secondary)
-                    .frame(width: DiskCleanFormat.byteColumnWidth, alignment: .trailing)
             }
         }
         .pluginSettingsListRowPadding()
     }
 }
 
-
 private struct DiskCleanRunHistoryRow: View {
     let run: DiskCleanRunHistoryEntry
     let localization: PluginLocalization
+    let expandsMatches: Bool
+    @State private var isExpanded: Bool
 
-    @State private var isExpanded = false
+    init(run: DiskCleanRunHistoryEntry, localization: PluginLocalization, expandsMatches: Bool) {
+        self.run = run
+        self.localization = localization
+        self.expandsMatches = expandsMatches
+        _isExpanded = State(initialValue: expandsMatches || run.itemEntries.contains(where: \.needsAttention))
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: PluginSettingsTheme.Spacing.rowContentControl) {
-                Image(systemName: run.symbolName)
-                    .foregroundStyle(run.needsAttention ? Color.orange : (run.isSuccessful && !run.isTrash ? Color.green : Color.secondary))
-                    .frame(width: PluginSettingsTheme.Size.rowIcon)
-
-                VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) {
-                    HStack(alignment: .firstTextBaseline, spacing: PluginSettingsTheme.Spacing.controlCluster) {
-                        Text(DiskCleanFormat.timestamp(run.timestamp))
-                            .font(PluginSettingsTheme.Typography.rowTitle)
-
-                        Text(run.isRecovery
-                            ? localization.string("detail.history.mode.recovery", defaultValue: "恢复检查")
-                            : run.isTrash
-                            ? localization.string("detail.history.mode.trash", defaultValue: "废纸篓")
-                            : localization.string("detail.history.mode.permanent", defaultValue: "永久删除"))
-                            .font(PluginSettingsTheme.Typography.statusBadge)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Capsule().fill(Color(nsColor: .quaternaryLabelColor).opacity(0.4)))
-
-                        if run.needsAttention {
-                            Text(localization.string("detail.history.attentionBadge", defaultValue: "需关注"))
-                                .font(PluginSettingsTheme.Typography.statusBadge)
-                                .foregroundStyle(.orange)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(Capsule().fill(Color.orange.opacity(0.2)))
-                        }
-
-                        Spacer(minLength: PluginSettingsTheme.Spacing.rowContentControl)
-
-                        if !run.isRecovery {
-                            Text(DiskCleanFormat.approximateBytes(run.bytesRemoved, localization: localization))
-                                .font(PluginSettingsTheme.Typography.monospacedValue)
-                                .foregroundStyle(.secondary)
+        Group {
+            if run.itemEntries.isEmpty { summary }
+            else {
+                DisclosureGroup(isExpanded: $isExpanded) {
+                    LazyVStack(spacing: 0) {
+                        ForEach(run.itemEntries) { entry in
+                            DiskCleanCleanupHistoryRow(entry: entry, localization: localization)
+                            if entry.id != run.itemEntries.last?.id { PluginSettingsListDivider() }
                         }
                     }
-
-                    Text(run.statusTitle(localization: localization))
-                        .font(PluginSettingsTheme.Typography.rowDescription)
-
-                    if !run.isRecovery {
-                        HStack(spacing: PluginSettingsTheme.Spacing.controlCluster) {
-                            Text(localization.format("detail.history.runItems", defaultValue: "清理 %d 项", run.itemsRemoved))
-                                .font(PluginSettingsTheme.Typography.rowDescription)
-                                .foregroundStyle(.secondary)
-
-                            if !run.categoriesCleaned.isEmpty {
-                                Text("·")
-                                    .font(PluginSettingsTheme.Typography.rowDescription)
-                                    .foregroundStyle(.secondary)
-                                Text(run.categoryTitles(localization: localization).joined(separator: ", "))
-                                    .font(PluginSettingsTheme.Typography.statusBadge)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                            }
-                        }
-                    }
-
-                    if !run.errorsEncountered.isEmpty {
-                        VStack(alignment: .leading, spacing: 2) {
-                            ForEach(Array(run.errorsEncountered.prefix(2).enumerated()), id: \.offset) { _, err in
-                                Text(err)
-                                    .font(PluginSettingsTheme.Typography.rowDescription)
-                                    .foregroundStyle(.orange)
-                                    .lineLimit(1)
-                            }
-                        }
-                    }
-                }
-
-                if !run.itemEntries.isEmpty {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.18)) {
-                            isExpanded.toggle()
-                        }
-                    } label: {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(PluginSettingsTheme.Typography.rowIcon)
-                            .frame(width: 32, height: 32)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.borderless)
-                    .help(
-                        isExpanded
-                            ? localization.string("detail.history.collapse", defaultValue: "收起清理记录")
-                            : localization.string("detail.history.expand", defaultValue: "展开清理记录")
-                    )
-                }
-            }
-            .pluginSettingsListRowPadding()
-
-            if isExpanded && !run.itemEntries.isEmpty {
-                LazyVStack(spacing: 0) {
-                    PluginSettingsListDivider()
-                    ForEach(run.itemEntries) { entry in
-                        DiskCleanCleanupHistoryRow(entry: entry, localization: localization)
-                    }
-                }
-                .padding(.leading, 24)
+                    .padding(.leading, PluginSettingsTheme.Spacing.rowHorizontal)
+                } label: { summary }
+                .padding(.leading, PluginSettingsTheme.Spacing.controlCluster)
             }
         }
+        .onChange(of: expandsMatches) { _, expands in if expands { isExpanded = true } }
+    }
+
+    private var summary: some View {
+        HStack(alignment: .top, spacing: PluginSettingsTheme.Spacing.rowContentControl) {
+            Image(systemName: run.symbolName)
+                .foregroundStyle(run.needsAttention ? Color.orange : (run.isSuccessful ? Color.green : Color.secondary))
+                .frame(width: PluginSettingsTheme.Size.rowIcon)
+            VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(run.isRecovery ? localization.string("detail.history.mode.recovery", defaultValue: "恢复检查")
+                        : run.isTrash ? localization.string("detail.action.trash", defaultValue: "移到废纸篓")
+                        : localization.string("detail.removalMode.permanent", defaultValue: "永久删除"))
+                        .font(PluginSettingsTheme.Typography.rowTitle).lineLimit(1)
+                    Spacer(minLength: 0)
+                    if !run.isRecovery {
+                        Text(DiskCleanFormat.approximateBytes(run.bytesRemoved, localization: localization))
+                            .font(PluginSettingsTheme.Typography.monospacedValue).foregroundStyle(.secondary)
+                    }
+                }
+                ViewThatFits(in: .horizontal) {
+                    HStack {
+                        status
+                        Spacer(minLength: 0)
+                        timestamp
+                    }
+                    VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) { status; timestamp }
+                }
+                if !run.isRecovery {
+                    Text(localization.format("detail.history.runItems", defaultValue: "清理 %d 项", run.itemsRemoved)
+                        + (run.categoriesCleaned.isEmpty ? "" : " · " + run.categoryTitles(localization: localization).joined(separator: "、")))
+                        .font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.secondary)
+                        .lineLimit(1).help(run.categoryTitles(localization: localization).joined(separator: "、"))
+                }
+                if let error = run.errorsEncountered.first {
+                    Text(error).font(PluginSettingsTheme.Typography.rowDescription).foregroundStyle(.orange)
+                        .lineLimit(2).help(error).textSelection(.enabled)
+                }
+            }
+        }
+        .pluginSettingsListRowPadding()
+    }
+
+    private var status: some View {
+        Text(run.statusTitle(localization: localization)).font(PluginSettingsTheme.Typography.statusBadge)
+            .foregroundStyle(run.needsAttention ? Color.orange : Color.secondary)
+    }
+    private var timestamp: some View {
+        Text(DiskCleanFormat.timestamp(run.timestamp)).font(PluginSettingsTheme.Typography.statusBadge).foregroundStyle(.secondary)
     }
 }
-
 
 extension DiskCleanRunHistoryEntry {
     var isSuccessful: Bool { !isRecovery && status == "ok" && !needsAttention }

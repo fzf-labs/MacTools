@@ -3,6 +3,7 @@ import Foundation
 struct DiskCleanSafetyPolicy: Sendable {
     let homeDirectory: String
     let whitelistStore: DiskCleanWhitelistStore
+    let isApplicationUninstall: Bool
 
     init(
         homeDirectory: String = NSHomeDirectory(),
@@ -10,6 +11,19 @@ struct DiskCleanSafetyPolicy: Sendable {
     ) {
         self.homeDirectory = Self.normalizeSlashes(homeDirectory)
         self.whitelistStore = whitelistStore ?? DiskCleanWhitelistStore(homeDirectory: homeDirectory)
+        self.isApplicationUninstall = false
+    }
+
+    private init(homeDirectory: String, whitelistStore: DiskCleanWhitelistStore, isApplicationUninstall: Bool) {
+        self.homeDirectory = homeDirectory
+        self.whitelistStore = whitelistStore
+        self.isApplicationUninstall = isApplicationUninstall
+    }
+
+    func forReview(_ evidence: DiskCleanReviewValidation?) -> Self {
+        guard case .application = evidence else { return self }
+        return Self(homeDirectory: homeDirectory, whitelistStore: whitelistStore.excludingDefaultCleanupRules(),
+            isApplicationUninstall: true)
     }
 
     func validatePathShape(
@@ -52,13 +66,15 @@ struct DiskCleanSafetyPolicy: Sendable {
     func safetyStatus(
         for path: String,
         isSymlink: Bool = false,
-        resolvedSymlinkTarget: String? = nil
+        resolvedSymlinkTarget: String? = nil,
+        applicationSessionScope: DiskCleanApplicationSessionScope? = nil
     ) -> DiskCleanSafetyStatus {
         safetyStatus(
             for: path,
             alsoChecking: [],
             isSymlink: isSymlink,
-            resolvedSymlinkTarget: resolvedSymlinkTarget
+            resolvedSymlinkTarget: resolvedSymlinkTarget,
+            applicationSessionScope: applicationSessionScope
         )
     }
 
@@ -74,7 +90,8 @@ struct DiskCleanSafetyPolicy: Sendable {
         for path: String,
         alsoChecking alternatePaths: [String],
         isSymlink: Bool = false,
-        resolvedSymlinkTarget: String? = nil
+        resolvedSymlinkTarget: String? = nil,
+        applicationSessionScope: DiskCleanApplicationSessionScope? = nil
     ) -> DiskCleanSafetyStatus {
         let normalizedPath = normalizePath(path)
         let shapeStatus = validatePathShape(
@@ -94,7 +111,7 @@ struct DiskCleanSafetyPolicy: Sendable {
         }
 
         for candidate in pathsToCheck {
-            if let reason = sensitiveProtectionReason(for: candidate) {
+            if let reason = sensitiveProtectionReason(for: candidate, applicationSessionScope: applicationSessionScope) {
                 return .protected(reason: reason)
             }
         }
@@ -129,7 +146,7 @@ struct DiskCleanSafetyPolicy: Sendable {
         return path
     }
 
-    private func sensitiveProtectionReason(for path: String) -> String? {
+    private func sensitiveProtectionReason(for path: String, applicationSessionScope: DiskCleanApplicationSessionScope?) -> String? {
         let lower = path.lowercased()
 
         // Staged objects (design §7.6): wide globs and ancestor decomposition can both
@@ -166,7 +183,7 @@ struct DiskCleanSafetyPolicy: Sendable {
             return "iCloud synced data is protected"
         }
 
-        if isProtectedBrowserProfileData(lower) {
+        if isProtectedBrowserProfileData(lower) && applicationSessionScope?.permitsSessionState(at: path) != true {
             return "browser profile data is protected"
         }
 

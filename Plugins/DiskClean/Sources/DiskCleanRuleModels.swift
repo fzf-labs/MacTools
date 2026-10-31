@@ -44,6 +44,7 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
     case developerArtifacts
     /// P2 leftover installers (design §10.2).
     case installers
+    case applications
 
     var id: String { rawValue }
 
@@ -67,7 +68,8 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
         .systemCaches,
         .virtualization,
         .installers,
-        .developerArtifacts
+        .developerArtifacts,
+        .applications
     ]
 
     var risk: DiskCleanRisk {
@@ -76,7 +78,7 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
             return .low
         // Installers are the user's own files, not caches: a mistaken delete has no
         // "auto-rebuild" path, only re-download — shown at the same level as developer artifacts.
-        case .developer, .systemCaches, .virtualization, .developerArtifacts, .installers:
+        case .developer, .systemCaches, .virtualization, .developerArtifacts, .installers, .applications:
             return .medium
         }
     }
@@ -105,6 +107,8 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
             return "cube"
         case .developerArtifacts:
             return "shippingbox"
+        case .applications:
+            return "app.badge"
         case .installers:
             return "arrow.down.circle"
         }
@@ -146,9 +150,11 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
         case .virtualization:
             return "虚拟化"
         case .developerArtifacts:
-            return "开发产物"
+            return "项目清理"
+        case .applications:
+            return "应用与关联数据"
         case .installers:
-            return "残留安装包"
+            return "安装包清理"
         }
     }
 
@@ -176,6 +182,8 @@ enum DiskCleanCategoryID: String, CaseIterable, Identifiable, Hashable, Sendable
             return "虚拟机磁盘不受影响，快照缓存与临时文件需要重建。"
         case .developerArtifacts:
             return "源码与提交不受影响，依赖需要重新安装、产物需要重新构建。"
+        case .applications:
+            return "应用将移到废纸篓，个人数据默认保留。"
         case .installers:
             return "已安装的应用不受影响，安装包需要时可重新下载。"
         }
@@ -397,8 +405,6 @@ struct DiskCleanRuleExplanation: Codable, Equatable, Sendable {
     let localizationKeyPrefix: String?
     let fallbackCategory: String?
 
-    var whyFound: String { whyMatched }
-
     init(
         whyMatched: String,
         consequence: String,
@@ -436,22 +442,11 @@ struct DiskCleanRuleExplanation: Codable, Equatable, Sendable {
 
 
 extension DiskCleanRuleExplanation {
-    func localizedWhyMatched(_ localization: PluginLocalization) -> String {
-        if fallbackCategory != nil {
-            return localization.format("explanation.fallback.whyMatched", defaultValue: "Matches cleanup rule %@.", title ?? "")
-        }
-        return localized("whyMatched", fallback: whyMatched, localization: localization)
-    }
-
     func localizedConsequence(_ localization: PluginLocalization) -> String {
         if let fallbackCategory, let category = DiskCleanCategoryID(rawValue: fallbackCategory) {
             return category.consequence(localization: localization)
         }
         return localized("consequence", fallback: consequence, localization: localization)
-    }
-
-    func localizedRegeneration(_ localization: PluginLocalization) -> String? {
-        regeneration.map { localized("regeneration", fallback: $0, localization: localization) }
     }
 
     private func localized(_ field: String, fallback: String, localization: PluginLocalization) -> String {

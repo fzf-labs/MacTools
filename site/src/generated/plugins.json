@@ -7558,51 +7558,51 @@
       "localizedMetadata": {
         "ar": {
           "displayName": "تنظيف القرص",
-          "summary": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف."
+          "summary": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة"
         },
         "de": {
           "displayName": "Datenträgerbereinigung",
-          "summary": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen."
+          "summary": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen"
         },
         "en": {
           "displayName": "Disk Cleanup",
-          "summary": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion"
+          "summary": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers"
         },
         "es": {
           "displayName": "Limpieza de disco",
-          "summary": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar."
+          "summary": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos"
         },
         "fr": {
           "displayName": "Nettoyage du disque",
-          "summary": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression."
+          "summary": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés"
         },
         "ja": {
           "displayName": "ディスククリーンアップ",
-          "summary": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。"
+          "summary": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います"
         },
         "ko": {
           "displayName": "디스크 정리",
-          "summary": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다."
+          "summary": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다"
         },
         "pt": {
           "displayName": "Limpeza de disco",
-          "summary": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar."
+          "summary": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos"
         },
         "ru": {
           "displayName": "Очистка диска",
-          "summary": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением."
+          "summary": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков"
         },
         "tr": {
           "displayName": "Disk Temizliği",
-          "summary": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır."
+          "summary": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin"
         },
         "zh-Hans": {
           "displayName": "磁盘清理",
-          "summary": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全"
+          "summary": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留"
         },
         "zh-Hant": {
           "displayName": "磁碟清理",
-          "summary": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+          "summary": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
         }
       },
       "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/disk-clean",
@@ -7617,18 +7617,18 @@
                 {
                   "automaticEligible": false,
                   "description": {
-                    "ar": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف.",
-                    "de": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen.",
-                    "en": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion",
-                    "es": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar.",
-                    "fr": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression.",
-                    "ja": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。",
-                    "ko": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다.",
-                    "pt": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar.",
-                    "ru": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением.",
-                    "tr": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır.",
-                    "zh-Hans": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
-                    "zh-Hant": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+                    "ar": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة",
+                    "de": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen",
+                    "en": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers",
+                    "es": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos",
+                    "fr": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés",
+                    "ja": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います",
+                    "ko": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다",
+                    "pt": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos",
+                    "ru": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков",
+                    "tr": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin",
+                    "zh-Hans": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
+                    "zh-Hant": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
                   },
                   "externalInvocation": "unavailable",
                   "id": "scan-and-review",
@@ -7762,7 +7762,10 @@
               "日誌與診斷報告"
             ]
           },
-          "relatedPluginIDs": [],
+          "relatedPluginIDs": [
+            "system-data",
+            "xcode-clean"
+          ],
           "useCases": [
             {
               "id": "primary-use",
@@ -7789,35 +7792,35 @@
             {
               "id": "primary-use",
               "text": {
-                "ar": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف.",
-                "de": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen.",
-                "en": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion",
-                "es": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar.",
-                "fr": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression.",
-                "ja": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。",
-                "ko": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다.",
-                "pt": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar.",
-                "ru": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением.",
-                "tr": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır.",
-                "zh-Hans": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
-                "zh-Hant": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+                "ar": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة",
+                "de": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen",
+                "en": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers",
+                "es": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos",
+                "fr": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés",
+                "ja": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います",
+                "ko": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다",
+                "pt": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos",
+                "ru": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков",
+                "tr": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin",
+                "zh-Hans": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
+                "zh-Hant": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
               }
             }
           ],
           "license": "GPL-3.0-only",
           "longDescription": {
-            "ar": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف.",
-            "de": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen.",
-            "en": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion",
-            "es": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar.",
-            "fr": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression.",
-            "ja": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。",
-            "ko": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다.",
-            "pt": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar.",
-            "ru": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением.",
-            "tr": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır.",
-            "zh-Hans": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
-            "zh-Hant": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+            "ar": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة",
+            "de": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen",
+            "en": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers",
+            "es": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos",
+            "fr": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés",
+            "ja": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います",
+            "ko": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다",
+            "pt": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos",
+            "ru": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков",
+            "tr": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin",
+            "zh-Hans": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
+            "zh-Hant": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
           },
           "publisher": "MacTools",
           "screenshots": [],
@@ -7827,12 +7830,17 @@
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
             "filesystem-paths",
-            "file-sizes"
+            "file-sizes",
+            "installed-applications",
+            "application-bundle-identifiers",
+            "running-applications",
+            "process-executable-paths"
           ],
           "dataPersisted": [
             "plugin-configuration",
             "cleanup-audit-history",
-            "cleanup-staging-journal"
+            "cleanup-staging-journal",
+            "scan-root-preferences"
           ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
@@ -7859,7 +7867,10 @@
         },
         "relationships": {
           "includedPackIDs": [],
-          "relatedPluginIDs": [],
+          "relatedPluginIDs": [
+            "system-data",
+            "xcode-clean"
+          ],
           "suggestedRecipeIDs": [],
           "supersedesPluginIDs": []
         },
@@ -7886,7 +7897,7 @@
       "releaseChannel": null,
       "releaseNotesURL": null,
       "route": "/plugins/disk-clean/",
-      "summary": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
+      "summary": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
       "version": "3.1.0"
     },
     {
@@ -24439,6 +24450,528 @@
       "route": "/plugins/translator/",
       "summary": "划词与截图快捷键翻译",
       "version": "1.1.0"
+    },
+    {
+      "capabilities": {
+        "panelItems": [
+          "row",
+          "widget"
+        ],
+        "settings": "workspace"
+      },
+      "category": "display",
+      "displayName": "壁纸",
+      "id": "wallpaper",
+      "localizedMetadata": {
+        "ar": {
+          "displayName": "خلفية الشاشة",
+          "summary": "تصفح الخلفيات المحلية وعبر الإنترنت وبدّل بينها."
+        },
+        "de": {
+          "displayName": "Hintergrundbilder",
+          "summary": "Lokale und Online-Hintergründe durchsuchen und wechseln."
+        },
+        "en": {
+          "displayName": "Wallpaper",
+          "summary": "Browse and rotate local and online wallpapers."
+        },
+        "es": {
+          "displayName": "Fondos de pantalla",
+          "summary": "Explora y alterna fondos locales y en línea."
+        },
+        "fr": {
+          "displayName": "Fonds d’écran",
+          "summary": "Parcourez et alternez les fonds locaux et en ligne."
+        },
+        "ja": {
+          "displayName": "壁紙",
+          "summary": "ローカルとオンラインの壁紙を閲覧・切り替え。"
+        },
+        "ko": {
+          "displayName": "배경화면",
+          "summary": "로컬 및 온라인 배경화면을 찾아보고 변경합니다."
+        },
+        "pt": {
+          "displayName": "Papéis de parede",
+          "summary": "Explore e alterne papéis de parede locais e online."
+        },
+        "ru": {
+          "displayName": "Обои",
+          "summary": "Просмотр и смена локальных и онлайн-обоев."
+        },
+        "tr": {
+          "displayName": "Duvar Kâğıdı",
+          "summary": "Yerel ve çevrimiçi duvar kâğıtlarına göz atın ve değiştirin."
+        },
+        "zh-Hans": {
+          "displayName": "壁纸",
+          "summary": "浏览本地与在线壁纸，按需自动轮换。"
+        },
+        "zh-Hant": {
+          "displayName": "桌布",
+          "summary": "瀏覽本機與線上桌布，依需要自動輪換。"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper",
+      "product": {
+        "actions": {
+          "providers": [
+            {
+              "dynamicTemplates": [],
+              "id": "wallpaper",
+              "kind": "static",
+              "staticActions": [
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "الخلفية التالية",
+                    "de": "Nächstes Hintergrundbild",
+                    "en": "Next Wallpaper",
+                    "es": "Siguiente fondo",
+                    "fr": "Fond suivant",
+                    "ja": "次の壁紙",
+                    "ko": "다음 배경화면",
+                    "pt": "Próximo papel de parede",
+                    "ru": "Следующие обои",
+                    "tr": "Sonraki Duvar Kâğıdı",
+                    "zh-Hans": "下一张壁纸",
+                    "zh-Hant": "下一張桌布"
+                  },
+                  "externalInvocation": "allowed",
+                  "id": "next",
+                  "keywords": [
+                    "wallpaper",
+                    "desktop"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "automatic-rule",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "photo.on.rectangle",
+                  "title": {
+                    "ar": "الخلفية التالية",
+                    "de": "Nächstes Hintergrundbild",
+                    "en": "Next Wallpaper",
+                    "es": "Siguiente fondo",
+                    "fr": "Fond suivant",
+                    "ja": "次の壁紙",
+                    "ko": "다음 배경화면",
+                    "pt": "Próximo papel de parede",
+                    "ru": "Следующие обои",
+                    "tr": "Sonraki Duvar Kâğıdı",
+                    "zh-Hans": "下一张壁纸",
+                    "zh-Hant": "下一張桌布"
+                  }
+                },
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "الخلفية السابقة",
+                    "de": "Vorheriges Hintergrundbild",
+                    "en": "Previous Wallpaper",
+                    "es": "Fondo anterior",
+                    "fr": "Fond précédent",
+                    "ja": "前の壁紙",
+                    "ko": "이전 배경화면",
+                    "pt": "Papel de parede anterior",
+                    "ru": "Предыдущие обои",
+                    "tr": "Önceki Duvar Kâğıdı",
+                    "zh-Hans": "上一张壁纸",
+                    "zh-Hant": "上一張桌布"
+                  },
+                  "externalInvocation": "allowed",
+                  "id": "previous",
+                  "keywords": [
+                    "wallpaper",
+                    "desktop"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "automatic-rule",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "photo.on.rectangle",
+                  "title": {
+                    "ar": "الخلفية السابقة",
+                    "de": "Vorheriges Hintergrundbild",
+                    "en": "Previous Wallpaper",
+                    "es": "Fondo anterior",
+                    "fr": "Fond précédent",
+                    "ja": "前の壁紙",
+                    "ko": "이전 배경화면",
+                    "pt": "Papel de parede anterior",
+                    "ru": "Предыдущие обои",
+                    "tr": "Önceki Duvar Kâğıdı",
+                    "zh-Hans": "上一张壁纸",
+                    "zh-Hant": "上一張桌布"
+                  }
+                },
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "إيقاف التبديل مؤقتًا أو استئنافه",
+                    "de": "Wechsel pausieren oder fortsetzen",
+                    "en": "Pause or Resume Rotation",
+                    "es": "Pausar o reanudar rotación",
+                    "fr": "Suspendre ou reprendre la rotation",
+                    "ja": "切り替えを一時停止・再開",
+                    "ko": "자동 변경 일시 정지 또는 재개",
+                    "pt": "Pausar ou retomar rotação",
+                    "ru": "Приостановить или продолжить смену",
+                    "tr": "Değişimi Duraklat veya Sürdür",
+                    "zh-Hans": "暂停或恢复轮换",
+                    "zh-Hant": "暫停或繼續輪換"
+                  },
+                  "externalInvocation": "allowed",
+                  "id": "toggle-rotation",
+                  "keywords": [
+                    "wallpaper",
+                    "desktop"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "automatic-rule",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "photo.on.rectangle",
+                  "title": {
+                    "ar": "إيقاف التبديل مؤقتًا أو استئنافه",
+                    "de": "Wechsel pausieren oder fortsetzen",
+                    "en": "Pause or Resume Rotation",
+                    "es": "Pausar o reanudar rotación",
+                    "fr": "Suspendre ou reprendre la rotation",
+                    "ja": "切り替えを一時停止・再開",
+                    "ko": "자동 변경 일시 정지 또는 재개",
+                    "pt": "Pausar ou retomar rotação",
+                    "ru": "Приостановить или продолжить смену",
+                    "tr": "Değişimi Duraklat veya Sürdür",
+                    "zh-Hans": "暂停或恢复轮换",
+                    "zh-Hant": "暫停或繼續輪換"
+                  }
+                },
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "ضبط التبديل التلقائي",
+                    "de": "Automatischen Wechsel einstellen",
+                    "en": "Set Automatic Rotation",
+                    "es": "Configurar rotación automática",
+                    "fr": "Configurer la rotation automatique",
+                    "ja": "自動切り替えを設定",
+                    "ko": "자동 변경 설정",
+                    "pt": "Configurar rotação automática",
+                    "ru": "Настроить автосмену",
+                    "tr": "Otomatik Değişimi Ayarla",
+                    "zh-Hans": "设置自动轮换",
+                    "zh-Hant": "設定自動輪換"
+                  },
+                  "externalInvocation": "allowed",
+                  "id": "set-rotation-enabled",
+                  "keywords": [
+                    "wallpaper",
+                    "desktop"
+                  ],
+                  "parameters": [
+                    {
+                      "id": "enabled",
+                      "isRequired": true,
+                      "kind": "boolean",
+                      "portability": "portable"
+                    }
+                  ],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "automatic-rule",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "photo.on.rectangle",
+                  "title": {
+                    "ar": "ضبط التبديل التلقائي",
+                    "de": "Automatischen Wechsel einstellen",
+                    "en": "Set Automatic Rotation",
+                    "es": "Configurar rotación automática",
+                    "fr": "Configurer la rotation automatique",
+                    "ja": "自動切り替えを設定",
+                    "ko": "자동 변경 설정",
+                    "pt": "Configurar rotação automática",
+                    "ru": "Настроить автосмену",
+                    "tr": "Otomatik Değişimi Ayarla",
+                    "zh-Hans": "设置自动轮换",
+                    "zh-Hant": "設定自動輪換"
+                  }
+                },
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "تطبيق الخلفية",
+                    "de": "Hintergrund anwenden",
+                    "en": "Apply Wallpaper",
+                    "es": "Aplicar fondo",
+                    "fr": "Appliquer le fond",
+                    "ja": "壁紙を設定",
+                    "ko": "배경화면 적용",
+                    "pt": "Aplicar papel de parede",
+                    "ru": "Применить обои",
+                    "tr": "Duvar Kâğıdını Uygula",
+                    "zh-Hans": "设为壁纸",
+                    "zh-Hant": "設為桌布"
+                  },
+                  "externalInvocation": "allowed",
+                  "id": "apply-asset",
+                  "keywords": [
+                    "wallpaper",
+                    "desktop"
+                  ],
+                  "parameters": [
+                    {
+                      "id": "asset",
+                      "isRequired": true,
+                      "kind": "string",
+                      "portability": "localOnly"
+                    },
+                    {
+                      "id": "scope",
+                      "isRequired": false,
+                      "kind": "string",
+                      "portability": "localOnly"
+                    }
+                  ],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "automatic-rule",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "photo.on.rectangle",
+                  "title": {
+                    "ar": "تطبيق الخلفية",
+                    "de": "Hintergrund anwenden",
+                    "en": "Apply Wallpaper",
+                    "es": "Aplicar fondo",
+                    "fr": "Appliquer le fond",
+                    "ja": "壁紙を設定",
+                    "ko": "배경화면 적용",
+                    "pt": "Aplicar papel de parede",
+                    "ru": "Применить обои",
+                    "tr": "Duvar Kâğıdını Uygula",
+                    "zh-Hans": "设为壁纸",
+                    "zh-Hant": "設為桌布"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "discovery": {
+          "alternativePluginIDs": [],
+          "goalCategories": [
+            "display"
+          ],
+          "keywords": [
+            "wallpaper",
+            "desktop",
+            "wallhaven",
+            "photo",
+            "background"
+          ],
+          "localizedSynonyms": {
+            "ar": [
+              "خلفية الشاشة"
+            ],
+            "de": [
+              "Hintergrundbilder"
+            ],
+            "en": [
+              "Wallpaper"
+            ],
+            "es": [
+              "Fondos de pantalla"
+            ],
+            "fr": [
+              "Fonds d’écran"
+            ],
+            "ja": [
+              "壁紙"
+            ],
+            "ko": [
+              "배경화면"
+            ],
+            "pt": [
+              "Papéis de parede"
+            ],
+            "ru": [
+              "Обои"
+            ],
+            "tr": [
+              "Duvar Kâğıdı"
+            ],
+            "zh-Hans": [
+              "壁纸"
+            ],
+            "zh-Hant": [
+              "桌布"
+            ]
+          },
+          "relatedPluginIDs": [],
+          "useCases": [
+            {
+              "id": "rotate-wallpapers",
+              "title": {
+                "ar": "خلفية الشاشة",
+                "de": "Hintergrundbilder",
+                "en": "Wallpaper",
+                "es": "Fondos de pantalla",
+                "fr": "Fonds d’écran",
+                "ja": "壁紙",
+                "ko": "배경화면",
+                "pt": "Papéis de parede",
+                "ru": "Обои",
+                "tr": "Duvar Kâğıdı",
+                "zh-Hans": "壁纸",
+                "zh-Hant": "桌布"
+              }
+            }
+          ]
+        },
+        "presentation": {
+          "documentationURL": "https://github.com/mactools-app/MacTools/blob/main/docs/plugins/wallpaper.md",
+          "examples": [
+            {
+              "id": "primary-use",
+              "text": {
+                "ar": "تصفح الخلفيات المحلية وعبر الإنترنت وبدّل بينها.",
+                "de": "Lokale und Online-Hintergründe durchsuchen und wechseln.",
+                "en": "Browse and rotate local and online wallpapers.",
+                "es": "Explora y alterna fondos locales y en línea.",
+                "fr": "Parcourez et alternez les fonds locaux et en ligne.",
+                "ja": "ローカルとオンラインの壁紙を閲覧・切り替え。",
+                "ko": "로컬 및 온라인 배경화면을 찾아보고 변경합니다.",
+                "pt": "Explore e alterne papéis de parede locais e online.",
+                "ru": "Просмотр и смена локальных и онлайн-обоев.",
+                "tr": "Yerel ve çevrimiçi duvar kâğıtlarına göz atın ve değiştirin.",
+                "zh-Hans": "浏览本地与在线壁纸，按需自动轮换。",
+                "zh-Hant": "瀏覽本機與線上桌布，依需要自動輪換。"
+              }
+            }
+          ],
+          "license": "GPL-3.0-only",
+          "longDescription": {
+            "ar": "تصفح الخلفيات المحلية وعبر الإنترنت وبدّل بينها.",
+            "de": "Lokale und Online-Hintergründe durchsuchen und wechseln.",
+            "en": "Browse and rotate local and online wallpapers.",
+            "es": "Explora y alterna fondos locales y en línea.",
+            "fr": "Parcourez et alternez les fonds locaux et en ligne.",
+            "ja": "ローカルとオンラインの壁紙を閲覧・切り替え。",
+            "ko": "로컬 및 온라인 배경화면을 찾아보고 변경합니다.",
+            "pt": "Explore e alterne papéis de parede locais e online.",
+            "ru": "Просмотр и смена локальных и онлайн-обоев.",
+            "tr": "Yerel ve çevrimiçi duvar kâğıtlarına göz atın ve değiştirin.",
+            "zh-Hans": "浏览本地与在线壁纸，按需自动轮换。",
+            "zh-Hant": "瀏覽本機與線上桌布，依需要自動輪換。"
+          },
+          "publisher": "MacTools",
+          "screenshots": [],
+          "supportURL": "https://github.com/mactools-app/MacTools/issues"
+        },
+        "privacy": {
+          "allowsUserConfiguredDomains": false,
+          "dataObserved": [
+            "selected-image-folders",
+            "desktop-image-paths",
+            "display-configuration"
+          ],
+          "dataPersisted": [
+            "selected-folder-bookmarks",
+            "wallpaper-images",
+            "favorites",
+            "wallpaper-history",
+            "rotation-preferences"
+          ],
+          "diagnosticExportsContainUserData": false,
+          "networkDomains": [
+            "wallhaven.cc",
+            "www.wallhaven.cc",
+            "w.wallhaven.cc",
+            "th.wallhaven.cc"
+          ],
+          "networkUse": "optional",
+          "processesSensitiveUserContent": false,
+          "retention": {
+            "policy": "user-controlled"
+          },
+          "telemetry": "none"
+        },
+        "relationships": {
+          "includedPackIDs": [],
+          "relatedPluginIDs": [],
+          "suggestedRecipeIDs": [],
+          "supersedesPluginIDs": []
+        },
+        "requirements": {
+          "applications": [],
+          "architectures": [
+            "arm64",
+            "x86_64"
+          ],
+          "executables": [],
+          "hardware": [],
+          "minimumMacOSVersion": "14.0",
+          "permissionIDs": [],
+          "requiresRelaunch": false,
+          "setupComplexity": "simple"
+        },
+        "setup": {
+          "optionalSurfaces": [
+            "global-shortcut",
+            "workflow",
+            "action-grid"
+          ],
+          "steps": []
+        }
+      },
+      "releaseChannel": null,
+      "releaseNotesURL": null,
+      "route": "/plugins/wallpaper/",
+      "summary": "浏览本地与在线壁纸，按需自动轮换。",
+      "version": "1.0.0"
     },
     {
       "capabilities": {

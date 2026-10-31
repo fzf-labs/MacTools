@@ -4,9 +4,9 @@ import Foundation
 
 /// Completeness of a sizing result.
 ///
-/// Core invariant (design §3.1): candidates with `completeness != .complete`, or with
-/// `crossedMountPoint` in the reason set, are **not cleanable**. The selection model,
-/// Planner, and executor each recheck; this type only records degradation reasons honestly.
+/// Ordinary cleanup requires complete measurements. Installed-app review may instead use
+/// a complete, identity-bound content inspection; unsupported volumes and mount crossings
+/// still prevent removal. This type records measurement degradation honestly.
 enum DiskCleanScanCompleteness: Equatable, Sendable {
     case complete
     case partial(reasons: Set<PartialReason>)

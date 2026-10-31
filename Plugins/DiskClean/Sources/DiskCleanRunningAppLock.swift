@@ -16,6 +16,7 @@ struct DiskCleanRunningAppSnapshot: Equatable, Sendable {
     /// Running process names (`pgrep -x` exact matches; case-sensitive).
     let runningProcessNames: Set<String>
     let observedAt: Date
+    var processStateKnown = true
 
     init(
         runningBundleIDs: Set<String> = [],
@@ -41,6 +42,7 @@ struct DiskCleanRunningAppSnapshot: Equatable, Sendable {
 
     /// Execution-side entry: plan items carry their own lock declarations (copied from the catalog at mint time), so no catalog lookup is needed.
     func lockingProcessName(bundleIDs: [String], processNames: [String]) -> String? {
+        if !processNames.isEmpty && !processStateKnown { return "进程状态无法确认" }
         for bundleID in bundleIDs where runningBundleIDs.contains(bundleID.lowercased()) {
             return bundleID
         }
@@ -52,11 +54,10 @@ struct DiskCleanRunningAppSnapshot: Equatable, Sendable {
 
     /// Replace the bundle-ID set, keep everything else. Used when the executor refreshes lock checks per item.
     func replacingBundleIDs(_ bundleIDs: Set<String>, observedAt: Date) -> DiskCleanRunningAppSnapshot {
-        DiskCleanRunningAppSnapshot(
-            runningBundleIDs: bundleIDs,
-            runningProcessNames: runningProcessNames,
-            observedAt: observedAt
-        )
+        var snapshot = DiskCleanRunningAppSnapshot(runningBundleIDs: bundleIDs,
+            runningProcessNames: runningProcessNames, observedAt: observedAt)
+        snapshot.processStateKnown = processStateKnown
+        return snapshot
     }
 
     /// Deduplicated process names declared by all targets. That set is the batch pgrep query.
@@ -119,11 +120,11 @@ struct DiskCleanRunningAppLock: DiskCleanRunningAppSnapshotting {
     }
 
     func makeSnapshot(processNames: [String]) async -> DiskCleanRunningAppSnapshot {
-        DiskCleanRunningAppSnapshot(
-            runningBundleIDs: await Self.runningBundleIDs(),
-            runningProcessNames: await runningProcessNames(among: processNames),
-            observedAt: now()
-        )
+        let names = await runningProcessNames(among: processNames)
+        var snapshot = DiskCleanRunningAppSnapshot(runningBundleIDs: await Self.runningBundleIDs(),
+            runningProcessNames: names ?? [], observedAt: now())
+        snapshot.processStateKnown = names != nil
+        return snapshot
     }
 
     func refreshingBundleIDs(in snapshot: DiskCleanRunningAppSnapshot) async -> DiskCleanRunningAppSnapshot {
@@ -137,7 +138,7 @@ struct DiskCleanRunningAppLock: DiskCleanRunningAppSnapshotting {
         }
     }
 
-    private func runningProcessNames(among names: [String]) async -> Set<String> {
+    private func runningProcessNames(among names: [String]) async -> Set<String>? {
         guard !names.isEmpty else { return [] }
 
         let result: DiskCleanSubprocessResult
@@ -148,11 +149,11 @@ struct DiskCleanRunningAppLock: DiskCleanRunningAppSnapshotting {
                 timeout: timeout
             )
         } catch {
-            // pgrep missing or timed out → under-report locks; execution-side recheck covers it.
-            return []
+            // Unknown state must not authorize deletion.
+            return nil
         }
         // pgrep exits 1 with empty output when nothing matches — not a failure.
-        guard result.exitCode == 0 || result.exitCode == 1 else { return [] }
+        guard result.exitCode == 0 || result.exitCode == 1 else { return nil }
 
         // Trust only names in this query set: the pattern is a regex, so output could theoretically include surprises.
         let requested = Set(names)

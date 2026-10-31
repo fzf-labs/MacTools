@@ -129,6 +129,18 @@ final class DiskCleanPurgeScannerTests: XCTestCase {
         XCTAssertTrue(report.items.isEmpty)
     }
 
+    func testAutomaticInspectionBudgetDoesNotAuthorizeUnreviewedArtifacts() async throws {
+        try temporaryDirectory.makeFile("root/package.json", bytes: 8)
+        let artifact = try temporaryDirectory.makeFile("root/node_modules/cache", bytes: 8)
+        let discovered = discovery.discover(root: path("root"), maximumEntries: 0)
+        XCTAssertTrue(discovered.items.isEmpty)
+        XCTAssertEqual(discovered.status, .traversed(completeness: .partial(reasons: [.timedOut])))
+        let result = await DiskCleanPurgeScanner().scan(roots: [path("root")], limits: .init(deadline: .distantPast))
+        XCTAssertTrue(result.candidates.isEmpty)
+        XCTAssertEqual(result.reports.first?.status, .traversed(completeness: .partial(reasons: [.timedOut])))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: artifact.path))
+    }
+
     func testMetadataFailureKeepsDiscoveredItemsButMarksScanIncomplete() throws {
         let root = try temporaryDirectory.makeDirectory("root")
         try temporaryDirectory.makeFile("root/package.json", bytes: 10)
@@ -157,14 +169,18 @@ final class DiskCleanPurgeScannerTests: XCTestCase {
         let candidate = try await scanSingleCandidate(runner: runner)
 
         XCTAssertEqual(candidate.gitState, .clean(repositoryPath: path("root/repo")))
-        XCTAssertTrue(candidate.isSelectedByDefault)
+        XCTAssertFalse(candidate.isSelectedByDefault, "Newly active artifacts remain unselected even in a clean repository")
         XCTAssertEqual(runner.invocations.count, 2)
+        XCTAssertTrue(runner.invocations.allSatisfy {
+            $0.contains("core.fsmonitor=false") && $0.contains("core.hooksPath=/dev/null")
+                && $0.contains("log.showSignature=false") && $0.contains("GIT_OPTIONAL_LOCKS=0")
+        })
         XCTAssertEqual(
-            runner.invocations[0],
+            Array(runner.invocations[0].suffix(5)),
             ["-C", path("root/repo"), "status", "--porcelain", "-unormal"]
         )
         XCTAssertEqual(
-            runner.invocations[1],
+            Array(runner.invocations[1].suffix(8)),
             ["-C", path("root/repo"), "log", "--branches", "--not", "--remotes", "-n", "1"]
         )
     }
@@ -229,7 +245,7 @@ final class DiskCleanPurgeScannerTests: XCTestCase {
         let root = try temporaryDirectory.makeDirectory("root")
         try temporaryDirectory.makeFile("root/Mounted/package.json", bytes: 10)
         try temporaryDirectory.makeDirectory("root/Mounted/node_modules")
-        try temporaryDirectory.makeDirectory("root/local")
+        try temporaryDirectory.makeDirectory("root/local/__pycache__")
         let rootDevice = try deviceID(of: root.path)
 
         let factory = ScriptedPurgeSourceFactory(scripts: [

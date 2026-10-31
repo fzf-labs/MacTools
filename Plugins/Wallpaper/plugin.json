@@ -1,0 +1,456 @@
+{
+  "id": "wallpaper",
+  "displayName": "壁纸",
+  "summary": "浏览本地与在线壁纸，按需自动轮换。",
+  "localizedMetadata": {
+    "en": {
+      "displayName": "Wallpaper",
+      "summary": "Browse and rotate local and online wallpapers."
+    },
+    "zh-Hans": {
+      "displayName": "壁纸",
+      "summary": "浏览本地与在线壁纸，按需自动轮换。"
+    },
+    "zh-Hant": {
+      "displayName": "桌布",
+      "summary": "瀏覽本機與線上桌布，依需要自動輪換。"
+    },
+    "de": {
+      "displayName": "Hintergrundbilder",
+      "summary": "Lokale und Online-Hintergründe durchsuchen und wechseln."
+    },
+    "fr": {
+      "displayName": "Fonds d’écran",
+      "summary": "Parcourez et alternez les fonds locaux et en ligne."
+    },
+    "es": {
+      "displayName": "Fondos de pantalla",
+      "summary": "Explora y alterna fondos locales y en línea."
+    },
+    "pt": {
+      "displayName": "Papéis de parede",
+      "summary": "Explore e alterne papéis de parede locais e online."
+    },
+    "ja": {
+      "displayName": "壁紙",
+      "summary": "ローカルとオンラインの壁紙を閲覧・切り替え。"
+    },
+    "ko": {
+      "displayName": "배경화면",
+      "summary": "로컬 및 온라인 배경화면을 찾아보고 변경합니다."
+    },
+    "ru": {
+      "displayName": "Обои",
+      "summary": "Просмотр и смена локальных и онлайн-обоев."
+    },
+    "tr": {
+      "displayName": "Duvar Kâğıdı",
+      "summary": "Yerel ve çevrimiçi duvar kâğıtlarına göz atın ve değiştirin."
+    },
+    "ar": {
+      "displayName": "خلفية الشاشة",
+      "summary": "تصفح الخلفيات المحلية وعبر الإنترنت وبدّل بينها."
+    }
+  },
+  "productStrings": {
+    "name": {
+      "en": "Wallpaper",
+      "zh-Hans": "壁纸",
+      "zh-Hant": "桌布",
+      "de": "Hintergrundbilder",
+      "fr": "Fonds d’écran",
+      "es": "Fondos de pantalla",
+      "pt": "Papéis de parede",
+      "ja": "壁紙",
+      "ko": "배경화면",
+      "ru": "Обои",
+      "tr": "Duvar Kâğıdı",
+      "ar": "خلفية الشاشة"
+    },
+    "summary": {
+      "en": "Browse and rotate local and online wallpapers.",
+      "zh-Hans": "浏览本地与在线壁纸，按需自动轮换。",
+      "zh-Hant": "瀏覽本機與線上桌布，依需要自動輪換。",
+      "de": "Lokale und Online-Hintergründe durchsuchen und wechseln.",
+      "fr": "Parcourez et alternez les fonds locaux et en ligne.",
+      "es": "Explora y alterna fondos locales y en línea.",
+      "pt": "Explore e alterne papéis de parede locais e online.",
+      "ja": "ローカルとオンラインの壁紙を閲覧・切り替え。",
+      "ko": "로컬 및 온라인 배경화면을 찾아보고 변경합니다.",
+      "ru": "Просмотр и смена локальных и онлайн-обоев.",
+      "tr": "Yerel ve çevrimiçi duvar kâğıtlarına göz atın ve değiştirin.",
+      "ar": "تصفح الخلفيات المحلية وعبر الإنترنت وبدّل بينها."
+    },
+    "next": {
+      "en": "Next Wallpaper",
+      "zh-Hans": "下一张壁纸",
+      "zh-Hant": "下一張桌布",
+      "de": "Nächstes Hintergrundbild",
+      "fr": "Fond suivant",
+      "es": "Siguiente fondo",
+      "pt": "Próximo papel de parede",
+      "ja": "次の壁紙",
+      "ko": "다음 배경화면",
+      "ru": "Следующие обои",
+      "tr": "Sonraki Duvar Kâğıdı",
+      "ar": "الخلفية التالية"
+    },
+    "previous": {
+      "en": "Previous Wallpaper",
+      "zh-Hans": "上一张壁纸",
+      "zh-Hant": "上一張桌布",
+      "de": "Vorheriges Hintergrundbild",
+      "fr": "Fond précédent",
+      "es": "Fondo anterior",
+      "pt": "Papel de parede anterior",
+      "ja": "前の壁紙",
+      "ko": "이전 배경화면",
+      "ru": "Предыдущие обои",
+      "tr": "Önceki Duvar Kâğıdı",
+      "ar": "الخلفية السابقة"
+    },
+    "toggle-rotation": {
+      "en": "Pause or Resume Rotation",
+      "zh-Hans": "暂停或恢复轮换",
+      "zh-Hant": "暫停或繼續輪換",
+      "de": "Wechsel pausieren oder fortsetzen",
+      "fr": "Suspendre ou reprendre la rotation",
+      "es": "Pausar o reanudar rotación",
+      "pt": "Pausar ou retomar rotação",
+      "ja": "切り替えを一時停止・再開",
+      "ko": "자동 변경 일시 정지 또는 재개",
+      "ru": "Приостановить или продолжить смену",
+      "tr": "Değişimi Duraklat veya Sürdür",
+      "ar": "إيقاف التبديل مؤقتًا أو استئنافه"
+    },
+    "set-rotation-enabled": {
+      "en": "Set Automatic Rotation",
+      "zh-Hans": "设置自动轮换",
+      "zh-Hant": "設定自動輪換",
+      "de": "Automatischen Wechsel einstellen",
+      "fr": "Configurer la rotation automatique",
+      "es": "Configurar rotación automática",
+      "pt": "Configurar rotação automática",
+      "ja": "自動切り替えを設定",
+      "ko": "자동 변경 설정",
+      "ru": "Настроить автосмену",
+      "tr": "Otomatik Değişimi Ayarla",
+      "ar": "ضبط التبديل التلقائي"
+    },
+    "apply-asset": {
+      "en": "Apply Wallpaper",
+      "zh-Hans": "设为壁纸",
+      "zh-Hant": "設為桌布",
+      "de": "Hintergrund anwenden",
+      "fr": "Appliquer le fond",
+      "es": "Aplicar fondo",
+      "pt": "Aplicar papel de parede",
+      "ja": "壁紙を設定",
+      "ko": "배경화면 적용",
+      "ru": "Применить обои",
+      "tr": "Duvar Kâğıdını Uygula",
+      "ar": "تطبيق الخلفية"
+    }
+  },
+  "version": "1.0.0",
+  "minHostVersion": "2.1.0",
+  "pluginKitVersion": 7,
+  "bundleRelativePath": "Wallpaper.bundle",
+  "factoryClass": "WallpaperPlugin.WallpaperPluginFactory",
+  "build": {
+    "project": "../../MacTools.xcodeproj",
+    "scheme": "WallpaperPlugin"
+  },
+  "capabilities": {
+    "panelItems": [
+      "row",
+      "widget"
+    ],
+    "settings": "workspace"
+  },
+  "permissions": [],
+  "category": "display",
+  "presentation": {
+    "longDescription": "@productStrings.summary",
+    "examples": [
+      {
+        "id": "primary-use",
+        "text": "@productStrings.summary"
+      }
+    ],
+    "screenshots": [],
+    "documentationURL": "https://github.com/mactools-app/MacTools/blob/main/docs/plugins/wallpaper.md",
+    "supportURL": "https://github.com/mactools-app/MacTools/issues",
+    "publisher": "MacTools",
+    "license": "GPL-3.0-only"
+  },
+  "discovery": {
+    "keywords": [
+      "wallpaper",
+      "desktop",
+      "wallhaven",
+      "photo",
+      "background"
+    ],
+    "localizedSynonyms": {
+      "en": [
+        "Wallpaper"
+      ],
+      "zh-Hans": [
+        "壁纸"
+      ],
+      "zh-Hant": [
+        "桌布"
+      ],
+      "de": [
+        "Hintergrundbilder"
+      ],
+      "fr": [
+        "Fonds d’écran"
+      ],
+      "es": [
+        "Fondos de pantalla"
+      ],
+      "pt": [
+        "Papéis de parede"
+      ],
+      "ja": [
+        "壁紙"
+      ],
+      "ko": [
+        "배경화면"
+      ],
+      "ru": [
+        "Обои"
+      ],
+      "tr": [
+        "Duvar Kâğıdı"
+      ],
+      "ar": [
+        "خلفية الشاشة"
+      ]
+    },
+    "useCases": [
+      {
+        "id": "rotate-wallpapers",
+        "title": "@productStrings.name"
+      }
+    ],
+    "goalCategories": [
+      "display"
+    ],
+    "relatedPluginIDs": [],
+    "alternativePluginIDs": []
+  },
+  "requirements": {
+    "minimumMacOSVersion": "14.0",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "hardware": [],
+    "applications": [],
+    "executables": [],
+    "permissionIDs": [],
+    "setupComplexity": "simple",
+    "requiresRelaunch": false
+  },
+  "privacy": {
+    "dataObserved": [
+      "selected-image-folders",
+      "desktop-image-paths",
+      "display-configuration"
+    ],
+    "dataPersisted": [
+      "selected-folder-bookmarks",
+      "wallpaper-images",
+      "favorites",
+      "wallpaper-history",
+      "rotation-preferences"
+    ],
+    "retention": {
+      "policy": "user-controlled"
+    },
+    "networkUse": "optional",
+    "networkDomains": [
+      "wallhaven.cc",
+      "www.wallhaven.cc",
+      "w.wallhaven.cc",
+      "th.wallhaven.cc"
+    ],
+    "allowsUserConfiguredDomains": false,
+    "telemetry": "none",
+    "processesSensitiveUserContent": false,
+    "diagnosticExportsContainUserData": false
+  },
+  "actions": {
+    "providers": [
+      {
+        "id": "wallpaper",
+        "kind": "static",
+        "staticActions": [
+          {
+            "id": "next",
+            "title": "@productStrings.next",
+            "description": "@productStrings.next",
+            "keywords": [
+              "wallpaper",
+              "desktop"
+            ],
+            "systemImage": "photo.on.rectangle",
+            "parameters": [],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "automatic-rule",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "allowed"
+          },
+          {
+            "id": "previous",
+            "title": "@productStrings.previous",
+            "description": "@productStrings.previous",
+            "keywords": [
+              "wallpaper",
+              "desktop"
+            ],
+            "systemImage": "photo.on.rectangle",
+            "parameters": [],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "automatic-rule",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "allowed"
+          },
+          {
+            "id": "toggle-rotation",
+            "title": "@productStrings.toggle-rotation",
+            "description": "@productStrings.toggle-rotation",
+            "keywords": [
+              "wallpaper",
+              "desktop"
+            ],
+            "systemImage": "photo.on.rectangle",
+            "parameters": [],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "automatic-rule",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "allowed"
+          },
+          {
+            "id": "set-rotation-enabled",
+            "title": "@productStrings.set-rotation-enabled",
+            "description": "@productStrings.set-rotation-enabled",
+            "keywords": [
+              "wallpaper",
+              "desktop"
+            ],
+            "systemImage": "photo.on.rectangle",
+            "parameters": [
+              {
+                "id": "enabled",
+                "kind": "boolean",
+                "isRequired": true,
+                "portability": "portable"
+              }
+            ],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "automatic-rule",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "allowed"
+          },
+          {
+            "id": "apply-asset",
+            "title": "@productStrings.apply-asset",
+            "description": "@productStrings.apply-asset",
+            "keywords": [
+              "wallpaper",
+              "desktop"
+            ],
+            "systemImage": "photo.on.rectangle",
+            "parameters": [
+              {
+                "id": "asset",
+                "kind": "string",
+                "isRequired": true,
+                "portability": "localOnly"
+              },
+              {
+                "id": "scope",
+                "kind": "string",
+                "isRequired": false,
+                "portability": "localOnly"
+              }
+            ],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "automatic-rule",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "allowed"
+          }
+        ],
+        "dynamicTemplates": []
+      }
+    ]
+  },
+  "setup": {
+    "steps": [],
+    "optionalSurfaces": [
+      "global-shortcut",
+      "workflow",
+      "action-grid"
+    ]
+  },
+  "relationships": {
+    "relatedPluginIDs": [],
+    "includedPackIDs": [],
+    "suggestedRecipeIDs": [],
+    "supersedesPluginIDs": []
+  }
+}

@@ -1,8 +1,16 @@
 core:
+  settings:
+    base:
+      OTHER_LDFLAGS: $(inherited) -framework Security
+      SWIFT_OBJC_BRIDGING_HEADER: $(SRCROOT)/Plugins/DiskClean/Sources/DiskCleanApplicationFileReference.h
   dependencies:
     - target: MacToolsFileSystem
       link: false
 bundle:
+  settings:
+    base:
+      OTHER_LDFLAGS: $(inherited) -framework Security
+      SWIFT_OBJC_BRIDGING_HEADER: $(SRCROOT)/Plugins/DiskClean/Sources/DiskCleanApplicationFileReference.h
   dependencies:
     - target: MacToolsFileSystem
       link: true

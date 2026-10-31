@@ -84,6 +84,7 @@ struct DiskCleanScanEngine: DiskCleanScanning {
     /// Expansion sources for P2 sections (design §10).
     let developerArtifactExpansion: any DiskCleanExternalExpanding
     let installerExpansion: any DiskCleanExternalExpanding
+    let reviewExpansion: any DiskCleanExternalExpanding
     let configuration: DiskCleanScanEngineConfiguration
     let localization: PluginLocalization
     let now: @Sendable () -> Date
@@ -100,6 +101,7 @@ struct DiskCleanScanEngine: DiskCleanScanning {
         fullDiskAccess: any DiskCleanFullDiskAccessProbing = DiskCleanFullDiskAccessProbe.shared,
         developerArtifactExpansion: any DiskCleanExternalExpanding = DiskCleanDeveloperArtifactExpansion(),
         installerExpansion: any DiskCleanExternalExpanding = DiskCleanInstallerExpansion(),
+        reviewExpansion: any DiskCleanExternalExpanding = DiskCleanPreparedReviewExpansion(),
         configuration: DiskCleanScanEngineConfiguration = DiskCleanScanEngineConfiguration(),
         localization: PluginLocalization = PluginLocalization(bundle: .main),
         now: @escaping @Sendable () -> Date = Date.init
@@ -115,6 +117,7 @@ struct DiskCleanScanEngine: DiskCleanScanning {
         self.fullDiskAccess = fullDiskAccess
         self.developerArtifactExpansion = developerArtifactExpansion
         self.installerExpansion = installerExpansion
+        self.reviewExpansion = reviewExpansion
         self.configuration = configuration
         self.localization = localization
         self.now = now
@@ -171,8 +174,8 @@ struct DiskCleanScanEngine: DiskCleanScanning {
         }
 
         var candidates = expansion.candidates
-        for candidate in candidates {
-            continuation.yield(.candidateFound(candidate))
+        if !expansion.didStreamCandidates {
+            for candidate in candidates { continuation.yield(.candidateFound(candidate)) }
         }
         for message in Self.foundLogMessages(for: candidates, localization: localization) {
             continuation.yield(.log(message))
@@ -246,6 +249,7 @@ struct DiskCleanScanEngine: DiskCleanScanning {
     // MARK: - Expansion phase
 
     private struct ExpansionOutcome {
+        var didStreamCandidates = false
         var candidates: [DiskCleanCandidate] = []
         var reservedRootPaths: [String] = []
         var scopedCategories: [DiskCleanCategoryID] = []
@@ -263,8 +267,10 @@ struct DiskCleanScanEngine: DiskCleanScanning {
                 guard !$0.isExternallyDiscovered else { return false }
                 return DiskCleanChoice(legacyRuleID: $0.legacyRuleID).map(choices.contains) ?? false
             }
-        case .developerArtifacts:
+        case .developerArtifacts, .automaticProjects:
             return catalog.targets(in: .developerArtifacts)
+        case .review:
+            return catalog.targets
         case .installers:
             return catalog.targets(in: .installers)
         }
@@ -300,10 +306,16 @@ struct DiskCleanScanEngine: DiskCleanScanning {
                 collector: &collector,
                 continuation: continuation
             )
+        case .automaticProjects:
+            hits = await expandExternally(using: developerArtifactExpansion, scope: scope, lockSnapshot: lockSnapshot,
+                outcome: &outcome, collector: &collector, continuation: continuation)
+        case .review:
+            hits = await expandExternally(using: reviewExpansion, scope: scope, outcome: &outcome, collector: &collector, continuation: continuation)
         case .installers:
             hits = await expandExternally(
                 using: installerExpansion,
                 scope: scope,
+                lockSnapshot: lockSnapshot,
                 outcome: &outcome,
                 collector: &collector,
                 continuation: continuation
@@ -321,15 +333,23 @@ struct DiskCleanScanEngine: DiskCleanScanning {
     private func expandExternally(
         using expander: any DiskCleanExternalExpanding,
         scope: DiskCleanScanScope,
+        lockSnapshot: DiskCleanRunningAppSnapshot? = nil,
         outcome: inout ExpansionOutcome,
         collector: inout DiskCleanLimitationCollector,
         continuation: AsyncThrowingStream<DiskCleanScanEvent, Error>.Continuation
     ) async -> [DiskCleanTargetHit] {
-        let expansion = await expander.expand(
-            scope: scope,
-            catalog: catalog,
-            localization: localization
-        )
+        let expansion: DiskCleanExternalExpansion
+        if let progressive = expander as? any DiskCleanProgressiveExternalExpanding, let lockSnapshot {
+            outcome.didStreamCandidates = true
+            expansion = await progressive.expand(scope: scope, catalog: catalog, localization: localization) { hits in
+                let assembler = DiskCleanCandidateAssembler(fileSystem: fileSystem)
+                for owned in assembler.assemble(hits: hits) {
+                    continuation.yield(.candidateFound(makeCandidate(from: owned, lockSnapshot: lockSnapshot)))
+                }
+            }
+        } else {
+            expansion = await expander.expand(scope: scope, catalog: catalog, localization: localization)
+        }
         outcome.reservedRootPaths += expansion.reservedRootPaths
         for limitation in expansion.limitations {
             collector.add(limitation)
@@ -469,10 +489,17 @@ struct DiskCleanScanEngine: DiskCleanScanning {
     ) -> DiskCleanCandidate {
         let target = owned.target
         let safety: DiskCleanSafetyStatus
-        if let processName = lockSnapshot.lockingProcessName(for: target) {
+        let cacheOwner = DiskCleanCacheOwner.bundleID(path: owned.item.path)
+        let isApplicationReview: Bool
+        if case .application = owned.facts.validation { isApplicationReview = true } else { isApplicationReview = false }
+        if !isApplicationReview, let cacheOwner, lockSnapshot.runningBundleIDs.contains(cacheOwner.lowercased()) {
+            safety = .inUse(processName: cacheOwner)
+        } else if let rejection = owned.facts.rejection {
+            safety = .protected(reason: rejection)
+        } else if !isApplicationReview, let processName = lockSnapshot.lockingProcessName(for: target) {
             safety = .inUse(processName: processName)
         } else {
-            safety = safetyPolicy.safetyStatus(
+            safety = safetyPolicy.forReview(owned.facts.validation).safetyStatus(
                 for: owned.item.path,
                 alsoChecking: owned.logicalPaths.filter { $0 != owned.item.path },
                 isSymlink: owned.item.isSymlink,
@@ -492,7 +519,9 @@ struct DiskCleanScanEngine: DiskCleanScanning {
             safety: safety,
             notes: owned.facts.notes,
             sizeResult: nil,
-            explanation: target.resolvedExplanation
+            explanation: target.resolvedExplanation,
+            validation: owned.facts.validation ?? cacheOwner.map { .cache(bundleID: $0) },
+            applicationInspection: owned.facts.applicationInspection
         )
     }
 
@@ -709,6 +738,8 @@ struct DiskCleanScanEngine: DiskCleanScanning {
                     ),
                     tone: .warning
                 )
+            case .installerSearchLimited, .developerSearchLimited:
+                return DiskCleanScanLogMessage(text: DiskCleanFormat.limitation(limitation, localization: localization), tone: .warning)
             case .walkerCircuitBroken:
                 return DiskCleanScanLogMessage(
                     text: localization.string(

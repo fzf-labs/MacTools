@@ -16,6 +16,9 @@ enum DiskCleanPurgeKind: String, CaseIterable, Equatable, Sendable {
     case buildOutput
     case distOutput
     case pythonCache
+    case swiftBuild, nextOutput, nuxtOutput, nuxtBuild
+    case pythonEnvironment, pythonDotEnvironment, pytestCache, mypyCache, ruffCache
+    case gradleCache, dartCache, dotnetBin, dotnetObj, composerVendor
 
     /// Directory name. Classification looks only at this name, not the rest of the path.
     var directoryName: String {
@@ -28,8 +31,21 @@ enum DiskCleanPurgeKind: String, CaseIterable, Equatable, Sendable {
             return "build"
         case .distOutput:
             return "dist"
-        case .pythonCache:
-            return "__pycache__"
+        case .swiftBuild: return ".build"
+        case .nextOutput: return ".next"
+        case .nuxtOutput: return ".nuxt"
+        case .nuxtBuild: return ".output"
+        case .pythonEnvironment: return "venv"
+        case .pythonDotEnvironment: return ".venv"
+        case .pytestCache: return ".pytest_cache"
+        case .mypyCache: return ".mypy_cache"
+        case .ruffCache: return ".ruff_cache"
+        case .gradleCache: return ".gradle"
+        case .dartCache: return ".dart_tool"
+        case .dotnetBin: return "bin"
+        case .dotnetObj: return "obj"
+        case .composerVendor: return "vendor"
+        case .pythonCache: return "__pycache__"
         }
     }
 
@@ -41,9 +57,15 @@ enum DiskCleanPurgeKind: String, CaseIterable, Equatable, Sendable {
         case .rustTarget:
             return ["Cargo.toml"]
         case .buildOutput, .distOutput:
-            return ["package.json", "setup.py", "pyproject.toml"]
-        case .pythonCache:
-            return []
+            return ["package.json", "setup.py", "pyproject.toml", "build.gradle", "build.gradle.kts", "pubspec.yaml"]
+        case .swiftBuild: return ["Package.swift"]
+        case .nextOutput, .nuxtOutput, .nuxtBuild: return ["package.json"]
+        case .pythonEnvironment, .pythonDotEnvironment, .pytestCache, .mypyCache, .ruffCache: return ["pyproject.toml", "setup.py"]
+        case .gradleCache: return ["build.gradle", "build.gradle.kts"]
+        case .dartCache: return ["pubspec.yaml"]
+        case .dotnetBin, .dotnetObj: return []
+        case .composerVendor: return ["composer.json"]
+        case .pythonCache: return []
         }
     }
 
@@ -57,8 +79,15 @@ enum DiskCleanPurgeKind: String, CaseIterable, Equatable, Sendable {
             return "构建输出"
         case .distOutput:
             return "打包输出"
-        case .pythonCache:
-            return "Python 字节码缓存"
+        case .pythonCache: return "Python 字节码缓存"
+        case .swiftBuild: return "SwiftPM 构建产物"
+        case .nextOutput, .nuxtOutput, .nuxtBuild: return "前端框架产物"
+        case .pythonEnvironment, .pythonDotEnvironment: return "Python 虚拟环境"
+        case .pytestCache, .mypyCache, .ruffCache: return "Python 工具缓存"
+        case .gradleCache: return "Gradle 项目缓存"
+        case .dartCache: return "Flutter 工具缓存"
+        case .dotnetBin, .dotnetObj: return ".NET 构建产物"
+        case .composerVendor: return "Composer 依赖"
         }
     }
 
@@ -151,6 +180,8 @@ struct DiskCleanPurgeDiscoveryReport: Equatable, Sendable {
 struct DiskCleanPurgeCandidate: Identifiable, Equatable, Sendable {
     let item: DiskCleanPurgeDiscoveredItem
     let gitState: DiskCleanPurgeGitState
+    var protectionReason: String? = nil
+    var recentlyActive = false
 
     var id: String { item.path }
     var path: String { item.path }
@@ -159,7 +190,7 @@ struct DiskCleanPurgeCandidate: Identifiable, Equatable, Sendable {
     var projectPath: String { item.projectPath }
 
     /// Default-selection policy: not selected when the repo is dirty (including inspection failure); otherwise selected.
-    var isSelectedByDefault: Bool { !gitState.isDirty }
+    var isSelectedByDefault: Bool { !gitState.isDirty && !recentlyActive && protectionReason == nil }
 }
 
 struct DiskCleanPurgeRootReport: Equatable, Sendable {
@@ -173,14 +204,6 @@ struct DiskCleanPurgeScanResult: Equatable, Sendable {
 
     var candidates: [DiskCleanPurgeCandidate] {
         reports.flatMap(\.candidates)
-    }
-
-    /// Roots that could not be opened at all. UI uses this for "folder removed or no access" rather than an empty list.
-    var unreadableRoots: [String] {
-        reports.compactMap { report in
-            if case .unreadable = report.status { return report.root }
-            return nil
-        }
     }
 }
 
@@ -215,7 +238,9 @@ struct DiskCleanPurgeDiscovery: Sendable {
         self.sourceFactory = sourceFactory
     }
 
-    func discover(root: String, isCancelled: () -> Bool = { false }) -> DiskCleanPurgeDiscoveryReport {
+    func discover(root: String, isCancelled: () -> Bool = { false }, repositoryPath: String? = nil,
+                  deadline: Date = .distantFuture, maximumEntries: Int = .max,
+                  maximumCandidates: Int = .max) -> DiskCleanPurgeDiscoveryReport {
         switch opener.open(path: root) {
         case let .failed(reason):
             return DiskCleanPurgeDiscoveryReport(root: root, status: .unreadable(reason: reason), items: [])
@@ -225,8 +250,9 @@ struct DiskCleanPurgeDiscovery: Sendable {
             return DiskCleanPurgeDiscoveryReport(root: root, status: .unreadable(reason: .walkError), items: [])
 
         case let .directory(fileDescriptor, identity):
-            var state = TraversalState(rootDevice: identity.devid)
-            let rootRepository = Self.containsGitEntry(directoryFileDescriptor: fileDescriptor) ? root : nil
+            var state = TraversalState(rootDevice: identity.devid, deadline: deadline,
+                remainingEntries: maximumEntries, maximumCandidates: maximumCandidates)
+            let rootRepository = Self.containsGitEntry(directoryFileDescriptor: fileDescriptor) ? root : repositoryPath
             visit(
                 fileDescriptor: fileDescriptor,
                 path: root,
@@ -248,6 +274,9 @@ struct DiskCleanPurgeDiscovery: Sendable {
 
     private struct TraversalState {
         let rootDevice: UInt64
+        let deadline: Date
+        var remainingEntries: Int
+        let maximumCandidates: Int
         var items: [DiskCleanPurgeDiscoveredItem] = []
         var accumulator = DiskCleanCompletenessAccumulator()
     }
@@ -277,7 +306,8 @@ struct DiskCleanPurgeDiscovery: Sendable {
         defer { source.close() }
 
         while true {
-            guard !isCancelled() else {
+            guard !isCancelled(), Date() < state.deadline, state.remainingEntries > 0,
+                  state.items.count < state.maximumCandidates else {
                 // Same cancel exit as sizing: mark result incomplete so the caller knows this is not "finished empty".
                 state.accumulator.add(.timedOut)
                 return
@@ -293,6 +323,9 @@ struct DiskCleanPurgeDiscovery: Sendable {
             guard let batch else { return }
 
             for entry in batch {
+                guard !isCancelled(), Date() < state.deadline, state.remainingEntries > 0,
+                      state.items.count < state.maximumCandidates else { state.accumulator.add(.timedOut); return }
+                state.remainingEntries -= 1
                 guard case let .resolved(resolved) = entry else {
                     state.accumulator.add(.walkError)
                     continue
@@ -307,9 +340,29 @@ struct DiskCleanPurgeDiscovery: Sendable {
 
                 let childPath = path + "/" + name
                 let childDepth = depth + 1
+                guard resolved.devid == state.rootDevice else {
+                    state.accumulator.add(.crossedMountPoint)
+                    continue
+                }
+                var status = stat()
+                guard fstatat(source.directoryFileDescriptor, name, &status, AT_SYMLINK_NOFOLLOW) == 0 else {
+                    if errno != ENOENT { state.accumulator.add(errno: errno) }
+                    continue
+                }
+                guard status.st_mode & S_IFMT == S_IFDIR, status.st_flags & UInt32(SF_DATALESS) == 0 else { continue }
+                guard UInt64(UInt32(bitPattern: status.st_dev)) == state.rootDevice else {
+                    state.accumulator.add(.crossedMountPoint)
+                    continue
+                }
+                let values = try? URL(fileURLWithPath: childPath).resourceValues(forKeys: [.isPackageKey, .isUbiquitousItemKey])
+                let lower = name.lowercased()
+                guard values?.isPackage != true, values?.isUbiquitousItem != true,
+                      !["library", "applications", "cloudstorage", "box", "google drive"].contains(lower),
+                      !lower.hasPrefix("dropbox"), !lower.hasPrefix("onedrive"), !lower.hasPrefix("icloud") else { continue }
 
                 if let kind = DiskCleanPurgeKind.byDirectoryName[name],
-                   let match = Self.projectMarker(for: kind, directoryFileDescriptor: source.directoryFileDescriptor) {
+                   let match = Self.projectMarker(for: kind, directoryFileDescriptor: source.directoryFileDescriptor),
+                   DiskCleanProjectRecognition.matches(kind: kind, parent: path) {
                     state.items.append(
                         DiskCleanPurgeDiscoveredItem(
                             path: childPath,
@@ -322,12 +375,8 @@ struct DiskCleanPurgeDiscovery: Sendable {
                     continue  // prune on hit
                 }
 
-                guard childDepth < maximumDepth else { continue }
-                guard resolved.devid == state.rootDevice else {
-                    // Do not descend into mount points: another volume has its own free space and permission model; scan-root authorization does not cover it.
-                    state.accumulator.add(.crossedMountPoint)
-                    continue
-                }
+                guard childDepth < maximumDepth, !name.hasPrefix("."),
+                      DiskCleanPurgeKind.byDirectoryName[name] == nil else { continue }
 
                 descend(
                     name: resolved.nameBytes,
@@ -360,6 +409,20 @@ struct DiskCleanPurgeDiscovery: Sendable {
             state.accumulator.add(errno: errno)
             return
         }
+
+        var status = stat()
+        guard fstat(childDescriptor, &status) == 0 else {
+            let code = errno
+            close(childDescriptor)
+            state.accumulator.add(errno: code)
+            return
+        }
+        guard UInt64(UInt32(bitPattern: status.st_dev)) == state.rootDevice else {
+            close(childDescriptor)
+            state.accumulator.add(.crossedMountPoint)
+            return
+        }
+        guard status.st_flags & UInt32(SF_DATALESS) == 0 else { close(childDescriptor); return }
 
         // Nearest `.git` overrides the inherited value: nested repos (submodules, independent monorepo repos) use the nearest.
         let repositoryPath = Self.containsGitEntry(directoryFileDescriptor: childDescriptor)
@@ -427,7 +490,7 @@ struct DiskCleanPurgeDiscovery: Sendable {
 
 /// Repository dirty-state check. Both commands use the `DiskCleanSubprocessRunning` seam with a 2s timeout (design §10.1).
 struct DiskCleanGitStatusInspector: Sendable {
-    static let executablePath = "/usr/bin/git"
+    static let executablePath = "/usr/bin/env"
     static let timeout = Duration.seconds(2)
 
     private let runner: any DiskCleanSubprocessRunning
@@ -467,7 +530,9 @@ struct DiskCleanGitStatusInspector: Sendable {
     private func run(arguments: [String]) async throws -> DiskCleanSubprocessResult {
         try await runner.run(
             executablePath: Self.executablePath,
-            arguments: arguments,
+            arguments: ["-u", "GIT_DIR", "-u", "GIT_WORK_TREE", "-u", "GIT_INDEX_FILE", "-u", "GIT_COMMON_DIR",
+                "-u", "GIT_CONFIG_PARAMETERS", "-u", "GIT_CONFIG_COUNT", "GIT_OPTIONAL_LOCKS=0", "/usr/bin/git",
+                "--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-c", "log.showSignature=false"] + arguments,
             timeout: Self.timeout
         )
     }
@@ -510,33 +575,66 @@ struct DiskCleanPurgeScanner: Sendable {
         self.inspector = inspector
     }
 
-    func scan(roots: [String]) async -> DiskCleanPurgeScanResult {
+    struct Limits: Sendable {
+        let deadline: Date
+        var maximumEntriesPerProject = 20_000
+        var maximumContentEntries = 250_000
+        var maximumCandidates = 1_000
+    }
+
+    func scan(roots: [String], repositories: [String: String] = [:], limits: Limits? = nil,
+              onReport: @Sendable (DiskCleanPurgeRootReport) -> Void = { _ in }) async -> DiskCleanPurgeScanResult {
         var reports: [DiskCleanPurgeRootReport] = []
         var inspectedRepositories: [String: DiskCleanPurgeGitState] = [:]
+        var remaining = limits?.maximumCandidates ?? Int.max
 
         for root in roots {
-            let discovered = await discoverInBackground(root: root)
+            if Task.isCancelled || Date() >= (limits?.deadline ?? .distantFuture) || remaining <= 0 {
+                let report = DiskCleanPurgeRootReport(root: root, status: .traversed(completeness: .partial(reasons: [.timedOut])), candidates: [])
+                reports.append(report); onReport(report)
+                continue
+            }
+            let discovered = await discoverInBackground(root: root, repository: repositories[root], limits: limits, maximumCandidates: remaining)
             var candidates: [DiskCleanPurgeCandidate] = []
             candidates.reserveCapacity(discovered.items.count)
 
+            var status = discovered.status
             for item in discovered.items {
-                guard let repository = item.repositoryPath else {
-                    candidates.append(DiskCleanPurgeCandidate(item: item, gitState: .notInRepository))
-                    continue
+                guard !Task.isCancelled, Date() < (limits?.deadline ?? .distantFuture), remaining > 0 else {
+                    status = .traversed(completeness: .partial(reasons: [.timedOut])); break
                 }
+                let repository = item.repositoryPath ?? ""
                 let state: DiskCleanPurgeGitState
-                if let cached = inspectedRepositories[repository] {
+                if repository.isEmpty {
+                    state = .notInRepository
+                } else if let cached = inspectedRepositories[repository] {
                     state = cached
                 } else {
                     state = await inspector.inspect(repositoryPath: repository)
                     inspectedRepositories[repository] = state
                 }
-                candidates.append(DiskCleanPurgeCandidate(item: item, gitState: state))
+                var candidate = DiskCleanPurgeCandidate(item: item, gitState: state)
+                let timeout = limits.map { max(0, min(20, $0.deadline.timeIntervalSinceNow)) }
+                candidate.protectionReason = await DiskCleanReviewValidator(inspectionTimeout: timeout,
+                    inspectionMaximumEntries: limits?.maximumContentEntries).rejection(path: item.path, evidence: .project)
+                guard Date() < (limits?.deadline ?? .distantFuture) else {
+                    status = .traversed(completeness: .partial(reasons: [.timedOut])); break
+                }
+                let reviewTimeout = limits.map { max(0, min(20, $0.deadline.timeIntervalSinceNow)) } ?? 20
+                let maximumEntries = limits?.maximumContentEntries ?? 250_000
+                let review = await diskCleanBackground {
+                    DiskCleanContentReview(policy: DiskCleanSafetyPolicy(), project: true,
+                        maximumEntries: maximumEntries, timeout: reviewTimeout).inspect(path: item.path)
+                }
+                candidate.protectionReason = candidate.protectionReason ?? review.rejection
+                candidate.recentlyActive = Date().timeIntervalSince(review.latestActivity) < 7 * 86_400
+                candidates.append(candidate)
+                remaining -= 1
             }
 
-            reports.append(
-                DiskCleanPurgeRootReport(root: root, status: discovered.status, candidates: candidates)
-            )
+            let report = DiskCleanPurgeRootReport(root: root, status: status, candidates: candidates)
+            reports.append(report)
+            onReport(report)
         }
 
         return DiskCleanPurgeScanResult(reports: reports)
@@ -548,14 +646,16 @@ struct DiskCleanPurgeScanner: Sendable {
     ///
     /// Blocking traversal does not observe `Task.isCancelled`; cancel sets `DiskCleanCancellationFlag`
     /// (same as WorkerPool) and traversal polls it per batch.
-    private func discoverInBackground(root: String) async -> DiskCleanPurgeDiscoveryReport {
+    private func discoverInBackground(root: String, repository: String?, limits: Limits?, maximumCandidates: Int) async -> DiskCleanPurgeDiscoveryReport {
         let flag = DiskCleanCancellationFlag()
         let discovery = self.discovery
         return await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 DispatchQueue.global(qos: .utility).async {
                     continuation.resume(
-                        returning: discovery.discover(root: root, isCancelled: { flag.isSet })
+                        returning: discovery.discover(root: root, isCancelled: { flag.isSet }, repositoryPath: repository,
+                            deadline: limits?.deadline ?? .distantFuture,
+                            maximumEntries: limits?.maximumEntriesPerProject ?? Int.max, maximumCandidates: maximumCandidates)
                     )
                 }
             }

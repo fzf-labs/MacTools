@@ -61,8 +61,10 @@ enum DiskCleanScanScope: Equatable, Sendable {
     /// Developer-artifact purge (design §10.1). `roots` are user-configured scan roots, already
     /// normalized to physical paths.
     case developerArtifacts(roots: [String])
-    /// Leftover installers (design §10.2). Scope is fixed to top-level `~/Downloads`; no parameters.
+    case automaticProjects
+    /// Leftover installers use bounded automatic home-folder discovery.
     case installers
+    case review
 
     /// Section identity (parameters excluded). Used where only "which section" matters—selection UI,
     /// log prefixes, etc.
@@ -70,8 +72,10 @@ enum DiskCleanScanScope: Equatable, Sendable {
         switch self {
         case .rules:
             return .rules
-        case .developerArtifacts:
+        case .developerArtifacts, .automaticProjects:
             return .developerArtifacts
+        case .review:
+            return .review
         case .installers:
             return .installers
         }
@@ -86,7 +90,7 @@ enum DiskCleanScanScope: Equatable, Sendable {
             return choices.isEmpty
         case let .developerArtifacts(roots):
             return roots.isEmpty
-        case .installers:
+        case .installers, .review, .automaticProjects:
             return false
         }
     }
@@ -107,6 +111,7 @@ enum DiskCleanScanSection: String, CaseIterable, Identifiable, Hashable, Sendabl
     case rules
     case developerArtifacts
     case installers
+    case review
 
     var id: String { rawValue }
 }
@@ -178,6 +183,8 @@ enum DiskCleanScanLimitation: Equatable, Sendable {
     /// may still hold tens of GB of installers, and showing "nothing to clean" would lie.
     /// `reason` chooses guidance copy (authorize vs "folder no longer valid").
     case scanRootUnreadable(path: String, reason: DiskCleanScanCompleteness.PartialReason)
+    case installerSearchLimited
+    case developerSearchLimited
     /// WorkerPool abandon budget exhausted; this process will not run further sizing.
     case walkerCircuitBroken
     /// Cumulative count of abandoned threads.
@@ -217,6 +224,9 @@ struct DiskCleanCandidateFacts: Equatable, Sendable {
     /// nil = inherit target risk.
     var risk: DiskCleanRisk?
     var notes: [DiskCleanCandidateNote] = []
+    var rejection: String? = nil
+    var validation: DiskCleanReviewValidation? = nil
+    var applicationInspection: DiskCleanApplicationInspection? = nil
 
     static let inherited = DiskCleanCandidateFacts()
 }
@@ -227,7 +237,7 @@ struct DiskCleanCandidateFacts: Equatable, Sendable {
 ///
 /// `sizeResult == nil` means "discovered, size unknown"—expansion streams entries first so the
 /// user sees content in 1–2s, with sizing filled in asynchronously (design §4.2). Unsized and
-/// non-complete candidates are never cleanable (§3.1 invariant).
+/// non-complete candidates need independent installed-app inspection to become cleanable.
 struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
     /// `targetID::physicalPath`. A path belongs to at most one target (§5.3 ownership).
     let id: String
@@ -251,6 +261,8 @@ struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
     let sizeResult: DiskCleanSizeResult?
     /// Structured rule explanation for why found, consequences, and safety disclosures.
     let explanation: DiskCleanRuleExplanation?
+    let validation: DiskCleanReviewValidation?
+    let applicationInspection: DiskCleanApplicationInspection?
 
     /// Primary logical path (first alias, or the physical path when none differ).
     var logicalPath: String { logicalPaths.first ?? path }
@@ -267,7 +279,9 @@ struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
         safety: DiskCleanSafetyStatus,
         notes: [DiskCleanCandidateNote] = [],
         sizeResult: DiskCleanSizeResult? = nil,
-        explanation: DiskCleanRuleExplanation? = nil
+        explanation: DiskCleanRuleExplanation? = nil,
+        validation: DiskCleanReviewValidation? = nil,
+        applicationInspection: DiskCleanApplicationInspection? = nil
     ) {
         self.id = id
         self.targetID = targetID
@@ -286,6 +300,8 @@ struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
         self.notes = notes
         self.sizeResult = sizeResult
         self.explanation = explanation
+        self.validation = validation
+        self.applicationInspection = applicationInspection
     }
 
     private static func uniquePaths(_ paths: [String]) -> [String] {
@@ -316,19 +332,27 @@ struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
         max(sizeResult?.estimatedBytes ?? 0, 0)
     }
 
-    /// Whether the candidate is cleanable.
-    ///
-    /// Design §3.1's core invariant lives here: safety allows **and** size is known **and**
-    /// completeness is complete. `crossedMountPoint` needs no separate check—it always appears in
-    /// the `partial` reason set and is already blocked by `isComplete`.
+    /// Application review can use independent content inspection when sizing is incomplete.
+    /// Other cleanup scopes still require a complete measurement.
     var isCleanable: Bool {
-        guard safety.isCleanable, let sizeResult else { return false }
-        return sizeResult.completeness.isComplete && sizeResult.rootIdentity != nil
+        safety.isCleanable && removalIdentity != nil
+    }
+
+    var removalIdentity: DiskCleanRootIdentity? {
+        if case .application = validation, let inspection = applicationInspection {
+            let reasons = sizeResult?.completeness.partialReasons ?? []
+            guard !reasons.contains(.unsupportedVolume), !reasons.contains(.crossedMountPoint) else { return nil }
+            if let sizedIdentity = sizeResult?.rootIdentity, sizedIdentity != inspection.identity { return nil }
+            return inspection.identity
+        }
+        guard let sizeResult, sizeResult.completeness.isComplete else { return nil }
+        return sizeResult.rootIdentity
     }
 
     /// Observation time. The expiry gate (§4.4) takes the minimum across selected items.
     var observedAt: Date? {
-        sizeResult?.observedAt
+        if case .application = validation, let applicationInspection { return applicationInspection.observedAt }
+        return sizeResult?.observedAt
     }
 
     func applying(_ sizeResult: DiskCleanSizeResult) -> DiskCleanCandidate {
@@ -343,7 +367,9 @@ struct DiskCleanCandidate: Identifiable, Equatable, Sendable {
             safety: safety,
             notes: notes,
             sizeResult: sizeResult,
-            explanation: explanation
+            explanation: explanation,
+            validation: validation,
+            applicationInspection: applicationInspection
         )
     }
 

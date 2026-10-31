@@ -12,12 +12,6 @@ protocol DiskCleanFullDiskAccessProbing: Sendable {
     var hasFullDiskAccess: Bool { get }
 }
 
-/// Always reports authorized. Default for scan-engine tests so no target is skipped and
-/// coverage matches v1 entry-for-entry.
-struct DiskCleanAssumedFullDiskAccess: DiskCleanFullDiskAccessProbing {
-    var hasFullDiskAccess: Bool { true }
-}
-
 /// Whether a single file can be opened read-only. Boundary between the real probe and test doubles.
 protocol DiskCleanFileReadabilityProbing: Sendable {
     func canOpenForReading(atPath path: String) -> Bool

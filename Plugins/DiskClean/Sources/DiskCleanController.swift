@@ -279,6 +279,14 @@ final class DiskCleanController: ObservableObject, DiskCleanControlling {
         confirmationTask?.cancel()
     }
 
+    func invalidateResult() {
+        guard snapshot.phase != .cleaning else { return }
+        cancelCurrentOperation()
+        publish(phase: snapshot.phase, scope: snapshot.scope, scanResult: snapshot.scanResult,
+                executionResult: snapshot.executionResult, isResultStale: true,
+                isResultExpired: snapshot.isResultExpired, errorMessage: nil, scanLogEntries: snapshot.scanLogEntries)
+    }
+
     func setScope(_ scope: DiskCleanScanScope) {
         guard scope != snapshot.scope else { return }
 
@@ -932,6 +940,10 @@ final class DiskCleanController: ObservableObject, DiskCleanControlling {
                 .joined(separator: separator)
         case let .developerArtifacts(roots):
             return roots.joined(separator: separator)
+        case .automaticProjects:
+            return DiskCleanCategoryID.developerArtifacts.title(localization: localization)
+        case .review:
+            return "应用审阅"
         case .installers:
             return DiskCleanCategoryID.installers.title(localization: localization)
         }

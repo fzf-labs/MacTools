@@ -64,6 +64,10 @@ struct DiskCleanWhitelistStore: Sendable {
         self.customRules = customRules
     }
 
+    func excludingDefaultCleanupRules() -> Self {
+        Self(homeDirectory: homeDirectory, includeDefaults: false, customRules: customRules)
+    }
+
     func expandedRules() -> [DiskCleanWhitelistRule] {
         let defaultRules = includeDefaults ? Self.defaultRulePatterns : []
         var seenPatterns = Set<String>()
@@ -119,10 +123,6 @@ struct DiskCleanWhitelistStore: Sendable {
         }
 
         return nil
-    }
-
-    func isWhitelisted(_ path: String) -> Bool {
-        matchingRule(for: path) != nil
     }
 
     private func makeRule(

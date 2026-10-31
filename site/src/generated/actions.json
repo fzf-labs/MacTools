@@ -2018,18 +2018,18 @@
       "action": {
         "automaticEligible": false,
         "description": {
-          "ar": "يمسح ذاكرات التخزين المؤقت للنظام ومخرجات التطوير وبرامج التثبيت المتبقية؛ ينقل افتراضيًا إلى سلة المهملات مع فحوصات أمان المسار قبل الحذف.",
-          "de": "System-Caches, Entwicklerartefakte und übrig gebliebene Installer scannen; standardmäßig in den Papierkorb, mit Pfadsicherheitsprüfung vor dem Löschen.",
-          "en": "Scan system caches, developer artifacts, and leftover installers; move to Trash by default with path safety checks before deletion",
-          "es": "Escanea cachés del sistema, artefactos de desarrollo e instaladores residuales; por defecto mueve a la Papelera, con comprobaciones de seguridad de ruta antes de borrar.",
-          "fr": "Analyse les caches système, les artefacts de développement et les installateurs restants ; met à la corbeille par défaut, avec contrôles de sécurité des chemins avant suppression.",
-          "ja": "システムキャッシュ、開発成果物、残留インストーラをスキャン。既定でゴミ箱へ移動し、削除前にパス安全性を確認します。",
-          "ko": "시스템 캐시, 개발 산출물, 잔여 설치 패키지를 스캔합니다. 기본적으로 휴지통으로 옮기며 삭제 전 경로 안전성을 검사합니다.",
-          "pt": "Analisa caches do sistema, artefactos de desenvolvimento e instaladores residuais; por predefinição move para o Lixo, com verificações de segurança do caminho antes de apagar.",
-          "ru": "Сканирует системные кэши, артефакты разработки и оставшиеся установщики; по умолчанию перемещает в Корзину с проверкой безопасности пути перед удалением.",
-          "tr": "Sistem önbelleklerini, geliştirici dosyalarını ve artakalan yükleyicileri tarar; silmeden önce yol güvenlik denetimleriyle bunları varsayılan olarak çöpe taşır.",
-          "zh-Hans": "扫描系统缓存、开发产物与残留安装包，默认移到废纸篓，执行前校验路径安全",
-          "zh-Hant": "掃描系統快取、開發產物與殘留安裝包，預設移到廢紙簍，執行前校驗路徑安全"
+          "ar": "راجع الذاكرة المؤقتة وملفات التثبيت ومخرجات المشاريع، وأزل التطبيقات وافحص البقايا المحتملة",
+          "de": "Caches, Installer und Projektartefakte prüfen, Apps deinstallieren und mögliche Reste untersuchen",
+          "en": "Review caches, installers, and project artifacts; uninstall apps and inspect suspected leftovers",
+          "es": "Revisa cachés, instaladores y archivos generados, desinstala apps y busca posibles restos",
+          "fr": "Vérifier caches, installateurs et fichiers générés, désinstaller des apps et rechercher les résidus présumés",
+          "ja": "キャッシュ、インストーラ、生成物を整理し、アプリのアンインストールと残留データ候補の確認を行います",
+          "ko": "캐시, 설치 파일, 빌드 산출물을 정리하고 앱 제거와 잔여 데이터 후보를 확인합니다",
+          "pt": "Reveja caches, instaladores e artefactos, desinstale aplicações e procure possíveis resíduos",
+          "ru": "Проверка кэша, установщиков и артефактов, удаление приложений и поиск возможных остатков",
+          "tr": "Önbellekleri, yükleyicileri ve proje çıktılarını inceleyin; uygulamaları kaldırın ve olası kalıntıları kontrol edin",
+          "zh-Hans": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
+          "zh-Hant": "清理快取、安裝檔和專案產物，解除安裝應用程式並檢查疑似殘留"
         },
         "externalInvocation": "unavailable",
         "id": "scan-and-review",
@@ -6118,6 +6118,311 @@
       "pluginID": "translator",
       "providerID": "translator",
       "route": "/plugins/translator/actions/translator/select-translation/"
+    },
+    {
+      "action": {
+        "automaticEligible": true,
+        "description": {
+          "ar": "تطبيق الخلفية",
+          "de": "Hintergrund anwenden",
+          "en": "Apply Wallpaper",
+          "es": "Aplicar fondo",
+          "fr": "Appliquer le fond",
+          "ja": "壁紙を設定",
+          "ko": "배경화면 적용",
+          "pt": "Aplicar papel de parede",
+          "ru": "Применить обои",
+          "tr": "Duvar Kâğıdını Uygula",
+          "zh-Hans": "设为壁纸",
+          "zh-Hant": "設為桌布"
+        },
+        "externalInvocation": "allowed",
+        "id": "apply-asset",
+        "keywords": [
+          "wallpaper",
+          "desktop"
+        ],
+        "parameters": [
+          {
+            "id": "asset",
+            "isRequired": true,
+            "kind": "string",
+            "portability": "localOnly"
+          },
+          {
+            "id": "scope",
+            "isRequired": false,
+            "kind": "string",
+            "portability": "localOnly"
+          }
+        ],
+        "permissionIDs": [],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "run-link",
+          "workflow",
+          "automatic-rule",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "photo.on.rectangle",
+        "title": {
+          "ar": "تطبيق الخلفية",
+          "de": "Hintergrund anwenden",
+          "en": "Apply Wallpaper",
+          "es": "Aplicar fondo",
+          "fr": "Appliquer le fond",
+          "ja": "壁紙を設定",
+          "ko": "배경화면 적용",
+          "pt": "Aplicar papel de parede",
+          "ru": "Применить обои",
+          "tr": "Duvar Kâğıdını Uygula",
+          "zh-Hans": "设为壁纸",
+          "zh-Hant": "設為桌布"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper?provider=wallpaper&action=apply-asset",
+      "pluginID": "wallpaper",
+      "providerID": "wallpaper",
+      "route": "/plugins/wallpaper/actions/wallpaper/apply-asset/"
+    },
+    {
+      "action": {
+        "automaticEligible": true,
+        "description": {
+          "ar": "الخلفية التالية",
+          "de": "Nächstes Hintergrundbild",
+          "en": "Next Wallpaper",
+          "es": "Siguiente fondo",
+          "fr": "Fond suivant",
+          "ja": "次の壁紙",
+          "ko": "다음 배경화면",
+          "pt": "Próximo papel de parede",
+          "ru": "Следующие обои",
+          "tr": "Sonraki Duvar Kâğıdı",
+          "zh-Hans": "下一张壁纸",
+          "zh-Hant": "下一張桌布"
+        },
+        "externalInvocation": "allowed",
+        "id": "next",
+        "keywords": [
+          "wallpaper",
+          "desktop"
+        ],
+        "parameters": [],
+        "permissionIDs": [],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "run-link",
+          "workflow",
+          "automatic-rule",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "photo.on.rectangle",
+        "title": {
+          "ar": "الخلفية التالية",
+          "de": "Nächstes Hintergrundbild",
+          "en": "Next Wallpaper",
+          "es": "Siguiente fondo",
+          "fr": "Fond suivant",
+          "ja": "次の壁紙",
+          "ko": "다음 배경화면",
+          "pt": "Próximo papel de parede",
+          "ru": "Следующие обои",
+          "tr": "Sonraki Duvar Kâğıdı",
+          "zh-Hans": "下一张壁纸",
+          "zh-Hant": "下一張桌布"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper?provider=wallpaper&action=next",
+      "pluginID": "wallpaper",
+      "providerID": "wallpaper",
+      "route": "/plugins/wallpaper/actions/wallpaper/next/"
+    },
+    {
+      "action": {
+        "automaticEligible": true,
+        "description": {
+          "ar": "الخلفية السابقة",
+          "de": "Vorheriges Hintergrundbild",
+          "en": "Previous Wallpaper",
+          "es": "Fondo anterior",
+          "fr": "Fond précédent",
+          "ja": "前の壁紙",
+          "ko": "이전 배경화면",
+          "pt": "Papel de parede anterior",
+          "ru": "Предыдущие обои",
+          "tr": "Önceki Duvar Kâğıdı",
+          "zh-Hans": "上一张壁纸",
+          "zh-Hant": "上一張桌布"
+        },
+        "externalInvocation": "allowed",
+        "id": "previous",
+        "keywords": [
+          "wallpaper",
+          "desktop"
+        ],
+        "parameters": [],
+        "permissionIDs": [],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "run-link",
+          "workflow",
+          "automatic-rule",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "photo.on.rectangle",
+        "title": {
+          "ar": "الخلفية السابقة",
+          "de": "Vorheriges Hintergrundbild",
+          "en": "Previous Wallpaper",
+          "es": "Fondo anterior",
+          "fr": "Fond précédent",
+          "ja": "前の壁紙",
+          "ko": "이전 배경화면",
+          "pt": "Papel de parede anterior",
+          "ru": "Предыдущие обои",
+          "tr": "Önceki Duvar Kâğıdı",
+          "zh-Hans": "上一张壁纸",
+          "zh-Hant": "上一張桌布"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper?provider=wallpaper&action=previous",
+      "pluginID": "wallpaper",
+      "providerID": "wallpaper",
+      "route": "/plugins/wallpaper/actions/wallpaper/previous/"
+    },
+    {
+      "action": {
+        "automaticEligible": true,
+        "description": {
+          "ar": "ضبط التبديل التلقائي",
+          "de": "Automatischen Wechsel einstellen",
+          "en": "Set Automatic Rotation",
+          "es": "Configurar rotación automática",
+          "fr": "Configurer la rotation automatique",
+          "ja": "自動切り替えを設定",
+          "ko": "자동 변경 설정",
+          "pt": "Configurar rotação automática",
+          "ru": "Настроить автосмену",
+          "tr": "Otomatik Değişimi Ayarla",
+          "zh-Hans": "设置自动轮换",
+          "zh-Hant": "設定自動輪換"
+        },
+        "externalInvocation": "allowed",
+        "id": "set-rotation-enabled",
+        "keywords": [
+          "wallpaper",
+          "desktop"
+        ],
+        "parameters": [
+          {
+            "id": "enabled",
+            "isRequired": true,
+            "kind": "boolean",
+            "portability": "portable"
+          }
+        ],
+        "permissionIDs": [],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "run-link",
+          "workflow",
+          "automatic-rule",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "photo.on.rectangle",
+        "title": {
+          "ar": "ضبط التبديل التلقائي",
+          "de": "Automatischen Wechsel einstellen",
+          "en": "Set Automatic Rotation",
+          "es": "Configurar rotación automática",
+          "fr": "Configurer la rotation automatique",
+          "ja": "自動切り替えを設定",
+          "ko": "자동 변경 설정",
+          "pt": "Configurar rotação automática",
+          "ru": "Настроить автосмену",
+          "tr": "Otomatik Değişimi Ayarla",
+          "zh-Hans": "设置自动轮换",
+          "zh-Hant": "設定自動輪換"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper?provider=wallpaper&action=set-rotation-enabled",
+      "pluginID": "wallpaper",
+      "providerID": "wallpaper",
+      "route": "/plugins/wallpaper/actions/wallpaper/set-rotation-enabled/"
+    },
+    {
+      "action": {
+        "automaticEligible": true,
+        "description": {
+          "ar": "إيقاف التبديل مؤقتًا أو استئنافه",
+          "de": "Wechsel pausieren oder fortsetzen",
+          "en": "Pause or Resume Rotation",
+          "es": "Pausar o reanudar rotación",
+          "fr": "Suspendre ou reprendre la rotation",
+          "ja": "切り替えを一時停止・再開",
+          "ko": "자동 변경 일시 정지 또는 재개",
+          "pt": "Pausar ou retomar rotação",
+          "ru": "Приостановить или продолжить смену",
+          "tr": "Değişimi Duraklat veya Sürdür",
+          "zh-Hans": "暂停或恢复轮换",
+          "zh-Hant": "暫停或繼續輪換"
+        },
+        "externalInvocation": "allowed",
+        "id": "toggle-rotation",
+        "keywords": [
+          "wallpaper",
+          "desktop"
+        ],
+        "parameters": [],
+        "permissionIDs": [],
+        "risk": "safe",
+        "surfaces": [
+          "unified-search",
+          "global-shortcut",
+          "run-link",
+          "workflow",
+          "automatic-rule",
+          "action-grid",
+          "trackpad-gesture",
+          "manual"
+        ],
+        "systemImage": "photo.on.rectangle",
+        "title": {
+          "ar": "إيقاف التبديل مؤقتًا أو استئنافه",
+          "de": "Wechsel pausieren oder fortsetzen",
+          "en": "Pause or Resume Rotation",
+          "es": "Pausar o reanudar rotación",
+          "fr": "Suspendre ou reprendre la rotation",
+          "ja": "切り替えを一時停止・再開",
+          "ko": "자동 변경 일시 정지 또는 재개",
+          "pt": "Pausar ou retomar rotação",
+          "ru": "Приостановить или продолжить смену",
+          "tr": "Değişimi Duraklat veya Sürdür",
+          "zh-Hans": "暂停或恢复轮换",
+          "zh-Hant": "暫停或繼續輪換"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/wallpaper?provider=wallpaper&action=toggle-rotation",
+      "pluginID": "wallpaper",
+      "providerID": "wallpaper",
+      "route": "/plugins/wallpaper/actions/wallpaper/toggle-rotation/"
     },
     {
       "action": {

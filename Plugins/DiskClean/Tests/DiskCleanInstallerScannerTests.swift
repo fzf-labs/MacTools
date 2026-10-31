@@ -36,13 +36,14 @@ final class DiskCleanInstallerScannerTests: XCTestCase {
             [.diskImage, .installerPackage, .discImage, .signedArchive],
             "results are sorted by path: App.dmg / Driver.pkg / Ubuntu.iso / Xcode.xip"
         )
-        XCTAssertTrue(candidates.allSatisfy(\.isSelectedByDefault))
-        XCTAssertTrue(candidates.allSatisfy { $0.note == nil })
+        XCTAssertEqual(candidates.filter(\.isSelectedByDefault).map(\.kind), [.installerPackage, .signedArchive])
+        XCTAssertTrue(candidates.filter { !$0.isSelectedByDefault }.allSatisfy { $0.note == .mayNotBeInstaller })
     }
 
     /// `.zip` may be a user archive; never selected by default at any age.
     func testZipIsListedButNeverSelectedByDefault() throws {
         try makeDownload("Tool.zip", bytes: 12, ageDays: 400)
+        try DiskCleanInstallerArchiveTests.archive(names: ["Tool.app/Contents/Info.plist"]).write(to: temporaryDirectory.resolve("Downloads/Tool.zip"))
 
         let candidates = try scanCandidates()
 
@@ -52,7 +53,7 @@ final class DiskCleanInstallerScannerTests: XCTestCase {
     }
 
     func testRecentInstallerIsListedWithoutDefaultSelection() throws {
-        try makeDownload("Fresh.dmg", bytes: 8, ageDays: 3)
+        try makeDownload("Fresh.pkg", bytes: 8, ageDays: 3)
 
         let candidates = try scanCandidates()
 

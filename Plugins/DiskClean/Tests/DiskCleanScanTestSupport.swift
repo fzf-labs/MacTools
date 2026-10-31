@@ -568,22 +568,6 @@ final class InMemoryDiskCleanRemovalModeStore: DiskCleanRemovalModeStoring, @unc
     }
 }
 
-/// In-memory purge-root store. Same rule: never touch real user folders in `UserDefaults.standard`.
-final class EphemeralPurgeRootsPersistence: DiskCleanPurgeRootsPersisting, @unchecked Sendable {
-    private let lock = NSLock()
-    private var roots: [String]
-
-    init(roots: [String] = []) {
-        self.roots = roots
-    }
-
-    func loadRoots() -> [String] { lock.withLock { roots } }
-
-    func saveRoots(_ roots: [String]) {
-        lock.withLock { self.roots = roots }
-    }
-}
-
 // MARK: - Async assertion helpers
 
 /// Poll until a condition holds. Async state transitions (throttled publish, expiry tasks) cannot be asserted with fixed sleeps.

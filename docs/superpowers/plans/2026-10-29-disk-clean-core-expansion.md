@@ -1,5 +1,7 @@
 # Disk Cleanup Core Expansion Plan
 
+Application-uninstall refinement: the [2026-10-30 final functional specification](../specs/2026-10-30-app-uninstall-final.md) supersedes this plan's uninstall discovery, association, and presentation details. The refinement implementation and its acceptance evidence are recorded there; baseline validation below applies to the original expansion.
+
 ## Goal and Agreed Scope
 
 Expand the existing `disk-clean` plugin into six common storage-management workflows:
@@ -9,7 +11,7 @@ Expand the existing `disk-clean` plugin into six common storage-management workf
 3. Rebuildable developer-artifact cleanup.
 4. Third-party application uninstallation.
 5. Already-uninstalled application leftover review and removal.
-6. Navigation to the existing Storage Explorer plugin for large-file and disk-usage analysis.
+Disk-usage analysis remains in the independent Storage Explorer plugin, outside this workspace.
 
 All new cleanup and uninstall surfaces belong to Disk Clean. Storage Explorer retains its own scanner, review UI, and deletion implementation. Implement and validate the work incrementally, but deliver the selected scope together rather than publishing incomplete feature batches.
 
@@ -128,17 +130,15 @@ Support these explicit project/target combinations:
 - Recheck installed-application evidence immediately before deletion. Reinstallation or newly discovered copies invalidate the affected operation group.
 - Apply exactly the same whitelist, sensitive-data, directory-content, identity, and Trash protections used by other cleanup workflows.
 
-### 6. Large Files and Disk Usage
+### 6. Independent Storage Analysis
 
-- Add a Space Analysis destination to the Disk Clean workspace.
-- Use the existing `mactools://app/settings/plugins/...` navigation pattern to open `com.mactools.plugin.storage-explorer`. Follow the existing Mac Settings provider-navigation pattern for unavailable plugins, including marketplace detail fallback.
-- Do not automatically install or enable the other plugin. Do not add cross-plugin scan-result synchronization or change Storage Explorer's deletion policy.
-
-## Architecture and Interaction
+- Keep disk-usage visualization in the existing Storage Explorer plugin.
+- Do not include a Space Analysis destination, cross-plugin navigation, or marketplace fallback inside Disk Clean.
+- Keep plugin implementations, scanners, review flows, and deletion policies independent.
 
 ### Workspace
 
-Keep `disk-clean` as the plugin ID and preserve existing menu-bar row/action IDs. Use a native workspace with six destinations: caches/logs, installers, developer artifacts, uninstall, leftovers, and space analysis. Whitelist, removal-mode settings, and history remain common secondary destinations.
+Keep `disk-clean` as the plugin ID and preserve existing menu-bar row/action IDs. Use a native workspace with six destinations: junk cleanup, app uninstall, installer cleanup, suspected app leftovers, project cleanup, and settings/records. Keep disk-usage analysis outside this workspace.
 
 Each workflow owns its scan and review state. Do not add a cross-workflow "delete all" button. Keep menu-bar scan/review behavior aligned with its current cache-cleanup scope; open the full workspace for uninstall and other expanded workflows.
 
@@ -152,7 +152,7 @@ Reuse host-owned page headers, permission cards, navigation, `PluginSettingsThem
 - Serialize all Disk Clean mutations across sections and startup reconciliation. Do not allow overlapping operation groups to mutate the same path.
 - Keep expensive filesystem, process, archive, and application inventory work off the main actor. Bound workers, retained results, probe lifetimes, and notifications; reuse the existing filesystem reader and subprocess runner.
 - Observe relevant application launch/termination, installation-directory changes, and permission/configuration changes. Invalidate affected results, debounce repeated events, and perform fresh execution checks. Plugin deactivation cancels work and removes observers; reject late callbacks.
-- Do not add a public PluginKit API, change an existing public stored layout, or introduce direct dependencies between plugin implementations. Use existing host navigation for Space Analysis.
+- Do not add a public PluginKit API, change an existing public stored layout, or introduce direct dependencies between plugin implementations.
 
 ### Safety and Compatibility
 
@@ -164,12 +164,12 @@ Reuse host-owned page headers, permission cards, navigation, `PluginSettingsThem
 
 ## Implementation Sequence
 
-- [ ] **1. Record upstream evidence and extend internal contracts.** Review Mole at a recorded commit; document adopted/excluded behavior, ownership rules, operation grouping, and migration defaults. Add inventory and safety seams without changing public PluginKit interfaces.
-- [ ] **2. Strengthen project protection and existing cleanup.** Implement protected-content and activity checks, expand the explicit project matrix, audit cache rules, and extend installer roots and ZIP/MPKG identification.
-- [ ] **3. Implement native application uninstall.** Build discovery, association review, personal-data choices, multiple-copy protection, ordered Trash execution, cancellation, and partial-result reporting. Verify this flow against Mole's uninstall implementation as well as MacTools safety contracts.
-- [ ] **4. Implement suspected-leftover review.** Reuse inventory/ownership services, preserve uncertainty, add reinstallation checks, and connect selected paths to the validated cleanup pipeline.
-- [ ] **5. Complete workspace integration.** Add the six destinations, shared settings/history access, permission and stale-result states, menu-bar consistency, and Storage Explorer navigation/fallback.
-- [ ] **6. Validate and prepare the complete delivery.** Finish localization, focused tests, native review, plugin metadata, documentation, notices where required, and final compatibility checks. Do not publish individual incomplete milestones.
+- [x] **1. Record upstream evidence and extend internal contracts.** Review Mole at a recorded commit; document adopted/excluded behavior, ownership rules, operation grouping, and migration defaults. Add inventory and safety seams without changing public PluginKit interfaces.
+- [x] **2. Strengthen project protection and existing cleanup.** Implement protected-content and activity checks, expand the explicit project matrix, audit cache rules, and extend installer roots and ZIP/MPKG identification.
+- [x] **3. Implement native application uninstall.** Build discovery, association review, personal-data choices, multiple-copy protection, ordered Trash execution, cancellation, and partial-result reporting. Verify this flow against Mole's uninstall implementation as well as MacTools safety contracts.
+- [x] **4. Implement suspected-leftover review.** Reuse inventory/ownership services, preserve uncertainty, add reinstallation checks, and connect selected paths to the validated cleanup pipeline.
+- [x] **5. Complete workspace integration.** Add cleanup and uninstall destinations, shared settings/history access, permission and stale-result states, and menu-bar consistency while keeping disk-usage analysis independent.
+- [x] **6. Validate and prepare the complete delivery.** Finish localization, focused tests, native review, plugin metadata, documentation, notices where required, and final compatibility checks. Do not publish individual incomplete milestones.
 
 Update the source plugin manifest and related-plugin metadata for the expanded capabilities. Regenerate site metadata through its generator instead of editing generated JSON by hand. Maintain the durable plugin guide and `CONTRIBUTING.md`; add concise English plugin changelog fragments and a separate host fragment only if a user-visible host change actually requires one. Keep each changelog entry within repository limits.
 
@@ -186,7 +186,7 @@ Use adjacent Disk Clean tests and add focused suites for new inventory, ownershi
 | Projects | Each distinct project-marker family, unrelated same-name directory, tracked content, nested repository, deployment keys, recent/unknown activity, and changed execution-time evidence. |
 | Uninstall | Individual and batch removal, default personal-data retention, explicit per-path data choice, multi-copy sharing, system/self protection, active processes, permissions, bundle failure, data failure, cancellation, and interrupted staging. |
 | Leftovers | Existing valid copy, no installed evidence, incomplete inventory, conflicting/shared ownership, reinstallation, and protected descendants. |
-| Integration | Result invalidation, serialized writes across sections, old preferences/history decoding, and installed/unavailable Storage Explorer navigation. |
+| Integration | Result invalidation, serialized writes across sections, old preferences/history decoding, and independent plugin boundaries. |
 
 Retain existing meaningful deletion-boundary tests rather than duplicating all outcomes in every discovery suite. Do not add fixed wording, spacing, icon, or test-count assertions.
 
@@ -198,9 +198,36 @@ Run the smallest affected classes first with `make test TEST_FILTER='<RelatedTes
 - Verify preview, explicit confirmation, Trash recovery, batch uninstall, partial failure, and history.
 - Verify operation without Full Disk Access: readable locations remain usable, denied locations are explained, and no admin flow appears.
 - Check light/dark appearance, keyboard navigation, long names and paths, resizing, loading/error/empty states, and cancellation.
-- Check Storage Explorer navigation when available and marketplace fallback when unavailable.
+- Check that Disk Clean has no Storage Explorer destination or navigation; Storage Explorer remains independently available.
 - Compare representative scans using the same build configuration; record workload, first useful results, total duration, retained memory, and idle behavior. Confirm no long main-thread stalls, overlapping collectors, or work retained after deactivation; do not invent universal speed thresholds.
 
 ### Release Acceptance
 
-All six user workflows must be complete before handoff. Personal data is retained unless explicitly and safely selected, protected/shared data cannot be selected indirectly, and permission or discovery uncertainty cannot silently authorize removal. Results must distinguish partial completion from success, existing settings and history must remain usable, and the implementation must document how Mole informed both cleanup and application uninstall.
+All selected cleanup workflows must be complete before handoff. Personal data is retained unless explicitly and safely selected, protected/shared data cannot be selected indirectly, and permission or discovery uncertainty cannot silently authorize removal. Results must distinguish partial completion from success, existing settings and history must remain usable, and the implementation must document how Mole informed both cleanup and application uninstall.
+
+
+## Original Expansion Verification (2026-10-30)
+
+This section records the original six-destination baseline, before the later automatic-inventory and five-category uninstall refinement.
+
+- Implemented the six workspace destinations in the existing Disk Clean plugin and retained existing menu-bar scope and stable control IDs.
+- Used Mole commit `27ac801360d2fe61dd964d041cde71b9dac3c188` as a research baseline. The adoption/exclusion mapping is recorded in `docs/plugins/disk-clean.md`; no Mole executable or copied shell implementation is shipped.
+- `make ci` passed with Xcode selected through `DEVELOPER_DIR`: 3,057 passed XCTest cases, four skipped, and no failures; the frozen PluginKit v7 binary compatibility client also passed.
+- The script suite passed 237 tests, including localization, generated plugin data, changelog, and minimum-host checks. Disk Clean Debug plugin packaging passed.
+- Added focused coverage for app discovery/ownership, application-first Trash execution, retained data when another copy exists, reinstalls/incomplete presence, protected descendants, project evidence, ZIP metadata, unknown process state, and normalized scan roots.
+- Reviewed the native workspace, app discovery, grouped preview, default selection, action enablement, settings/history, and the original Space Analysis entry (subsequently removed for plugin independence) in an isolated preview. Its executor rejected every filesystem mutation; synthetic applications were used instead of real user apps. Real staging was separately exercised with a fake Trash sink in temporary test directories.
+- The preview exposed a scan-root alias issue; persisted/default roots now normalize and deduplicate physical paths, with a dedicated regression test.
+- No real user applications were removed. Administrator-only uninstall, system-service removal, and vendor uninstaller invocation remain excluded. Signed-app permission acceptance, a full light/dark/accessibility matrix, and representative before/after performance measurements remain manual follow-up checks; no claims about scan speed or immediate reclaimed capacity are made.
+- No commit, release, catalog publication, or installation into the running user's MacTools was performed. Unrelated Wallpaper work was preserved.
+
+
+## Uninstall P0 Follow-up (2026-10-30)
+
+- [x] Replace the small support-directory map with a common-app registry of exact leaves, product aliases, channel separation, personal-data semantics, and explicit review-only locations.
+- [x] Add bounded separator/channel/version name variants and known hidden-directory candidates without granting deletion authority to name matches.
+- [x] Carry per-location coverage through the review model into an on-demand native sheet, with search, incomplete-only filtering, product adaptation status, and component ownership completeness.
+- [x] Preserve precise denied, invalid-directory, and unsupported-volume outcomes; reject vendor roots, wildcard rules, and overlapping product ownership.
+- [x] Recheck curated path evidence before execution and retain existing Trash-only, no-follow, whitelist, content, installed-copy, and running-process protection.
+- [x] Validate 331 Disk Clean tests, 237 script tests, changelog checks, native light/dark and compact layouts, and a read-only Cursor review. Build, synchronize, and launch the Disk Clean plugin in MacTools Dev.
+
+See the [final uninstall specification](../specs/2026-10-30-app-uninstall-final.md) for the supported scope. Privileged installation handling and post-uninstall residual verification remain separate future work. No real user application or data was removed, and no release was published.

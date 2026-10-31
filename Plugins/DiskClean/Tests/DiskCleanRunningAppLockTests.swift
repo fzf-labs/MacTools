@@ -4,6 +4,14 @@ import XCTest
 @testable import DiskCleanPlugin
 
 final class DiskCleanRunningAppLockTests: XCTestCase {
+    func testUnknownProcessStateRemainsLockedAfterRefreshingApplicationIDs() {
+        var snapshot = DiskCleanRunningAppSnapshot()
+        snapshot.processStateKnown = false
+        let refreshed = snapshot.replacingBundleIDs([], observedAt: Date())
+        XCTAssertNotNil(refreshed.lockingProcessName(bundleIDs: [], processNames: ["node"]))
+        XCTAssertNil(refreshed.lockingProcessName(bundleIDs: [], processNames: []))
+    }
+
     // MARK: - Decision matrix
 
     func testBundleIDMatchIsCaseInsensitive() {

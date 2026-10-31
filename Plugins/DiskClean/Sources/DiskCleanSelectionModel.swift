@@ -163,10 +163,6 @@ struct DiskCleanSelectionModel: Equatable, Sendable {
 
     // MARK: - Derived state
 
-    func explicitOperation(for category: DiskCleanCategoryID) -> CategoryOperation? {
-        categoryOperations[category]
-    }
-
     func selectedIDs(in candidates: [DiskCleanCandidate]) -> Set<DiskCleanCandidate.ID> {
         Set(candidates.filter(isSelected).map(\.id))
     }

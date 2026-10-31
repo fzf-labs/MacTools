@@ -5,6 +5,27 @@ import XCTest
 final class DiskCleanWhitelistStoreTests: XCTestCase {
     private let home = "/Users/tester"
 
+    func testUninstallOmitsDefaultRetentionButPreservesCustomAndSensitiveProtection() {
+        let policy = DiskCleanSafetyPolicy(homeDirectory: home, whitelistStore: .init(homeDirectory: home,
+            customRules: ["$HOME/Library/Caches/Customer/*"]))
+        let application = DiskCleanReviewValidation.application(bundleID: "org.example.fixture", roots: [],
+            bundlePath: "/Applications/Fixture.app", isBundle: true)
+        let uninstall = policy.forReview(application)
+        for path in [home + "/Library/Caches/JetBrains.Fixture", "/Applications/Fixture.app/.DS_Store"] {
+            XCTAssertFalse(policy.safetyStatus(for: path).isCleanable)
+            XCTAssertTrue(uninstall.safetyStatus(for: path).isCleanable)
+            for evidence: DiskCleanReviewValidation? in [nil, .cache(bundleID: "org.example.fixture"),
+                .leftover(bundleID: "org.example.fixture", roots: []), .project, .installer] {
+                XCTAssertFalse(policy.forReview(evidence).safetyStatus(for: path).isCleanable)
+            }
+        }
+        XCTAssertFalse(uninstall.safetyStatus(for: home + "/Library/Caches/Customer/data").isCleanable)
+        XCTAssertFalse(uninstall.safetyStatus(for: home + "/Library/Caches/A", alsoChecking: [home + "/Library/Caches/Customer/data"]).isCleanable)
+        XCTAssertFalse(uninstall.safetyStatus(for: home + "/.ssh/id_ed25519").isCleanable)
+        XCTAssertFalse(uninstall.safetyStatus(for: home + "/Library/Keychains/login.keychain-db").isCleanable)
+        XCTAssertFalse(uninstall.safetyStatus(for: "/System/Library/CoreServices").isCleanable)
+    }
+
     func testDefaultRulesIncludeMoleProtectedCleanEntries() {
         let store = DiskCleanWhitelistStore(homeDirectory: home)
         let rules = Set(store.expandedRules().map(\.expandedPattern))

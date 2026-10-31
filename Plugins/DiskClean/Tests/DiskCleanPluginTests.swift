@@ -11,46 +11,7 @@ final class DiskCleanPluginTests: XCTestCase {
         let requirement = try XCTUnwrap(plugin.permissionRequirements.first)
         XCTAssertEqual(requirement.id, "full-disk-access")
         XCTAssertEqual(plugin.permissionRequirements.count, 1)
-        XCTAssertTrue(requirement.description.contains("跳过"))
     }
-
-    // MARK: - P2 section wiring (design §10)
-
-    /// When scan roots change, the new scope must be pushed to the developer-artifact section.
-    /// If this wire breaks, users clean with stale results against folders just removed —
-    /// the Controller only marks "rescan needed" after receiving the new scope.
-    func testAddingPurgeRootUpdatesDeveloperArtifactScope() {
-        let purgeRoots = DiskCleanPurgeRootsModel(
-            store: DiskCleanPurgeRootsStore(
-                persistence: EphemeralPurgeRootsPersistence(),
-                resolvePhysicalPath: { $0 }
-            )
-        )
-        let developerArtifacts = DiskCleanController(
-            engine: ControlledDiskCleanScanEngine(),
-            initialSnapshot: DiskCleanControllerSnapshot(
-                phase: .idle,
-                scope: .developerArtifacts(roots: []),
-                scanResult: nil,
-                executionResult: nil,
-                isResultStale: false,
-                errorMessage: nil
-            ),
-            removalModeStore: InMemoryDiskCleanRemovalModeStore(mode: .trash)
-        )
-        _ = DiskCleanPlugin(
-            controller: FakeDiskCleanPluginController(),
-            developerArtifactsController: developerArtifacts,
-            purgeRoots: purgeRoots
-        )
-
-        purgeRoots.add("/code")
-
-        XCTAssertEqual(developerArtifacts.snapshot.scope, .developerArtifacts(roots: ["/code"]))
-        XCTAssertTrue(developerArtifacts.snapshot.canScan)
-    }
-
-    /// Menu bar only reflects the rules section: P2 candidate inflow must not rebuild the host menu.
 
     func testInvokingScanForwardsToController() {
         let controller = FakeDiskCleanPluginController()

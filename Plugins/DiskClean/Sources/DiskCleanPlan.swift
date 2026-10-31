@@ -92,6 +92,7 @@ struct DiskCleanValidatedPlan: Equatable, Sendable {
         /// the execution side need not re-query the catalog.
         let lockedByBundleIDs: [String]
         let skipWhenProcessIsRunning: [String]
+        var validation: DiskCleanReviewValidation? = nil
 
         var parentPath: String {
             (path as NSString).deletingLastPathComponent
@@ -181,31 +182,39 @@ enum DiskCleanPlanner {
         // Preserve artifact candidate order for selected items so execution and display stay consistent and reproducible.
         for candidate in artifact.candidates where selectedIDs.contains(candidate.id) {
             guard candidate.isCleanable,
-                  let sizeResult = candidate.sizeResult,
-                  let rootIdentity = sizeResult.rootIdentity else {
+                  let observedAt = candidate.observedAt,
+                  let rootIdentity = candidate.removalIdentity else {
                 throw DiskCleanPlanError.invalidSelection(candidateID: candidate.id)
             }
             guard let target = targetsByID[candidate.targetID] else {
                 throw DiskCleanPlanError.unknownTarget(targetID: candidate.targetID)
             }
 
-            minObservedAt = min(minObservedAt, sizeResult.observedAt)
+            minObservedAt = min(minObservedAt, observedAt)
             items.append(
                 DiskCleanValidatedPlan.PlanItem(
                     candidateID: candidate.id,
                     path: candidate.path,
                     logicalPaths: candidate.logicalPaths,
                     rootIdentity: rootIdentity,
-                    observedAt: sizeResult.observedAt,
+                    observedAt: observedAt,
                     targetID: candidate.targetID,
                     legacyRuleID: candidate.legacyRuleID,
                     category: candidate.category,
                     estimatedBytes: candidate.estimatedBytes,
                     lockedByBundleIDs: target.lockedByBundleIDs,
-                    skipWhenProcessIsRunning: target.skipWhenProcessIsRunning
+                    skipWhenProcessIsRunning: target.skipWhenProcessIsRunning,
+                    validation: candidate.validation
                 )
             )
         }
+
+        if mode != .trash, let item = items.first(where: { $0.validation?.requiresTrash == true }) {
+            throw DiskCleanPlanError.invalidSelection(candidateID: item.candidateID)
+        }
+        // Bundle moves precede associated data, including multiple copies in a batch.
+        items = items.filter { $0.validation?.isApplicationBundle == true }
+            + items.filter { $0.validation?.isApplicationBundle != true }
 
         // Some submitted ids are not in the artifact → unauthorized selection; reject entirely.
         // Compare sets, not counts: duplicate ids in the artifact could make counts match while

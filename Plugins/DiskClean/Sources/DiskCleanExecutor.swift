@@ -1,4 +1,5 @@
 import Foundation
+import MacToolsPluginKit
 
 // MARK: - Execution interface
 
@@ -151,6 +152,8 @@ struct DiskCleanExecutor: DiskCleanExecuting {
     private let runningAppLock: any DiskCleanRunningAppSnapshotting
     private let auditLog: DiskCleanAuditLog
     private let now: @Sendable () -> Date
+    private let reviewValidator: any DiskCleanReviewValidating
+    private let applicationTrash: (any DiskCleanApplicationTrashRemoving)?
 
     init(
         storageDirectory: URL = DiskCleanStorageLocation.fallbackDirectory,
@@ -158,7 +161,8 @@ struct DiskCleanExecutor: DiskCleanExecuting {
         auditLog: DiskCleanAuditLog? = nil,
         safetyPolicy: DiskCleanSafetyPolicy = DiskCleanSafetyPolicy(),
         runningAppLock: any DiskCleanRunningAppSnapshotting = DiskCleanRunningAppLock(),
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        localization: PluginLocalization = .init(bundle: .main)
     ) {
         let sharedJournal = journal ?? DiskCleanStagingJournal(directory: storageDirectory)
         self.init(
@@ -166,7 +170,9 @@ struct DiskCleanExecutor: DiskCleanExecuting {
             safetyPolicy: safetyPolicy,
             runningAppLock: runningAppLock,
             auditLog: auditLog ?? DiskCleanAuditLog(directory: storageDirectory),
-            now: now
+            now: now,
+            applicationTrash: DiskCleanApplicationTrash(),
+            localization: localization
         )
     }
 
@@ -175,13 +181,18 @@ struct DiskCleanExecutor: DiskCleanExecuting {
         safetyPolicy: DiskCleanSafetyPolicy,
         runningAppLock: any DiskCleanRunningAppSnapshotting,
         auditLog: DiskCleanAuditLog,
-        now: @escaping @Sendable () -> Date = Date.init
+        now: @escaping @Sendable () -> Date = Date.init,
+        reviewValidator: (any DiskCleanReviewValidating)? = nil,
+        applicationTrash: (any DiskCleanApplicationTrashRemoving)? = nil,
+        localization: PluginLocalization = .init(bundle: .main)
     ) {
         self.primitive = primitive
         self.safetyPolicy = safetyPolicy
         self.runningAppLock = runningAppLock
         self.auditLog = auditLog
         self.now = now
+        self.reviewValidator = reviewValidator ?? DiskCleanReviewValidator(policy: safetyPolicy, localization: localization)
+        self.applicationTrash = applicationTrash
     }
 
     func execute(plan: DiskCleanValidatedPlan) async throws -> DiskCleanExecutionResult {
@@ -223,7 +234,7 @@ struct DiskCleanExecutor: DiskCleanExecuting {
 
             // Second SafetyPolicy check: the whitelist may grow after the scan; staged-name protection also applies here.
             // Check physical + logical so a redirected home cache still matches lexical whitelist rules.
-            let safety = safetyPolicy.safetyStatus(
+            let safety = safetyPolicy.forReview(item.validation).safetyStatus(
                 for: item.path,
                 alsoChecking: item.safetyCheckPaths
             )
@@ -232,7 +243,17 @@ struct DiskCleanExecutor: DiskCleanExecuting {
                 continue
             }
 
-            let disposition = primitive.remove(item, mode: plan.mode)
+            if let validation = item.validation,
+               let reason = await reviewValidator.rejection(path: item.path, evidence: validation) {
+                itemResults.append(record(item: item, outcome: .skipped(.protected(reason: reason)), mode: plan.mode, runID: runID))
+                continue
+            }
+            let disposition: DiskCleanRemovalDisposition
+            if plan.mode == .trash, case .application = item.validation, let applicationTrash {
+                disposition = await applicationTrash.remove(item)
+            } else {
+                disposition = primitive.remove(item, mode: plan.mode)
+            }
             itemResults.append(
                 record(item: item, outcome: Self.outcome(for: disposition, item: item), mode: plan.mode, runID: runID)
             )
@@ -307,6 +328,7 @@ struct DiskCleanExecutor: DiskCleanExecuting {
         let processNames = Array(Set(plan.items.flatMap(\.skipWhenProcessIsRunning)))
         let snapshot = await runningAppLock.makeSnapshot(processNames: processNames)
         for item in plan.items {
+            if case .application = item.validation { continue }
             if let processName = snapshot.lockingProcessName(
                 bundleIDs: item.lockedByBundleIDs,
                 processNames: item.skipWhenProcessIsRunning
