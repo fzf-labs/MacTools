@@ -163,7 +163,7 @@ enum StorageExplorerHierarchyRectLayout {
                     sizeLabel: node.bytes.formatted(byteStyle)
                 ))
                 guard !node.children.isEmpty else { continue }
-                let header = min(26, max(18, box.height * 0.12))
+                let header: CGFloat = 30
                 let inset = box.insetBy(dx: 4, dy: 4)
                 let childRect = CGRect(
                     x: inset.minX,
@@ -173,6 +173,9 @@ enum StorageExplorerHierarchyRectLayout {
                 )
                 guard childRect.width >= minimumChildWidth,
                       childRect.height >= minimumChildHeight else { continue }
+                // Omit nested outlines when no child has room for a readable label.
+                let childBoxes = partition(weights: node.children.map { Double($0.bytes) }, in: childRect)
+                guard childBoxes.contains(where: { $0.width >= 76 && $0.height >= 40 }) else { continue }
                 queue.append(Work(
                     nodes: node.children,
                     rect: childRect,

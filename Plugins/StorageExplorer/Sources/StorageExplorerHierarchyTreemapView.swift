@@ -599,13 +599,15 @@ private struct StorageExplorerTreemapBaseLayer: View, Equatable {
 
     var body: some View {
         Canvas { context, _ in
+            let containerIDs = Set(rectangles.filter { $0.depth > 0 }.compactMap { $0.node.item.parentPath })
             for entry in rectangles {
                 StorageExplorerTreemapRenderer.drawBase(
                     entry,
                     reviewEligibility: reviewEligibility[entry.id] ?? .unavailable,
                     context: &context,
                     selected: selectedID == entry.id,
-                    focused: focusedID == entry.id
+                    focused: focusedID == entry.id,
+                    hasVisibleChildren: containerIDs.contains(entry.id)
                 )
             }
         }
@@ -670,7 +672,8 @@ private enum StorageExplorerTreemapRenderer {
         reviewEligibility: StorageExplorerReviewEligibility,
         context: inout GraphicsContext,
         selected: Bool,
-        focused: Bool
+        focused: Bool,
+        hasVisibleChildren: Bool
     ) {
         let inset = entry.rect.insetBy(dx: entry.depth == 0 ? 1.5 : 1, dy: entry.depth == 0 ? 1.5 : 1)
         guard inset.width > 0, inset.height > 0 else { return }
@@ -700,16 +703,26 @@ private enum StorageExplorerTreemapRenderer {
             )
         }
         if inset.width > 62, inset.height > 30 {
-            context.draw(
-                Text(entry.node.item.name)
-                    .font(.system(size: entry.depth == 0 ? 13 : 11, weight: .semibold))
-                    .foregroundStyle(.white),
-                in: CGRect(x: inset.minX + 8, y: inset.minY + 6, width: inset.width - 16, height: 18)
+            let nameFont = entry.depth == 0 ? PluginTypography.body.font : PluginTypography.caption.font
+            let showsInlineSize = hasVisibleChildren && inset.width >= 220
+            let sizeWidth: CGFloat = showsInlineSize ? 82 : 0
+            let titleBounds = CGRect(
+                x: inset.minX + 8, y: inset.minY + 6,
+                width: max(0, inset.width - 16 - sizeWidth), height: 18
             )
-            if inset.height > 52 {
+            context.draw(
+                Text(entry.node.item.name).font(nameFont.weight(.semibold)).foregroundStyle(.white),
+                in: titleBounds
+            )
+            if showsInlineSize {
                 context.draw(
-                    Text(entry.sizeLabel).font(.caption2).foregroundStyle(.white.opacity(0.9)),
-                    in: CGRect(x: inset.minX + 8, y: inset.minY + 25, width: inset.width - 16, height: 16)
+                    Text(entry.sizeLabel).font(PluginTypography.caption.font).foregroundStyle(.white.opacity(0.9)),
+                    in: CGRect(x: titleBounds.maxX + 4, y: titleBounds.minY, width: sizeWidth - 4, height: 18)
+                )
+            } else if !hasVisibleChildren, inset.height > 52 {
+                context.draw(
+                    Text(entry.sizeLabel).font(PluginTypography.caption.font).foregroundStyle(.white.opacity(0.9)),
+                    in: CGRect(x: inset.minX + 8, y: inset.minY + 27, width: inset.width - 16, height: 16)
                 )
             }
         }

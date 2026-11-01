@@ -10,6 +10,12 @@ The scanner defaults to two workers, capped at four. Blocking calls stay outside
 
 The app scanner retains every directory, the largest file in each directory, and the 50,000 largest files overall. Omitted small files remain represented by aggregate tiles. Full-tree scanner clients can opt into publishing every file. The main workspace focuses on size on disk in a hierarchical treemap; the largest top-level items receive the warmest stable colors, and descendants inherit their group color. Size on disk is not a promise of recoverable disk space.
 
+## Workspace navigation
+
+The initial workspace has one Start Analysis button that scans the current user’s Home folder immediately. Other scan locations remain available from the folder menu in the results. During the initial scan, Cancel is the only action.
+
+The navigation bar keeps breadcrumbs, folder selection, refresh, and scan status outside the visualization. Wide windows show a resizable space map and item browser side by side; narrow windows switch between the map and results without squeezing either surface. The browser includes all retained rows (up to 5,000), a name filter, sizes, and proportions. Click an item to inspect it, double-click a folder or use its disclosure button to enter it, and press Space on a focused file for Quick Look. Selected-item details use a separate vertical inspector. The review basket stays below the workspace and highlights when it is a drag destination.
+
 ## Refresh and retention
 
 Scanning starts only when the user chooses a folder, scans Home, or clicks Refresh. Navigation, selection, Trash success, and Trash failure never trigger another scan. Refresh clears the directory metadata cache and reads fresh metadata; during refresh, the previous complete visualization remains stable until the replacement snapshot is ready. External filesystem changes are reflected only after an explicit refresh, while Trash still verifies item identity and type immediately before execution. Recent snapshots are cached locally for an immediate preview during a requested scan; cached previews cannot be reviewed for Trash. No scan paths or results are sent over the network.
