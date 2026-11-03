@@ -425,3 +425,25 @@ final class CalendarPlugin: MacToolsPlugin {
         NSWorkspace.shared.open(url)
     }
 }
+
+// MARK: - Portable preferences
+
+extension CalendarPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { settingsStore.onPersistentPreferencesChange }
+        set { settingsStore.onPersistentPreferencesChange = newValue }
+    }
+
+    func makePortablePreferencesBackup() -> Data? { settingsStore.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard settingsStore.restorePortableBackup(data) else { return false }
+        measuredComponentSpanHeight = nil
+        viewModel.setWeekStartDay(settingsStore.weekStartDay)
+        viewModel.setAlternateCalendar(settingsStore.alternateCalendar)
+        viewModel.configureAgenda(range: settingsStore.agendaRange, isVisible: settingsStore.showsRecentAgenda)
+        onStateChange?()
+        return true
+    }
+}

@@ -96,6 +96,7 @@ struct PluginPackageManifest: Codable, Equatable {
     let actions: PluginProductMetadata.Actions?
     let setup: PluginProductMetadata.Setup?
     let relationships: PluginProductMetadata.Relationships?
+    let preferencesBackup: PluginPreferencesBackupCoverage?
 
     init(
         id: String,
@@ -117,7 +118,8 @@ struct PluginPackageManifest: Codable, Equatable {
         privacy: PluginProductMetadata.Privacy? = nil,
         actions: PluginProductMetadata.Actions? = nil,
         setup: PluginProductMetadata.Setup? = nil,
-        relationships: PluginProductMetadata.Relationships? = nil
+        relationships: PluginProductMetadata.Relationships? = nil,
+        preferencesBackup: PluginPreferencesBackupCoverage? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -139,6 +141,7 @@ struct PluginPackageManifest: Codable, Equatable {
         self.actions = actions
         self.setup = setup
         self.relationships = relationships
+        self.preferencesBackup = preferencesBackup
     }
 
     var effectiveUninstallDataPolicy: UninstallDataPolicy {
@@ -301,4 +304,26 @@ enum PluginPackageManifestLoader {
         }
     }
 
+}
+
+/// The installed package's declaration. Runtime provider availability is checked separately.
+struct PluginPreferencesBackupCoverage: Codable, Equatable {
+    enum Status: String, Codable, CaseIterable {
+        case portable, partial, localOnly, none, unsupported
+    }
+
+    enum Exclusion: String, Codable, CaseIterable {
+        case credentials, permissions, history
+        case privateContent = "private-content"
+        case deviceState = "device-state"
+        case localActivation = "local-activation"
+        case applicationPaths = "application-paths"
+        case externalAuthorization = "external-authorization"
+        case localPolicy = "local-policy"
+    }
+
+    let status: Status
+    let exclusions: [Exclusion]
+
+    var expectsProvider: Bool { status == .portable || status == .partial }
 }

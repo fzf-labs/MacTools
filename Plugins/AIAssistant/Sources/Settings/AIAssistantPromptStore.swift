@@ -25,7 +25,13 @@ struct AIAssistantPromptStore {
 
     func savePrompts(_ prompts: [AIAssistantPrompt]) throws {
         let data = try JSONEncoder().encode(prompts)
+        let previous = storage.object(forKey: AIAssistantConstants.StorageKey.prompts)
         storage.set(data, forKey: AIAssistantConstants.StorageKey.prompts)
+        guard storage.data(forKey: AIAssistantConstants.StorageKey.prompts) == data else {
+            if let previous { storage.set(previous, forKey: AIAssistantConstants.StorageKey.prompts) }
+            else { storage.removeObject(forKey: AIAssistantConstants.StorageKey.prompts) }
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 
     func makeNewPrompt(existing: [AIAssistantPrompt]) -> AIAssistantPrompt {

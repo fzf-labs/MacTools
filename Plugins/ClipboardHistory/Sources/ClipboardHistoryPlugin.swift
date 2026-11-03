@@ -3077,3 +3077,32 @@ final class ClipboardHistoryPlugin:
         }
     }
 }
+
+extension ClipboardHistoryPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { settingsStore.onPersistentPreferencesChange }
+        set { settingsStore.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { settingsStore.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard !isBackingUpClipboard, controller.canRestorePortablePreferences else { return false }
+        let revision = settingsStore.portableRevision
+        guard settingsStore.restorePortableBackup(data) else { return false }
+        if settingsStore.portableRevision != revision {
+            controller.portablePreferencesDidRestore()
+            if sequentialPasteHUD.isVisible { showSequentialPasteHUD() }
+        }
+        onStateChange?()
+        return true
+    }
+}
+
+
+extension ClipboardHistoryPlugin: PluginActionReferenceBackupProviding {
+    func backupDisposition(for reference: ActionReference) -> PluginActionReferenceBackupDisposition {
+        guard reference.key.providerID == metadata.id else { return .excluded }
+        return ClipboardItemShortcutStore.target(for: reference.key.actionID) == nil ? .selfContained : .excluded
+    }
+}

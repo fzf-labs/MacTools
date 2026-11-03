@@ -121,38 +121,92 @@ final class RightClickPlugin: MacToolsPlugin, PluginPortablePreferencesProviding
         }
     }
 
+    convenience init(localization: PluginLocalization = PluginLocalization(bundle: .main), configurationFileURL: URL) {
+        self.init(localization: localization, configurationURL: configurationFileURL)
+    }
+
     func makePortablePreferencesBackup() -> Data? {
-        var value = RightClickConfigurationStore.load(from: configurationURL)
+        guard var value = RightClickConfigurationStore.loadForPreferencesBackup(from: configurationURL),
+              value.schemaVersion == RightClickConfiguration.currentSchemaVersion,
+              value.openWithApps.count <= 512, value.openWithApps.allSatisfy(validPortableApplication) else { return nil }
+        for index in value.openWithApps.indices {
+            let entry = value.openWithApps[index]
+            let identity: PortableApplicationReference
+            if let data = entry.portableApplicationReference {
+                guard let retained = try? JSONDecoder().decode(PortableApplicationReference.self, from: data), retained.isValid else { return nil }
+                identity = retained
+            } else {
+                identity = PortableApplicationReference(url: entry.appPath.hasPrefix("/") ? URL(fileURLWithPath: entry.appPath) : nil)
+            }
+            guard identity.isValid else { return nil }
+            value.openWithApps[index].portableApplicationReference = portableIdentityData(identity)
+            value.openWithApps[index].appPath = ""
+        }
         value.undoAvailable = false
         value.menuEnabled = false
         value.preferredLanguages = nil
+        value.locations = []
         return try? JSONEncoder().encode(value)
     }
 
-    func restorePortablePreferences(from data: Data) {
-        _ = restorePortablePreferencesReportingResult(from: data)
-    }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
 
     func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
         guard data.count <= 1_048_576,
-              var value = try? JSONDecoder().decode(RightClickConfiguration.self, from: data),
-              value.schemaVersion == RightClickConfiguration.currentSchemaVersion,
-              value.locations.count <= 256, value.openWithApps.count <= 256, value.resources.count <= 256,
+              let current = RightClickConfigurationStore.loadForPreferencesBackup(from: configurationURL) else { return false }
+        var value: RightClickConfiguration
+        let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        if object?["formatVersion"] != nil {
+            guard let payload = decodedPortable(data) else { return false }
+            value = current
+            value.newFolder = payload.newFolder
+            value.newFile = payload.newFile
+            value.openInTerminal = payload.openInTerminal
+            value.copyFileName = payload.copyFileName
+            value.copyAbsolutePath = payload.copyAbsolutePath
+            value.copyRelativePath = payload.copyRelativePath
+            value.copyShellEscapedPath = payload.copyShellEscapedPath
+            value.copyFileURL = payload.copyFileURL
+            value.openWithApps = payload.applications.map { incoming in
+                var entry = RightClickOpenWithApp(id: incoming.id, name: incoming.name, appPath: "", fileExtensions: incoming.fileExtensions)
+                entry.portableApplicationReference = portableIdentityData(incoming.application)
+                return entry
+            }
+        } else {
+            guard let decoded = try? JSONDecoder().decode(RightClickConfiguration.self, from: data) else { return false }
+            value = decoded
+        }
+        guard value.schemaVersion == RightClickConfiguration.currentSchemaVersion,
+              value.locations.count <= 256, value.openWithApps.count <= 512, value.resources.count <= 256,
               Set(value.locations.map(\.id)).count == value.locations.count,
               Set(value.resources.map(\.id)).count == value.resources.count,
               Set(value.openWithApps.map(\.id)).count == value.openWithApps.count,
-              value.openWithApps.allSatisfy({ $0.appPath.hasPrefix("/") && $0.appPath.hasSuffix(".app") && !$0.appPath.utf8.contains(0) }),
+              value.openWithApps.allSatisfy(validPortableApplication),
               value.locations.allSatisfy({ $0.path.hasPrefix("/") && !$0.path.utf8.contains(0) }),
               value.resources.allSatisfy({ RightClickResourceStore.safeComponent($0.filename) && $0.filename.hasPrefix($0.id.uuidString) }),
-              value.enabledFileExtensions.allSatisfy({ RightClickNewFile.supportedExtensions.contains($0) })
-        else { return false }
-        let current = RightClickConfigurationStore.load(from: configurationURL)
+              value.enabledFileExtensions.allSatisfy({ RightClickNewFile.supportedExtensions.contains($0) }) else { return false }
+        var resolved = Set<String>()
+        for index in value.openWithApps.indices {
+            let entry = value.openWithApps[index]
+            if let data = entry.portableApplicationReference {
+                guard let identity = try? JSONDecoder().decode(PortableApplicationReference.self, from: data), identity.isValid else { return false }
+                let url = identity.resolvedURL()
+                value.openWithApps[index].appPath = url.flatMap { resolved.insert($0.path).inserted ? $0.path : nil } ?? ""
+            } else if !entry.appPath.hasPrefix("/") || !entry.appPath.hasSuffix(".app") || entry.appPath.utf8.contains(0) {
+                return false
+            }
+        }
         value.undoAvailable = current.undoAvailable
         value.menuEnabled = current.menuEnabled
         value.preferredLanguages = current.preferredLanguages
-        guard RightClickConfigurationStore.save(value, to: configurationURL) else { return false }
+        // Locations and resource payloads remain local; portable resource metadata can reconnect imported packages.
+        value.locations = current.locations
+        let incomingResourceIDs = Set(value.resources.map(\.id))
+        value.resources += current.resources.filter { !incomingResourceIDs.contains($0.id) }
+        guard value.resources.count <= 256 else { return false }
+        guard value == current || RightClickConfigurationStore.save(value, to: configurationURL) else { return false }
         session.reload()
-        preferencesChanges.didPersist()
+        if value != current { preferencesChanges.didPersist() }
         onStateChange?()
         return true
     }
@@ -189,5 +243,55 @@ final class RightClickPlugin: MacToolsPlugin, PluginPortablePreferencesProviding
         logger.info("Opening Finder extension management interface")
         FIFinderSyncController.showExtensionManagementInterface()
         onStateChange?()
+    }
+}
+
+extension RightClickPlugin {
+    private func validPortableApplication(_ entry: RightClickOpenWithApp) -> Bool {
+        !entry.name.isEmpty && entry.name.utf8.count <= 256
+            && !entry.name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+            && entry.fileExtensions.count <= 64 && Set(entry.fileExtensions).count == entry.fileExtensions.count
+            && entry.fileExtensions.allSatisfy { ext in
+                !ext.isEmpty && ext.utf8.count <= 64 && ext == ext.lowercased()
+                    && ext.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-_")).contains($0) }
+            }
+    }
+    private func portableIdentityData(_ identity: PortableApplicationReference) -> Data? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return try? encoder.encode(identity)
+    }
+    private struct PortableApp: Codable {
+        let id: UUID
+        let name: String
+        let application: PortableApplicationReference
+        let fileExtensions: [String]
+    }
+    private struct PortablePreferences: Codable {
+        let formatVersion: Int
+        let newFolder: Bool
+        let copyFileName: Bool
+        let copyAbsolutePath: Bool
+        let copyRelativePath: Bool
+        let copyShellEscapedPath: Bool
+        let copyFileURL: Bool
+        let newFile: Bool
+        let openInTerminal: Bool
+        let applications: [PortableApp]
+    }
+    private func decodedPortable(_ data: Data) -> PortablePreferences? {
+        guard data.count <= 1_024 * 1_024,
+              let payload = try? JSONDecoder().decode(PortablePreferences.self, from: data), payload.formatVersion == 1,
+              payload.applications.count <= 512, Set(payload.applications.map(\.id)).count == payload.applications.count,
+              payload.applications.allSatisfy({ entry in
+                  entry.application.isValid && !entry.name.isEmpty && entry.name.utf8.count <= 256
+                      && !entry.name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+                      && entry.fileExtensions.count <= 64 && Set(entry.fileExtensions).count == entry.fileExtensions.count
+                      && entry.fileExtensions.allSatisfy { ext in
+                          !ext.isEmpty && ext.utf8.count <= 64 && ext == ext.lowercased()
+                              && ext.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-_")).contains($0) }
+                      }
+              }) else { return nil }
+        return payload
     }
 }

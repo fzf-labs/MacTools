@@ -1,3 +1,9 @@
 settings:
   base:
     OTHER_LDFLAGS: -framework Security -framework LocalAuthentication -framework NaturalLanguage -framework ApplicationServices -framework Vision
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift
+    - ../../Sources/PluginSupport/PortablePreferencesValidation.swift
+    - ../../Sources/PluginSupport/PortableCredentialAuthorization.swift

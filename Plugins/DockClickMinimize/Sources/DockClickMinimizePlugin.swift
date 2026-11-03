@@ -106,6 +106,7 @@ final class DockClickMinimizePlugin: MacToolsPlugin, AccessibilityPermissionRefr
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
 
+    var onPersistentPreferencesChange: (() -> Void)?
     private let storage: any PluginStorage
     private let monitor: any DockClickMonitoring
     private let applicationHider: any DockApplicationHiding
@@ -181,6 +182,7 @@ final class DockClickMinimizePlugin: MacToolsPlugin, AccessibilityPermissionRefr
         notificationCenter: NotificationCenter = .default
     ) {
         self.storage = context.storage
+        _ = Self.portableStore(storage: context.storage).recover()
         self.monitor = monitor ?? DockClickMonitor()
         self.applicationHider = applicationHider ?? DockApplicationHider()
         self.frontmostApplicationProvider = frontmostApplicationProvider
@@ -285,8 +287,10 @@ final class DockClickMinimizePlugin: MacToolsPlugin, AccessibilityPermissionRefr
         guard case let .setSwitch(isEnabled) = action else {
             return
         }
+        guard self.isEnabled != isEnabled,
+              portableStore.commit([StorageKey.isEnabled: .boolean(isEnabled)]) else { return }
         self.isEnabled = isEnabled
-        storage.set(isEnabled, forKey: StorageKey.isEnabled)
+        onPersistentPreferencesChange?()
         if !isEnabled {
             invalidatePendingActions()
         }
@@ -501,5 +505,26 @@ final class DockClickMinimizePlugin: MacToolsPlugin, AccessibilityPermissionRefr
         }
         notificationCenter.removeObserver(applicationActivationObserver)
         self.applicationActivationObserver = nil
+    }
+}
+
+extension DockClickMinimizePlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.isEnabled: .boolean(true)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func makePortablePreferencesBackup() -> Data? { portableStore.backup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        let before = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        isEnabled = storage.object(forKey: StorageKey.isEnabled) as? Bool ?? true
+        invalidatePendingActions()
+        refreshPermissionState()
+        applyMonitoringState(requestMissingPermissions: false)
+        if before != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        onStateChange?()
+        return true
     }
 }

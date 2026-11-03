@@ -1,111 +1,14 @@
 {
-  "id": "right-click",
-  "displayName": "右键工具",
-  "summary": "自定义 Finder 操作、模板、常用位置和文件工具。",
-  "localizedMetadata": {
-    "ar": {
-      "displayName": "النقر بزر الماوس الأيمن",
-      "summary": "تخصيص إجراءات Finder والقوالب والمواقع وأدوات الملفات."
-    },
-    "de": {
-      "displayName": "Rechtsklick",
-      "summary": "Passen Sie Finder-Aktionen, Vorlagen, Speicherorte und Dateitools an."
-    },
-    "en": {
-      "displayName": "Right Click",
-      "summary": "Customize Finder actions, templates, locations and file tools."
-    },
-    "es": {
-      "displayName": "Clic derecho",
-      "summary": "Personalice las acciones, plantillas, ubicaciones y herramientas de archivos del Finder."
-    },
-    "fr": {
-      "displayName": "Clic droit",
-      "summary": "Personnalisez les actions, les modèles, les emplacements et les outils de fichiers du Finder."
-    },
-    "ja": {
-      "displayName": "右クリック",
-      "summary": "Finder のアクション、テンプレート、場所、ファイル ツールをカスタマイズします。"
-    },
-    "ko": {
-      "displayName": "오른쪽 클릭",
-      "summary": "Finder 작업, 템플릿, 위치 및 파일 도구를 사용자 정의하세요."
-    },
-    "pt": {
-      "displayName": "Clique direito",
-      "summary": "Personalize ações, modelos, locais e ferramentas de arquivo do Finder."
-    },
-    "ru": {
-      "displayName": "Правый клик",
-      "summary": "Настраивайте действия, шаблоны, местоположения и инструменты Finder."
-    },
-    "tr": {
-      "displayName": "Sağ Tıklama",
-      "summary": "Finder eylemlerini, şablonlarını, konumlarını ve dosya araçlarını özelleştirin."
-    },
-    "zh-Hans": {
-      "displayName": "右键工具",
-      "summary": "自定义 Finder 操作、模板、常用位置和文件工具。"
-    },
-    "zh-Hant": {
-      "displayName": "右鍵工具",
-      "summary": "自訂 Finder 操作、範本、位置和檔案工具。"
-    }
-  },
-  "productStrings": {
-    "display-name": "@displayName",
-    "summary": "@summary",
-    "setup-finder-extension": {
-      "ar": "فعّل ملحق Finder الخاص بـ MacTools في إعدادات النظام ضمن عام > عناصر تسجيل الدخول والملحقات > ملحقات Finder.",
-      "de": "Aktiviere die MacTools Finder-Erweiterung unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen > Finder-Erweiterungen.",
-      "en": "Enable the MacTools Finder extension in System Settings under General > Login Items & Extensions > Finder Extensions.",
-      "es": "Activa la extensión de Finder de MacTools en Ajustes del Sistema, en General > Ítems de inicio y extensiones > Extensiones de Finder.",
-      "fr": "Activez l’extension Finder de MacTools dans Réglages Système, sous Général > Ouverture et extensions > Extensions Finder.",
-      "ja": "システム設定の「一般」>「ログイン項目と機能拡張」>「Finder機能拡張」でMacToolsのFinder機能拡張を有効にします。",
-      "ko": "시스템 설정의 일반 > 로그인 항목 및 확장 프로그램 > Finder 확장 프로그램에서 MacTools Finder 확장 프로그램을 켜십시오.",
-      "pt": "Ative a extensão do Finder do MacTools em Ajustes do Sistema > Geral > Itens de Início de Sessão e Extensões > Extensões do Finder.",
-      "ru": "Включите расширение Finder для MacTools в разделе «Системные настройки» > «Основные» > «Объекты входа и расширения» > «Расширения Finder».",
-      "tr": "MacTools Finder uzantısını, Sistem Ayarları > Genel > Oturum Öğeleri ve Uzantılar > Finder Uzantıları altından etkinleştirin.",
-      "zh-Hans": "在“系统设置 > 通用 > 登录项与扩展 > Finder 扩展”中启用 MacTools 右键工具。",
-      "zh-Hant": "在「系統設定 > 一般 > 登入項目與延伸功能 > Finder 延伸功能」中啟用 MacTools 右鍵工具。"
-    },
-    "discovery.new-file": "@localizable.settings.newFile.title",
-    "discovery.new-folder": "@localizable.settings.newFolder.title",
-    "discovery.open-in-terminal": "@localizable.settings.openTerminal.title",
-    "discovery.open-with": "@localizable.settings.openWith.title",
-    "discovery.copy-absolute-path": "@localizable.settings.copyAbsolutePath.title",
-    "discovery.copy-relative-path": "@localizable.settings.copyRelativePath.title",
-    "discovery.copy-file-name": "@localizable.settings.copyFileName.title"
-  },
-  "version": "2.1.0",
-  "minHostVersion": "2.1.0",
-  "pluginKitVersion": 7,
-  "bundleRelativePath": "RightClick.bundle",
-  "factoryClass": "RightClickPlugin.RightClickPluginFactory",
   "build": {
     "project": "../../MacTools.xcodeproj",
     "scheme": "RightClickPlugin"
   },
+  "bundleRelativePath": "RightClick.bundle",
   "capabilities": {
     "panelItems": [],
     "settings": "workspace"
   },
-  "permissions": [],
   "category": "productivity",
-  "presentation": {
-    "longDescription": "@productStrings.summary",
-    "examples": [
-      {
-        "id": "primary-use",
-        "text": "@productStrings.summary"
-      }
-    ],
-    "screenshots": [],
-    "documentationURL": "https://github.com/ggbond268/MacTools/blob/main/docs/plugins/right-click.md",
-    "supportURL": "https://github.com/ggbond268/MacTools/issues",
-    "publisher": "MacTools",
-    "license": "GPL-3.0-only"
-  },
   "discovery": {
     "keywords": [
       "right",
@@ -187,18 +90,82 @@
       "@productStrings.discovery.copy-file-name"
     ]
   },
-  "requirements": {
-    "minimumMacOSVersion": "14.0",
-    "architectures": [
-      "arm64",
-      "x86_64"
+  "displayName": "右键工具",
+  "factoryClass": "RightClickPlugin.RightClickPluginFactory",
+  "id": "right-click",
+  "localizedMetadata": {
+    "ar": {
+      "displayName": "النقر بزر الماوس الأيمن",
+      "summary": "تخصيص إجراءات Finder والقوالب والمواقع وأدوات الملفات."
+    },
+    "de": {
+      "displayName": "Rechtsklick",
+      "summary": "Passen Sie Finder-Aktionen, Vorlagen, Speicherorte und Dateitools an."
+    },
+    "en": {
+      "displayName": "Right Click",
+      "summary": "Customize Finder actions, templates, locations and file tools."
+    },
+    "es": {
+      "displayName": "Clic derecho",
+      "summary": "Personalice las acciones, plantillas, ubicaciones y herramientas de archivos del Finder."
+    },
+    "fr": {
+      "displayName": "Clic droit",
+      "summary": "Personnalisez les actions, les modèles, les emplacements et les outils de fichiers du Finder."
+    },
+    "ja": {
+      "displayName": "右クリック",
+      "summary": "Finder のアクション、テンプレート、場所、ファイル ツールをカスタマイズします。"
+    },
+    "ko": {
+      "displayName": "오른쪽 클릭",
+      "summary": "Finder 작업, 템플릿, 위치 및 파일 도구를 사용자 정의하세요."
+    },
+    "pt": {
+      "displayName": "Clique direito",
+      "summary": "Personalize ações, modelos, locais e ferramentas de arquivo do Finder."
+    },
+    "ru": {
+      "displayName": "Правый клик",
+      "summary": "Настраивайте действия, шаблоны, местоположения и инструменты Finder."
+    },
+    "tr": {
+      "displayName": "Sağ Tıklama",
+      "summary": "Finder eylemlerini, şablonlarını, konumlarını ve dosya araçlarını özelleştirin."
+    },
+    "zh-Hans": {
+      "displayName": "右键工具",
+      "summary": "自定义 Finder 操作、模板、常用位置和文件工具。"
+    },
+    "zh-Hant": {
+      "displayName": "右鍵工具",
+      "summary": "自訂 Finder 操作、範本、位置和檔案工具。"
+    }
+  },
+  "minHostVersion": "2.1.0",
+  "permissions": [],
+  "pluginKitVersion": 7,
+  "preferencesBackup": {
+    "status": "partial",
+    "exclusions": [
+      "application-paths",
+      "local-activation"
+    ]
+  },
+  "presentation": {
+    "longDescription": "@productStrings.summary",
+    "examples": [
+      {
+        "id": "primary-use",
+        "text": "@productStrings.summary"
+      }
     ],
-    "hardware": [],
-    "applications": [],
-    "executables": [],
-    "permissionIDs": [],
-    "setupComplexity": "guided",
-    "requiresRelaunch": false
+    "screenshots": [],
+    "documentationURL": "https://github.com/ggbond268/MacTools/blob/main/docs/plugins/right-click.md",
+    "supportURL": "https://github.com/ggbond268/MacTools/issues",
+    "publisher": "MacTools",
+    "license": "GPL-3.0-only"
   },
   "privacy": {
     "dataObserved": [
@@ -217,6 +184,50 @@
     "processesSensitiveUserContent": true,
     "diagnosticExportsContainUserData": false
   },
+  "productStrings": {
+    "display-name": "@displayName",
+    "summary": "@summary",
+    "setup-finder-extension": {
+      "ar": "فعّل ملحق Finder الخاص بـ MacTools في إعدادات النظام ضمن عام > عناصر تسجيل الدخول والملحقات > ملحقات Finder.",
+      "de": "Aktiviere die MacTools Finder-Erweiterung unter Systemeinstellungen > Allgemein > Anmeldeobjekte & Erweiterungen > Finder-Erweiterungen.",
+      "en": "Enable the MacTools Finder extension in System Settings under General > Login Items & Extensions > Finder Extensions.",
+      "es": "Activa la extensión de Finder de MacTools en Ajustes del Sistema, en General > Ítems de inicio y extensiones > Extensiones de Finder.",
+      "fr": "Activez l’extension Finder de MacTools dans Réglages Système, sous Général > Ouverture et extensions > Extensions Finder.",
+      "ja": "システム設定の「一般」>「ログイン項目と機能拡張」>「Finder機能拡張」でMacToolsのFinder機能拡張を有効にします。",
+      "ko": "시스템 설정의 일반 > 로그인 항목 및 확장 프로그램 > Finder 확장 프로그램에서 MacTools Finder 확장 프로그램을 켜십시오.",
+      "pt": "Ative a extensão do Finder do MacTools em Ajustes do Sistema > Geral > Itens de Início de Sessão e Extensões > Extensões do Finder.",
+      "ru": "Включите расширение Finder для MacTools в разделе «Системные настройки» > «Основные» > «Объекты входа и расширения» > «Расширения Finder».",
+      "tr": "MacTools Finder uzantısını, Sistem Ayarları > Genel > Oturum Öğeleri ve Uzantılar > Finder Uzantıları altından etkinleştirin.",
+      "zh-Hans": "在“系统设置 > 通用 > 登录项与扩展 > Finder 扩展”中启用 MacTools 右键工具。",
+      "zh-Hant": "在「系統設定 > 一般 > 登入項目與延伸功能 > Finder 延伸功能」中啟用 MacTools 右鍵工具。"
+    },
+    "discovery.new-file": "@localizable.settings.newFile.title",
+    "discovery.new-folder": "@localizable.settings.newFolder.title",
+    "discovery.open-in-terminal": "@localizable.settings.openTerminal.title",
+    "discovery.open-with": "@localizable.settings.openWith.title",
+    "discovery.copy-absolute-path": "@localizable.settings.copyAbsolutePath.title",
+    "discovery.copy-relative-path": "@localizable.settings.copyRelativePath.title",
+    "discovery.copy-file-name": "@localizable.settings.copyFileName.title"
+  },
+  "relationships": {
+    "relatedPluginIDs": [],
+    "includedPackIDs": [],
+    "suggestedRecipeIDs": [],
+    "supersedesPluginIDs": []
+  },
+  "requirements": {
+    "minimumMacOSVersion": "14.0",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "hardware": [],
+    "applications": [],
+    "executables": [],
+    "permissionIDs": [],
+    "setupComplexity": "guided",
+    "requiresRelaunch": false
+  },
   "setup": {
     "steps": [
       {
@@ -227,10 +238,6 @@
     ],
     "optionalSurfaces": []
   },
-  "relationships": {
-    "relatedPluginIDs": [],
-    "includedPackIDs": [],
-    "suggestedRecipeIDs": [],
-    "supersedesPluginIDs": []
-  }
+  "summary": "自定义 Finder 操作、模板、常用位置和文件工具。",
+  "version": "2.2.0"
 }

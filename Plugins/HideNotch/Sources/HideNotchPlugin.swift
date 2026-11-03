@@ -254,3 +254,18 @@ final class HideNotchPlugin: MacToolsPlugin, PluginActionProviding {
         ActionReference(key: ActionKey(providerID: metadata.id, actionID: ActionID.toggle))
     }
 }
+
+extension HideNotchPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { (controller as? any PluginPersistentPreferencesChangeSignaling)?.onPersistentPreferencesChange }
+        set { (controller as? any PluginPersistentPreferencesChangeSignaling)?.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? {
+        (controller as? any PluginPortablePreferencesProviding)?.makePortablePreferencesBackup()
+    }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        (controller as? any PluginPortablePreferencesRestorationReporting)?.restorePortablePreferencesReportingResult(from: data) ?? false
+    }
+}

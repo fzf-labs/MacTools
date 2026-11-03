@@ -1,4 +1,6 @@
 core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift
   dependencies:
     - target: MacToolsFileSystem
       link: false

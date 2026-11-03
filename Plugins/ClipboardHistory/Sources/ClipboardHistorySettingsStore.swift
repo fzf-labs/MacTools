@@ -22,6 +22,7 @@ enum ClipboardSnippetKeywordExpansionStatus: Equatable, Sendable {
 @MainActor
 final class ClipboardHistorySettingsStore: ObservableObject {
     private enum Key {
+        static let retentionDeferred = "retention-restoration-deferred.v1"
         static let isPaused = "collection-paused"
         static let maximumItemCount = "maximum-item-count"
         static let expirationDays = "expiration-days"
@@ -64,7 +65,19 @@ final class ClipboardHistorySettingsStore: ObservableObject {
 
     @Published var maximumExpandedTextByteCount: Int {
         didSet {
-            storage.set(Self.validExpandedTextByteCount(maximumExpandedTextByteCount), forKey: Key.maximumExpandedTextByteCount)
+            guard !isApplyingPortableSnapshot, maximumExpandedTextByteCount != oldValue else { return }
+            let candidate = Self.validExpandedTextByteCount(maximumExpandedTextByteCount)
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.maximumExpandedTextByteCount: .integer(candidate)]) else {
+                isApplyingPortableSnapshot = true
+                maximumExpandedTextByteCount = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
@@ -82,41 +95,94 @@ final class ClipboardHistorySettingsStore: ObservableObject {
 
     @Published var maximumItemCount: Int {
         didSet {
-            storage.set(Self.validItemCount(maximumItemCount), forKey: Key.maximumItemCount)
+            guard !isApplyingPortableSnapshot, maximumItemCount != oldValue else { return }
+            let candidate = Self.validItemCount(maximumItemCount)
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.maximumItemCount: .integer(candidate), Key.retentionDeferred: .boolean(false)]) else {
+                isApplyingPortableSnapshot = true
+                maximumItemCount = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
 
     @Published var expiration: ClipboardHistoryExpiration {
         didSet {
-            storage.set(expiration.rawValue, forKey: Key.expirationDays)
+            guard !isApplyingPortableSnapshot, expiration != oldValue else { return }
+            let candidate = expiration
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.expirationDays: .integer(candidate.rawValue), Key.retentionDeferred: .boolean(false)]) else {
+                isApplyingPortableSnapshot = true
+                expiration = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
 
     @Published var maximumItemByteCount: Int {
         didSet {
-            storage.set(Self.validItemByteCount(maximumItemByteCount), forKey: Key.maximumItemByteCount)
+            guard !isApplyingPortableSnapshot, maximumItemByteCount != oldValue else { return }
+            let candidate = Self.validItemByteCount(maximumItemByteCount)
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.maximumItemByteCount: .integer(candidate), Key.retentionDeferred: .boolean(false)]) else {
+                isApplyingPortableSnapshot = true
+                maximumItemByteCount = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
 
     @Published var maximumTotalPayloadByteCount: Int {
         didSet {
-            storage.set(
-                Self.validTotalPayloadByteCount(maximumTotalPayloadByteCount),
-                forKey: Key.maximumTotalPayloadByteCount
-            )
+            guard !isApplyingPortableSnapshot, maximumTotalPayloadByteCount != oldValue else { return }
+            let candidate = Self.validTotalPayloadByteCount(maximumTotalPayloadByteCount)
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.maximumTotalPayloadByteCount: .integer(candidate), Key.retentionDeferred: .boolean(false)]) else {
+                isApplyingPortableSnapshot = true
+                maximumTotalPayloadByteCount = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
 
     @Published var excludedApplications: [ClipboardExcludedApplication] {
         didSet {
-            if let data = try? JSONEncoder().encode(
-                Self.normalizedApplications(excludedApplications)
-            ) {
-                storage.set(data, forKey: Key.excludedApplications)
+            guard !isApplyingPortableSnapshot, excludedApplications != oldValue else { return }
+            let candidate = Self.normalizedApplications(excludedApplications)
+            let previous = portableStore.currentValues()
+            guard let data = try? JSONEncoder().encode(candidate), portableStore.commit([Key.excludedApplications: .data(data)]) else {
+                isApplyingPortableSnapshot = true
+                excludedApplications = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
             }
             onChange?()
         }
@@ -127,14 +193,38 @@ final class ClipboardHistorySettingsStore: ObservableObject {
 
     @Published var sequentialHUDDismissal: ClipboardSequentialHUDDismissal {
         didSet {
-            storage.set(sequentialHUDDismissal.rawValue, forKey: Key.sequentialHUDDismissal)
+            guard !isApplyingPortableSnapshot, sequentialHUDDismissal != oldValue else { return }
+            let candidate = sequentialHUDDismissal
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.sequentialHUDDismissal: .integer(candidate.rawValue)]) else {
+                isApplyingPortableSnapshot = true
+                sequentialHUDDismissal = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
 
     @Published var hidesSequentialHUDPreview: Bool {
         didSet {
-            storage.set(hidesSequentialHUDPreview, forKey: Key.hidesSequentialHUDPreview)
+            guard !isApplyingPortableSnapshot, hidesSequentialHUDPreview != oldValue else { return }
+            let candidate = hidesSequentialHUDPreview
+            let previous = portableStore.currentValues()
+            guard portableStore.commit([Key.hidesSequentialHUDPreview: .boolean(candidate)]) else {
+                isApplyingPortableSnapshot = true
+                hidesSequentialHUDPreview = oldValue
+                isApplyingPortableSnapshot = false
+                return
+            }
+            if previous != portableStore.currentValues() {
+                portableRevision &+= 1
+                onPersistentPreferencesChange?()
+            }
             onChange?()
         }
     }
@@ -149,6 +239,87 @@ final class ClipboardHistorySettingsStore: ObservableObject {
     @Published private(set) var keywordExpansionStatus: ClipboardSnippetKeywordExpansionStatus
     @Published var keywordExpansionDiagnostic: ClipboardSnippetExpansionDiagnostic?
 
+    private var isApplyingPortableSnapshot = false
+    private(set) var portableRevision: UInt64 = 0
+    var onPersistentPreferencesChange: (() -> Void)?
+
+    private static func integer(_ fallback: Int, allowed: [Int]) -> PortablePreferenceField {
+        PortablePreferenceField(fallback: .integer(fallback)) {
+            if case let .integer(value) = $0 { allowed.contains(value) } else { false }
+        }
+    }
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        let defaults = ClipboardHistorySettings.defaults
+        return PortablePreferencesStore(storage: storage, fields: [
+            Key.retentionDeferred: .boolean(false),
+            Key.maximumItemCount: integer(defaults.maximumItemCount, allowed: allowedItemCounts),
+            Key.expirationDays: integer(defaults.expiration.rawValue, allowed: ClipboardHistoryExpiration.allCases.map(\.rawValue)),
+            Key.maximumItemByteCount: integer(defaults.maximumItemByteCount, allowed: allowedItemByteCounts),
+            Key.maximumTotalPayloadByteCount: integer(defaults.maximumTotalPayloadByteCount, allowed: allowedTotalPayloadByteCounts),
+            Key.sequentialHUDDismissal: integer(10, allowed: ClipboardSequentialHUDDismissal.allCases.map(\.rawValue)),
+            Key.hidesSequentialHUDPreview: .boolean(false),
+            Key.maximumExpandedTextByteCount: integer(ClipboardSnippetExpansionContext.defaultMaximumUTF8ByteCount, allowed: allowedExpandedTextByteCounts),
+            Key.excludedApplications: .data(try! JSONEncoder().encode(defaults.excludedApplications), maximumBytes: 256 * 1_024) { data in
+                guard let apps = try? JSONDecoder().decode([ClipboardExcludedApplication].self, from: data), apps.count <= 512,
+                      Set(apps.map { $0.bundleIdentifier.lowercased() }).count == apps.count else { return false }
+                return apps.allSatisfy { !$0.bundleIdentifier.isEmpty && $0.bundleIdentifier.utf8.count <= 255 && !$0.name.isEmpty && $0.name.utf8.count <= 256
+                    && !$0.bundleIdentifier.unicodeScalars.contains(where: CharacterSet.whitespacesAndNewlines.union(.controlCharacters).contains)
+                    && !$0.name.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }
+            }
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    private static var portableKeys: Set<String> {
+        [Key.maximumItemCount, Key.expirationDays, Key.maximumItemByteCount, Key.maximumTotalPayloadByteCount,
+         Key.sequentialHUDDismissal, Key.hidesSequentialHUDPreview, Key.maximumExpandedTextByteCount, Key.excludedApplications]
+    }
+
+    var isRetentionDeferred: Bool {
+        guard portableStore.recover(),
+              let values = portableStore.currentValues(including: [Key.retentionDeferred]),
+              case let .boolean(deferred) = values[Key.retentionDeferred] else { return true }
+        return deferred
+    }
+
+    @discardableResult
+    func setRetentionDeferred(_ deferred: Bool) -> Bool {
+        guard portableStore.recover() else { return false }
+        if portableStore.currentValues(including: [Key.retentionDeferred])?[Key.retentionDeferred] == .boolean(deferred) { return true }
+        return portableStore.commit([Key.retentionDeferred: .boolean(deferred)])
+    }
+
+    func portableBackup() -> Data? {
+        guard let apps = try? JSONEncoder().encode(Self.normalizedApplications(excludedApplications).sorted { $0.bundleIdentifier < $1.bundleIdentifier }) else { return nil }
+        return portableStore.backup(including: Self.portableKeys, overriding: [Key.excludedApplications: .data(apps)])
+    }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = portableBackup()
+        guard var values = portableStore.validatedValues(from: data),
+              Set(values.keys).isSubset(of: Self.portableKeys), portableStore.recover(),
+              let current = portableStore.currentValues(including: Self.portableKeys) else { return false }
+        let retentionKeys: Set<String> = [Key.maximumItemCount, Key.expirationDays, Key.maximumItemByteCount, Key.maximumTotalPayloadByteCount]
+        if retentionKeys.contains(where: { values[$0] != nil && values[$0] != current[$0] }) {
+            values[Key.retentionDeferred] = .boolean(true)
+        }
+        guard portableStore.commit(values) else { return false }
+        let restored = ClipboardHistorySettingsStore(storage: storage)
+        isApplyingPortableSnapshot = true
+        maximumItemCount = restored.maximumItemCount
+        expiration = restored.expiration
+        maximumItemByteCount = restored.maximumItemByteCount
+        maximumTotalPayloadByteCount = restored.maximumTotalPayloadByteCount
+        excludedApplications = restored.excludedApplications
+        sequentialHUDDismissal = restored.sequentialHUDDismissal
+        hidesSequentialHUDPreview = restored.hidesSequentialHUDPreview
+        maximumExpandedTextByteCount = restored.maximumExpandedTextByteCount
+        isApplyingPortableSnapshot = false
+        if previous != portableBackup() {
+            portableRevision &+= 1
+            onPersistentPreferencesChange?()
+        }
+        return true
+    }
+
     var onChange: (() -> Void)?
 
     private let storage: PluginStorage
@@ -156,6 +327,7 @@ final class ClipboardHistorySettingsStore: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         if let data = storage.data(forKey: Key.panelPositions),
            let positions = try? JSONDecoder().decode([String: ClipboardHistoryPanelPosition].self, from: data) {
             panelPositions = positions.filter { $0.value.isValid }

@@ -118,7 +118,13 @@ struct TranslatorProviderProfileStore {
     func saveProfiles(_ profiles: [TranslatorProviderProfile]) throws {
         let normalizedProfiles = profiles.map { $0.normalized() }
         let data = try JSONEncoder().encode(normalizedProfiles)
+        let previous = storage.object(forKey: TranslatorConstants.StorageKey.providerProfiles)
         storage.set(data, forKey: TranslatorConstants.StorageKey.providerProfiles)
+        guard storage.data(forKey: TranslatorConstants.StorageKey.providerProfiles) == data else {
+            if let previous { storage.set(previous, forKey: TranslatorConstants.StorageKey.providerProfiles) }
+            else { storage.removeObject(forKey: TranslatorConstants.StorageKey.providerProfiles) }
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 
     func makeNewProfile(existingProfiles: [TranslatorProviderProfile]) -> TranslatorProviderProfile {

@@ -29,7 +29,7 @@ enum ActivityBarTrendMode: String, CaseIterable {
     }
 }
 
-private enum ActivityBarChartRange: String, CaseIterable {
+enum ActivityBarChartRange: String, CaseIterable {
     case oneDay = "1d"
     case sevenDays = "7d"
     case fourteenDays = "14d"
@@ -157,15 +157,24 @@ struct ActivityBarComponentView: View {
 
     @State private var hoveredDate: String?
     @State private var hoveredScreenTimeDate: String?
-    @AppStorage("activity-bar.stats-expanded") private var statsExpanded = true
-    @AppStorage("activity-bar.chart-range") private var chartRange = ActivityBarChartRange.sevenDays
+    @ObservedObject private var preferences: ActivityBarPresentationPreferences
+    private var statsExpanded: Bool {
+        get { preferences.statsExpanded }
+        nonmutating set { preferences.statsExpanded = newValue }
+    }
+    private var chartRange: ActivityBarChartRange {
+        get { preferences.chartRange }
+        nonmutating set { preferences.chartRange = newValue }
+    }
 
     init(
         controller: ActivityBarController,
+        preferences: ActivityBarPresentationPreferences,
         localization: PluginLocalization = PluginLocalization(bundle: .main),
         presentation: ActivityBarComponentPresentation = ActivityBarComponentPresentation(),
         onContentHeightChange: @escaping (CGFloat) -> Void = { _ in }
     ) {
+        self.preferences = preferences
         self.controller = controller
         self.localization = localization
         self.presentation = presentation

@@ -19,3 +19,7 @@ targets:
         MACOSX_DEPLOYMENT_TARGET: '14.0'
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

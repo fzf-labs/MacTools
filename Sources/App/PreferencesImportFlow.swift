@@ -115,9 +115,11 @@ final class PreferencesImportController: ObservableObject {
                     + result.shortcutErrors
                         .values
                         .sorted()
-                alertMessage = warnings.isEmpty
-                    ? importedMessage
-                    : ([importedMessage] + warnings).joined(separator: "\n")
+                let outcomes = result.pluginOutcomes.filter { $0.status == "restored" || $0.status == "needsAttention" }.map { outcome in
+                    let title = pluginHost.pluginManagementItems.first { $0.id == outcome.pluginID }?.title ?? outcome.pluginID
+                    return "\(title): \(outcome.localizedStatus)"
+                }
+                alertMessage = ([importedMessage] + outcomes + warnings).joined(separator: "\n")
             } catch {
                 pendingImport = nil
                 alertMessage = Self.errorMessage(error)
@@ -180,7 +182,7 @@ struct PreferencesImportPresentation: ViewModifier {
                         selection: selection
                     )
                 },
-                pluginOptions: controller.pluginOptions(for: Set(pending.backup.pluginPreferences.keys)),
+                pluginOptions: controller.pluginOptions(for: Set(pending.backup.pluginPreferences.keys).union((pending.backup.pluginDiagnostics ?? []).map(\.pluginID))),
                 isImporting: controller.isImporting,
                 importProgress: controller.importProgress,
                 isPreparingPlugins: host.isPreparingPlugins,
@@ -205,5 +207,75 @@ struct PreferencesImportPresentation: ViewModifier {
                 if controller.didImport { onCompletion() }
             }
         } message: { Text(controller.alertMessage ?? "") }
+    }
+}
+
+extension PreferencesPluginBackupDiagnostic {
+    var localizedStatus: String {
+        switch status {
+        case "portable", "included": AppL10n.preferencesBackup("preferencesBackup.coverage.included", defaultValue: "可备份")
+        case "partial": AppL10n.preferencesBackup("preferencesBackup.coverage.partial", defaultValue: "部分内容保留在本机")
+        case "localOnly": AppL10n.preferencesBackup("preferencesBackup.coverage.localOnly", defaultValue: "保留在本机")
+        case "none": AppL10n.preferencesBackup("preferencesBackup.coverage.none", defaultValue: "无可移植设置")
+        case "notSelected": AppL10n.preferencesBackup("preferencesBackup.coverage.notSelected", defaultValue: "未选择")
+        case "failed", "failedRestore": AppL10n.preferencesBackup("preferencesBackup.coverage.failed", defaultValue: "失败")
+        case "unavailable", "unsupported": AppL10n.preferencesBackup("preferencesBackup.coverage.unavailable", defaultValue: "当前不可用")
+        case "readyToRestore": AppL10n.preferencesBackup("preferencesBackup.coverage.readyToRestore", defaultValue: "将导入设置")
+        case "restored": AppL10n.preferencesBackup("preferencesBackup.coverage.restored", defaultValue: "设置已恢复")
+        case "needsAttention": AppL10n.preferencesBackup("preferencesBackup.coverage.needsAttention", defaultValue: "设置已保存，需要权限")
+        case "deferred": AppL10n.preferencesBackup("preferencesBackup.coverage.deferred", defaultValue: "重新启动后再次导入")
+        default: AppL10n.preferencesBackup("preferencesBackup.coverage.unknown", defaultValue: "备份范围未声明")
+        }
+    }
+
+    var localizedExclusions: [String] {
+        exclusions.compactMap { code in
+            switch code {
+            case "credentials": AppL10n.preferencesBackup("preferencesBackup.exclusion.credentials", defaultValue: "凭据保留在本机")
+            case "permissions": AppL10n.preferencesBackup("preferencesBackup.exclusion.permissions", defaultValue: "权限和访问授权保留在本机")
+            case "history": AppL10n.preferencesBackup("preferencesBackup.exclusion.history", defaultValue: "历史记录和缓存保留在本机")
+            case "private-content": AppL10n.preferencesBackup("preferencesBackup.exclusion.privateContent", defaultValue: "私密内容仅在单独允许后备份，或使用专用归档")
+            case "device-state": AppL10n.preferencesBackup("preferencesBackup.exclusion.deviceState", defaultValue: "设备状态和校准保留在本机")
+            case "local-activation": AppL10n.preferencesBackup("preferencesBackup.exclusion.localActivation", defaultValue: "运行状态和本机启用授权保留在本机")
+            case "application-paths": AppL10n.preferencesBackup("preferencesBackup.exclusion.applicationPaths", defaultValue: "应用按身份恢复，缺失的目标保持未解析")
+            case "external-authorization": AppL10n.preferencesBackup("preferencesBackup.exclusion.externalAuthorization", defaultValue: "外部执行和高风险输入需在本机授权")
+            case "local-policy": AppL10n.preferencesBackup("preferencesBackup.exclusion.localPolicy", defaultValue: "本机目录和操作策略不包含在备份中")
+            default: nil
+            }
+        }
+    }
+}
+
+struct PreferencesBackupCoverageView: View {
+    let coverage: [PreferencesPluginBackupDiagnostic]
+    let pluginOptions: [PreferencesPluginOption]
+
+    var body: some View {
+        if !coverage.isEmpty {
+            DisclosureGroup {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(coverage) { item in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text("\(pluginOptions.first { $0.id == item.pluginID }?.title ?? item.pluginID): \(item.localizedStatus)")
+                                .foregroundStyle(item.blocksSelectedExport ? Color.red : Color.primary)
+                            ForEach(item.localizedExclusions, id: \.self) { Text($0).foregroundStyle(.secondary) }
+                        }
+                        .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(.top, 6)
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppL10n.preferencesBackup("preferencesBackup.coverage.title", defaultValue: "备份范围与排除项"))
+                    Text(AppL10n.preferencesBackupFormat("preferencesBackup.coverage.summary", defaultValue: "包含 %d · 仅本机 %d · 无设置 %d · 不可用 %d",
+                        coverage.filter { ["portable", "partial", "included", "readyToRestore", "restored", "needsAttention"].contains($0.status) }.count,
+                        coverage.filter { $0.status == "localOnly" }.count,
+                        coverage.filter { $0.status == "none" }.count,
+                        coverage.filter { ["failed", "failedRestore", "unavailable", "unsupported"].contains($0.status) }.count))
+                    .foregroundStyle(.secondary)
+                }
+            }
+            .font(PluginSettingsTheme.Typography.rowDescription)
+        }
     }
 }

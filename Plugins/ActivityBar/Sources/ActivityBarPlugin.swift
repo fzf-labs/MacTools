@@ -93,6 +93,7 @@ final class ActivityBarPlugin: MacToolsPlugin, PluginActionProviding, PluginActi
     )
 
     private let localization: PluginLocalization
+    let preferences: ActivityBarPresentationPreferences
     private let controller: ActivityBarController
     private final class PresentationReference {
         weak var value: ActivityBarComponentPresentation?
@@ -115,6 +116,7 @@ final class ActivityBarPlugin: MacToolsPlugin, PluginActionProviding, PluginActi
         controller: ActivityBarController? = nil,
         localization: PluginLocalization = PluginLocalization(bundle: .main)
     ) {
+        self.preferences = ActivityBarPresentationPreferences(storage: context.storage)
         self.localization = localization
         self.controller = controller ?? ActivityBarController(context: context, localization: localization)
         self.controller.onStatisticsChange = { [weak self] in
@@ -311,6 +313,7 @@ final class ActivityBarPlugin: MacToolsPlugin, PluginActionProviding, PluginActi
         return AnyView(
             ActivityBarComponentView(
                 controller: controller,
+                preferences: preferences,
                 localization: localization,
                 presentation: presentation,
                 onContentHeightChange: context.reportContentHeight
@@ -549,5 +552,20 @@ final class ActivityBarPlugin: MacToolsPlugin, PluginActionProviding, PluginActi
         default:
             break
         }
+    }
+}
+
+extension ActivityBarPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { preferences.onPersistentPreferencesChange }
+        set { preferences.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { preferences.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard preferences.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
     }
 }

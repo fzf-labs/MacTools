@@ -80,6 +80,7 @@ struct LaunchControlManagerView: View {
                 compactPane = .items
             }
         }
+        .onChange(of: controller.noteRestorationRevisions, reconcileNoteDrafts)
         .onChange(of: searchFocusController.requestID) {
             isSearchFocused = true
         }
@@ -121,6 +122,31 @@ struct LaunchControlManagerView: View {
                 summaryHeader(compact: usesCompactHeight)
             }
             toolbar(availableWidth: availableWidth)
+            VStack(alignment: .leading, spacing: PluginSettingsTheme.Spacing.rowTitleDescription) {
+                Toggle(localization.string("backup.includeNotes", defaultValue: "将备注包含在备份中"), isOn: Binding(
+                    get: { controller.includesNotesInBackup }, set: { controller.setIncludesNotesInBackup($0) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                Text(localization.string("backup.includeNotes.help", defaultValue: "适用于手动备份、自动备份和云同步。默认仅备份关注项。"))
+                    .font(PluginSettingsTheme.Typography.rowDescription)
+                    .foregroundStyle(.secondary)
+                if !controller.unmatchedBackupReferences.isEmpty {
+                    DisclosureGroup(localization.string("backup.unmatched", defaultValue: "待匹配的启动项配置")) {
+                        ScrollView {
+                            VStack(alignment: .leading) {
+                                ForEach(controller.unmatchedBackupReferences, id: \.self) { reference in
+                                    Text(reference.plistFileName)
+                                        .font(PluginSettingsTheme.Typography.rowDescription)
+                                        .lineLimit(1)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        .frame(maxHeight: 120)
+                    }
+                }
+            }
 
             if let message = controller.snapshot.errorMessage {
                 statusBanner(message: message, systemImage: "exclamationmark.triangle.fill", color: .orange)
@@ -519,6 +545,10 @@ struct LaunchControlManagerView: View {
             get: { noteDrafts[item.id] ?? item.note },
             set: { noteDrafts[item.id] = $0 }
         )
+    }
+
+    private func reconcileNoteDrafts(previous: [String: UInt], current: [String: UInt]) {
+        noteDrafts = noteDrafts.filter { previous[$0.key] == current[$0.key] }
     }
 
     private func detailHeader(_ item: LaunchControlItem) -> some View {
@@ -1106,7 +1136,7 @@ private struct LaunchControlNoteEditor: View {
                     if draft.isEmpty {
                         Text(localization.string(
                             "manager.note.placeholder",
-                            defaultValue: "为这个启动项添加本地备注（仅保存在本机，不写入 plist）。"
+                            defaultValue: "为这个启动项添加备注（不写入 plist）。"
                         ))
                             .font(PluginTypography.body.font)
                             .foregroundStyle(.tertiary)

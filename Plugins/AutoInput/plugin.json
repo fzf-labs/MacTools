@@ -69,7 +69,7 @@
     "discovery.input-source-shortcuts": "@localizable.settings.shortcuts.title",
     "discovery.website-rules": "@localizable.settings.websites.title"
   },
-  "version": "2.1.0",
+  "version": "2.2.0",
   "minHostVersion": "2.0.1",
   "pluginKitVersion": 7,
   "bundleRelativePath": "AutoInput.bundle",
@@ -332,6 +332,12 @@
           }
         ]
       }
+    ]
+  },
+  "preferencesBackup": {
+    "status": "partial",
+    "exclusions": [
+      "application-paths"
     ]
   }
 }

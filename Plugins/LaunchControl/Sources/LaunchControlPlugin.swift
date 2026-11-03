@@ -62,6 +62,7 @@ final class LaunchControlPlugin:
     )
 
     var onStateChange: (() -> Void)?
+    var onPersistentPreferencesChange: (() -> Void)?
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     var requestSettingsPresentation: (() -> Void)?
@@ -79,6 +80,7 @@ final class LaunchControlPlugin:
         let localization = localization ?? PluginLocalization(bundle: context.resourceBundle)
         self.localization = localization
         self.controller = controller ?? LaunchControlController(context: context, localization: localization)
+        self.controller.onPersistentPreferencesChange = { [weak self] in self?.onPersistentPreferencesChange?() }
         self.controller.onStateChange = { [weak self] in
             self?.onStateChange?()
         }
@@ -345,4 +347,12 @@ final class LaunchControlPlugin:
         default: "powerplug"
         }
     }
+}
+
+
+extension LaunchControlPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    func makePortablePreferencesBackup() -> Data? { controller.preferencesBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool { controller.restorePreferencesBackup(data) }
 }

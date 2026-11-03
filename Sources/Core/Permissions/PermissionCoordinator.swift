@@ -20,13 +20,13 @@ private final class PermissionNotificationObserver: @unchecked Sendable {
 }
 
 enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
+    case microphone
     case accessibility
     case inputMonitoring
     case screenRecording
     case calendarFullAccess
     case automation
     case systemAudioRecording
-    case microphone
     case fullDiskAccess
     case finderExtension
 
@@ -48,6 +48,7 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
         }
 
         return switch pluginKind {
+        case .microphone: .microphone
         case .accessibility: .accessibility
         case .inputMonitoring: .inputMonitoring
         case .calendarFullAccess: .calendarFullAccess
@@ -59,6 +60,7 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
 
     var sortOrder: Int {
         switch self {
+        case .microphone: 8
         case .accessibility: 0
         case .inputMonitoring: 1
         case .screenRecording: 2
@@ -67,7 +69,6 @@ enum HostPermissionKind: String, CaseIterable, Hashable, Sendable {
         case .automation: 5
         case .fullDiskAccess: 6
         case .finderExtension: 7
-        case .microphone: 8
         }
     }
 }

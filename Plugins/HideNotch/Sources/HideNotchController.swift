@@ -243,3 +243,19 @@ final class HideNotchController: HideNotchWallpaperControlling {
         }
     }
 }
+
+extension HideNotchController: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { (stateStore as? HideNotchStateStore)?.onPersistentPreferencesChange }
+        set { (stateStore as? HideNotchStateStore)?.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { (stateStore as? HideNotchStateStore)?.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard (stateStore as? HideNotchStateStore)?.restorePortableBackup(data) == true else { return false }
+        errorMessage = nil
+        scheduleSync(forceNotify: true)
+        return true
+    }
+}

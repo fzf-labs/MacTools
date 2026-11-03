@@ -168,6 +168,44 @@ public protocol PluginDashboardPresenting: AnyObject {
     var requestDashboardPresentation: (() -> Void)? { get set }
 }
 
+/// Requests the host menu-bar panel at an explicit screen anchor. The host owns
+/// the panel content, sizing, animation, and dismissal; plugins only decide when
+/// an anchored presentation is appropriate.
+public struct PluginMenuBarPanelPresentationRequest {
+    /// A visible menu-bar panel ID, or `nil` to use the host's last selection.
+    public let panelID: String?
+    /// The screen rectangle the panel should appear below, in screen coordinates.
+    public let anchorRect: NSRect
+
+    public init(panelID: String? = nil, anchorRect: NSRect) {
+        self.panelID = panelID
+        self.anchorRect = anchorRect
+    }
+}
+
+/// Optional host support for presenting the regular menu-bar panel from a
+/// plugin-owned surface such as a notch hover target.
+@MainActor
+public protocol PluginMenuBarPanelPresenting: AnyObject {
+    var requestMenuBarPanelPresentation:
+        ((PluginMenuBarPanelPresentationRequest) -> Bool)? { get set }
+    /// Returns `true` when the host accepted the dismissal. The host declines
+    /// while the panel layout is being edited, so the plugin keeps ownership
+    /// and can retry once editing concludes.
+    var requestMenuBarPanelDismissal: ((_ animated: Bool) -> Bool)? { get set }
+    var presentedMenuBarPanelScreenFrame: (() -> NSRect?)? { get set }
+    var isPresentedMenuBarPanelVisible: (() -> Bool)? { get set }
+}
+
+/// Optional host support for showing or hiding the app's own menu-bar icon.
+/// The host ignores requests from inactive plugins and restores the icon when
+/// the plugin deactivates, is disabled, or is removed.
+@MainActor
+public protocol PluginAppMenuBarIconVisibilityControlling: AnyObject {
+    /// `true` keeps the main icon visible; `false` hides it while the plugin is active.
+    var requestAppMenuBarIconVisibility: ((Bool) -> Void)? { get set }
+}
+
 /// Content for a host-owned detail panel launched from a widget placement.
 public struct PluginPanelDetailContent {
     public let id: String

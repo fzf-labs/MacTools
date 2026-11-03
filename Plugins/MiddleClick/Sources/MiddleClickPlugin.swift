@@ -476,3 +476,20 @@ final class MiddleClickPlugin: MacToolsPlugin, TrackpadInputServiceConsuming, Ac
         ActionReference(key: ActionKey(providerID: metadata.id, actionID: ActionID.toggle))
     }
 }
+
+extension MiddleClickPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { store.onPersistentPreferencesChange }
+        set { store.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { store.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard store.restorePortableBackup(data) else { return false }
+        isAccessibilityGranted = accessibilityTrusted()
+        applyCurrentConfiguration()
+        onStateChange?()
+        return true
+    }
+}

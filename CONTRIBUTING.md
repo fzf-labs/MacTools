@@ -78,6 +78,8 @@ Clipboard owns both history management and the `clear-current-clipboard` action.
 
 The [Wallpaper plugin](docs/plugins/wallpaper.md) is an example of a settings workspace with local and online image sources. Its plugin-local project fragment links `MacToolsFileSystem`; use `make build-plugin PLUGIN=Wallpaper` and its focused tests when changing the image pipeline or rotation behavior. Desktop-dependent acceptance is manual; automated tests must use a fake wallpaper adapter.
 
+Voice state queries require host 2.2.0 or later. Declare only the state the query reads, preserve unavailable observations, and use native approval for private content; see [Voice Assistant](docs/plugins/voice-control.md).
+
 ## Development standards
 
 Follow the [plugin development standards](docs/plugins/development-guidelines.md) and the adjacent implementation. The common requirements are:
@@ -90,13 +92,18 @@ Follow the [plugin development standards](docs/plugins/development-guidelines.md
 - **Reuse typography roles.** Follow the [typography contract](docs/plugins/typography.md) for titles, supporting text, numbers, and AppKit text measurement. `PluginTypography` and `PluginMetricValue` require host 2.0.1; declare that minimum when consuming these new APIs.
 - **Build reusable widgets.** Support zero or multiple placements, isolated previews, view recycling, and independent per-placement presentation state. Preserve declared widget sizes when the popup width changes. The host sizes original rows independently and measures their details at the resolved width. Simple switch rows may opt in to `PluginPanelCompactSwitchProviding` with host 2.1.0 as their minimum; keep conditional-detail rows in their original presentation. See [panel items](docs/plugins/panel-items.md).
 - **Keep background work economical.** Use cached snapshots, event-driven updates, bounded asynchronous work, and visibility-aware presentation. Preserve intentional monitoring while hidden; stop owned work on deactivation. See [performance requirements](docs/plugins/development-guidelines.md#performance-and-energy).
+- **Declare backup coverage.** Classify portable and excluded configuration in `plugin.json.preferencesBackup`, implement verified restore and meaningful change signals, and regenerate the [coverage inventory](docs/plugins/preferences-backup-inventory.md). Follow the [backup contract](docs/plugins/preferences-backup.md); never transfer credentials or local consent.
 - **Preserve user control.** Handle denied permissions, cancellation, unsupported hardware, and system changes. Keep existing confirmations, recovery paths, and destructive-operation safeguards.
 
 Trackpad input is owned by the host through `TrackpadInputService` (host 2.1.0). Trackpad Gestures, Middle Click, and the optional [experimental Trackpad Scale](docs/plugins/trackpad-scale.md) subscribe to the same listener; preserve temporary gesture suspension and callback lifecycle boundaries when extending this path.
 
 Host 2.1.0 requires Trackpad Gestures and Middle Click package versions 2.0.2 or later, enforced before loading and installation. Publish these compatible packages before distributing the new host; older packages stay installed with update guidance and preserved preferences.
 
+Translator's private-IP HTTP support requires host 2.2.0 for the matching system-network exceptions. Keep the plugin's literal-address policy and the host's ATS ranges aligned; see the [network boundaries](docs/plugins/development-guidelines.md#safety-and-data). Publish the host support before distributing the updated Translator package to older installations.
+
 Shared filesystem metadata code lives in `Sources/MacToolsFileSystem`. Disk Clean, Storage Explorer, and Xcode Clean link this static module into their bundles; their core targets use it as a build dependency. Use `FileSystemDirectoryReader.readBatches` to bound enumeration memory for wide folders. Keep cleanup policy in the owning plugin and run the affected plugins' filesystem tests after changing the shared reader or parser.
+
+Installed application enumeration is shared by Launchpad and voice app control through `Sources/PluginSupport/InstalledApplicationScanner.swift`. Keep scans off the UI thread; voice issues opaque targets, revalidates the app before opening, and never accepts an application path supplied by the model. Voice owners expose only fixed self-controls declared through `PluginVoiceSelfActionProviding`, retaining canonical validation and native confirmation.
 
 ## Validation
 
@@ -117,6 +124,8 @@ make test TEST_FILTER=ActionExecutorTests
 Use `TEST_FILTER=ClassName/testMethod` for one method, or `make test` for all retained XCTest cases. The target regenerates the project and uses serial execution with per-test timeouts. `make script-tests` validates tooling separately; `make ci` also checks frozen-client binary compatibility. Use temporary directories, fixtures, and fake services rather than real user data or accounts. Broaden validation only for failures, shared contracts, or other affected behavior.
 
 Unsigned XCTest builds use `build/DerivedDataTests` by default, separate from the signed app used by `make run`. Override `TEST_DERIVED_DATA` when needed, keeping it separate from `DERIVED_DATA` to avoid leaving a test bundle inside the installed app.
+
+Fallback plugin packaging compiles reuse a locked internal compiler cache, while packages and per-run logs remain in the requested output directory. Use `MACTOOLS_PLUGIN_FRESH_BUILD=1 make build-plugin PLUGIN=<name>` for a cold validation build. See [local plugin build storage](docs/plugins/local-native-plugins.md#development-steps) for cache roots and probe isolation; normal Makefile app/test reuse and aggregate-product packaging keep their existing paths.
 
 For copy and catalog changes, run `make validate-localization` to check English resources, complete coverage of all 11 supported languages, and translation format contracts. `make script-tests` includes this audit and fails when a translation is missing. To inspect per-key findings, run `python3 scripts/audit-localization.py --require-complete --json`. Follow the [plugin localization rules](docs/plugins/development-guidelines.md#protocols-and-ownership), and manually check language switching and affected UI layout. Action-symbol changes must keep manifests and runtime definitions consistent; verify them with `make test TEST_FILTER=PluginRuntimeActionSnapshotTests`.
 
@@ -152,7 +161,7 @@ Changelog fragments use `release: app` or `release: plugin` and a supported `typ
 
 ## Licensing and releases
 
-Contributions must follow [LICENSE](LICENSE) and [LICENSING.md]. Project-authored app, CLI, PluginKit, official plugins, tooling, and documentation use **GPL-3.0-only**. Submit only material you have the right to contribute under the applicable terms. Third-party material retains its own notices; record its source, exact revision, affected products, source paths, and license text in [ThirdPartyNotices](Sources/Resources/ThirdPartyNotices/manifest.json). Plugins accepted into the official catalog must use GPLv3-compatible terms unless the licensing policy documents an exception. Icon contributions also follow the [asset catalog rules](docs/icon-gallery.md).
+Contributions must follow [LICENSE](LICENSE) and [LICENSING.md]. Project-authored app, CLI, PluginKit, official plugins, tooling, and documentation use **GPL-3.0-only**. Submit only material you have the right to contribute under the applicable terms. Bundled speech models follow the [Voice Assistant model and streaming contract](docs/plugins/voice-control.md#local-speech-onset-and-connection-cost). Third-party material retains its own notices; record its source, exact revision, affected products, source paths, and license text in [ThirdPartyNotices](Sources/Resources/ThirdPartyNotices/manifest.json). Plugins accepted into the official catalog must use GPLv3-compatible terms unless the licensing policy documents an exception. Icon contributions also follow the [asset catalog rules](docs/icon-gallery.md).
 
 Releases are maintainer-owned. Feature PRs should not pre-bump plugin versions, change signed catalogs, or regenerate release history. Follow the [release workflow](docs/github-actions.md), [plugin catalog](docs/plugins/plugin-catalog.md), and [CLI release gates](docs/plugins/cli-release.md) for release work.
 

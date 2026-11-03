@@ -300,6 +300,142 @@ final class AppVolumePluginTests: XCTestCase {
         XCTAssertFalse(plugin.actionAvailability(for: reference).isAvailable)
     }
 
+    func testPortableRestorePreservesRunningAudioRouteAndSavesFuturePreference() async throws {
+        let storage = AppVolumeStorageMock()
+        let monitor = AppVolumeMonitorMock()
+        let router = AppVolumeRouterMock(accessResult: true)
+        let plugin = makePlugin(storage: storage, monitor: monitor, router: router)
+        plugin.activate(context: PluginRuntimeContext(pluginID: "app-volume"))
+        defer { plugin.deactivate(reason: .hostShutdown) }
+        let apps = [application(id: "com.example.music", name: "Music", objectID: 51)]
+        monitor.send(snapshot(applications: apps))
+        plugin.handleAction(.setDisclosureExpanded(true))
+        let sliderID = try XCTUnwrap(plugin.rowState.detail?.controls.first?.id)
+        plugin.handleAction(.setSlider(controlID: sliderID, value: 0.4, phase: .ended))
+        for _ in 0..<100 where router.lastTargets.first?.gain != 0.4 { await Task.yield() }
+        XCTAssertEqual(router.lastTargets.first?.gain, 0.4)
+        let updateCount = router.updates.count
+        let accessCount = router.accessRequestCount
+        let data = try JSONSerialization.data(withJSONObject: ["formatVersion": 1, "applications": ["com.example.music": 0.8]])
+        XCTAssertTrue(plugin.restorePortablePreferencesReportingResult(from: data))
+        XCTAssertEqual(router.updates.count, updateCount)
+        XCTAssertEqual(router.accessRequestCount, accessCount)
+        monitor.send(snapshot(applications: apps))
+        await Task.yield()
+        XCTAssertEqual(router.lastTargets.first?.gain, 0.4)
+        monitor.send(snapshot(applications: []))
+        monitor.send(snapshot(applications: [application(id: "com.example.music", name: "Music", objectID: 52)]))
+        XCTAssertEqual(router.lastTargets.first?.gain, 0.8)
+        let reloaded = makePlugin(storage: storage)
+        let exported = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(reloaded.makePortablePreferencesBackup())) as? [String: Any])
+        XCTAssertEqual((exported["applications"] as? [String: Double])?["com.example.music"], 0.8)
+    }
+
+    func testImportAppliesToSilentAppsAndNewPlaybackProcesses() async throws {
+        for transition in ["silentAtImport", "newApp", "replacementProcess"] {
+            let storage = AppVolumeStorageMock()
+            storage.setRawValue(try JSONEncoder().encode(["com.example.music": 0.4, "com.example.video": 0.2]),
+                forKey: "applicationVolumes")
+            let monitor = AppVolumeMonitorMock()
+            let router = AppVolumeRouterMock(accessResult: true)
+            let plugin = makePlugin(storage: storage, monitor: monitor, router: router)
+            plugin.activate(context: PluginRuntimeContext(pluginID: "app-volume"))
+            defer { plugin.deactivate(reason: .hostShutdown) }
+            let music = application(id: "com.example.music", name: "Music", objectID: 51)
+            monitor.send(snapshot(applications: [music]))
+            plugin.handlePermissionAction(id: "system-audio-recording")
+            for _ in 0..<100 where !plugin.permissionState(for: "system-audio-recording").isGranted { await Task.yield() }
+            XCTAssertTrue(plugin.permissionState(for: "system-audio-recording").isGranted)
+            if transition == "silentAtImport" { monitor.send(snapshot(applications: [])) }
+
+            let data = try JSONSerialization.data(withJSONObject: ["formatVersion": 1,
+                "applications": ["com.example.music": 0.8, "com.example.video": 0.9]])
+            let updateCount = router.updates.count
+            let accessCount = router.accessRequestCount
+            XCTAssertTrue(plugin.restorePortablePreferencesReportingResult(from: data))
+            XCTAssertEqual(router.updates.count, updateCount)
+            XCTAssertEqual(router.accessRequestCount, accessCount)
+
+            let nextMusic = transition == "replacementProcess"
+                ? application(id: "com.example.music", name: "Music", objectID: 61) : music
+            monitor.send(snapshot(applications: [nextMusic,
+                application(id: "com.example.video", name: "Video", objectID: 52)]))
+            XCTAssertEqual(router.lastTargets.first { $0.id == music.id }?.gain,
+                transition == "newApp" ? 0.4 : 0.8, transition)
+            XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.video" }?.gain, 0.9, transition)
+        }
+    }
+
+    func testPlaybackTurnoverDuringSuspendedEditUsesImportedGainOnRollback() async throws {
+        let storage = AppVolumeStorageMock()
+        storage.setRawValue(try JSONEncoder().encode(["com.example.music": 0.4, "com.example.video": 0.2]),
+            forKey: "applicationVolumes")
+        let monitor = AppVolumeMonitorMock()
+        let router = AppVolumeRouterMock(accessResult: true)
+        let plugin = makePlugin(storage: storage, monitor: monitor, router: router)
+        plugin.activate(context: PluginRuntimeContext(pluginID: "app-volume"))
+        defer { plugin.deactivate(reason: .hostShutdown) }
+        let video = application(id: "com.example.video", name: "Video", objectID: 52)
+        monitor.send(snapshot(applications: [application(id: "com.example.music", name: "Music", objectID: 51), video]))
+        let data = try JSONSerialization.data(withJSONObject: ["formatVersion": 1,
+            "applications": ["com.example.music": 0.8, "com.example.video": 0.9]])
+        XCTAssertTrue(plugin.restorePortablePreferencesReportingResult(from: data))
+        router.suspendNextApply = true
+        let reference = try XCTUnwrap(plugin.actionCatalogEntries.first {
+            $0.reference.parameters["application"] == .string(video.id)
+                && $0.reference.parameters["volume"] == .double(0.5)
+        }?.reference)
+        let task = Task { try await plugin.beginAction(ActionInvocation(
+            reference: reference, source: .test, mode: .background)).result() }
+        for _ in 0..<100 where !router.hasSuspendedApply { await Task.yield() }
+        XCTAssertTrue(router.hasSuspendedApply)
+        monitor.send(snapshot(applications: [application(id: "com.example.music", name: "Music", objectID: 61), video]))
+        XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.music" }?.gain, 0.8)
+        router.completeSuspendedApply(.failed)
+        let result = try await task.value
+        if case .failed = result {} else { XCTFail("Expected route failure") }
+        XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.music" }?.gain, 0.8)
+        XCTAssertEqual(router.lastTargets.first { $0.id == video.id }?.gain, 0.2)
+    }
+
+    func testPostImportVolumeEditPreservesOtherLiveGainsAndRollsBackFailures() async throws {
+        for failure in ["none", "route", "storage"] {
+            let storage = AppVolumeStorageMock()
+            storage.setRawValue(try JSONEncoder().encode(["com.example.music": 0.4, "com.example.video": 0.2]),
+                forKey: "applicationVolumes")
+            let monitor = AppVolumeMonitorMock()
+            let router = AppVolumeRouterMock(accessResult: true)
+            let plugin = makePlugin(storage: storage, monitor: monitor, router: router)
+            plugin.activate(context: PluginRuntimeContext(pluginID: "app-volume"))
+            defer { plugin.deactivate(reason: .hostShutdown) }
+            let apps = [application(id: "com.example.music", name: "Music", objectID: 51),
+                        application(id: "com.example.video", name: "Video", objectID: 52)]
+            monitor.send(snapshot(applications: apps))
+            let incoming = try JSONSerialization.data(withJSONObject: ["formatVersion": 1,
+                "applications": ["com.example.music": 0.8, "com.example.video": 0.9]])
+            XCTAssertTrue(plugin.restorePortablePreferencesReportingResult(from: incoming))
+            if failure == "route" { router.applyResults = [.failed, .succeeded] }
+            if failure == "storage" { storage.blockedSetKeys = ["applicationVolumes"] }
+            let reference = try XCTUnwrap(plugin.actionCatalogEntries.first {
+                $0.reference.parameters["application"] == .string("com.example.video")
+                    && $0.reference.parameters["volume"] == .double(0.5)
+            }?.reference)
+            let result = try await plugin.beginAction(ActionInvocation(
+                reference: reference, source: .test, mode: .background)).result()
+            if failure == "none" { XCTAssertEqual(result, .succeeded()) }
+            else if case .failed = result {} else { XCTFail("Expected \(failure) failure") }
+            let expectedVideo = failure == "none" ? 0.5 : 0.2
+            XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.music" }?.gain, 0.4)
+            XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.video" }?.gain, expectedVideo)
+            monitor.send(snapshot(applications: apps))
+            XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.music" }?.gain, 0.4)
+            XCTAssertEqual(router.lastTargets.first { $0.id == "com.example.video" }?.gain, expectedVideo)
+            let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(plugin.makePortablePreferencesBackup())) as? [String: Any])
+            XCTAssertEqual(saved["applications"] as? [String: Double],
+                ["com.example.music": 0.8, "com.example.video": failure == "none" ? 0.5 : 0.9])
+        }
+    }
+
     private func makePlugin(
         storage: AppVolumeStorageMock? = nil,
         monitor: AppVolumeMonitorMock? = nil,

@@ -76,6 +76,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
     let workflows: [WorkflowDefinition]?
     let automationRules: [AutomationRule]?
     let selection: PreferencesBackupSelection?
+    let pluginDiagnostics: [PreferencesPluginBackupDiagnostic]?
 
     init(
         application: ApplicationPreferences,
@@ -89,6 +90,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         workflows: [WorkflowDefinition]? = [],
         automationRules: [AutomationRule]? = [],
         selection: PreferencesBackupSelection? = nil,
+        pluginDiagnostics: [PreferencesPluginBackupDiagnostic]? = nil,
         exportedAt: Date = .now
     ) {
         self.formatVersion = Self.currentFormatVersion
@@ -104,6 +106,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         self.workflows = workflows
         self.automationRules = automationRules
         self.selection = selection ?? .all(pluginPreferenceIDs: Set(pluginPreferences.keys))
+        self.pluginDiagnostics = PreferencesPluginBackupDiagnostic.bounded(pluginDiagnostics)
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -120,6 +123,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         case workflows
         case automationRules
         case selection
+        case pluginDiagnostics
     }
 
     init(from decoder: Decoder) throws {
@@ -162,6 +166,10 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
         selection = try container.decodeIfPresent(
             PreferencesBackupSelection.self,
             forKey: .selection
+        )
+        // Display-only metadata must never prevent restoration of an otherwise valid archive.
+        pluginDiagnostics = PreferencesPluginBackupDiagnostic.bounded(
+            try? container.decode([PreferencesPluginBackupDiagnostic].self, forKey: .pluginDiagnostics)
         )
         if formatVersion >= 4,
            actionInvocationPresets == nil || workflows == nil || automationRules == nil {
@@ -459,6 +467,7 @@ struct PreferencesImportPreview: Equatable {
     let retainedUnavailableActionReferences: [ActionReference]
     let installablePlugins: [PreferencesImportInstallablePlugin]
     let selection: PreferencesBackupSelection
+    var pluginDiagnostics: [PreferencesPluginBackupDiagnostic] = []
 
     var installableMissingPluginIDs: [String] {
         installablePlugins.map(\.id)
@@ -574,7 +583,18 @@ struct PreferencesImportPreview: Equatable {
             unavailableActionReferences: unavailableActionReferences,
             retainedUnavailableActionReferences: retainedUnavailableActionReferences,
             installablePlugins: installablePlugins.sorted { $0.title.localizedCompare($1.title) == .orderedAscending },
-            selection: selection
+            selection: selection,
+            pluginDiagnostics: Set(backup.pluginPreferences.keys).union((backup.pluginDiagnostics ?? []).map(\.pluginID)).sorted().map { id in
+                let source = backup.pluginDiagnostics?.first { $0.pluginID == id }
+                let status: String
+                if backup.pluginPreferences[id] != nil {
+                    status = !selection.pluginPreferenceIDs.contains(id) ? "notSelected"
+                        : (availablePluginIDs.contains(id) ? "readyToRestore" : "unavailable")
+                } else {
+                    status = ["localOnly", "none"].contains(source?.status ?? "") ? source!.status : "notSelected"
+                }
+                return PreferencesPluginBackupDiagnostic(pluginID: id, status: status, exclusions: source?.exclusions ?? [])
+            }
         )
     }
 }
@@ -589,19 +609,63 @@ struct PreferencesImportInstallablePlugin: Identifiable, Equatable {
 struct PreferencesImportResult: Equatable {
     let installedPluginIDs: [String]
     let deferredPluginPreferenceIDs: [String]
+    let pluginOutcomes: [PreferencesPluginBackupDiagnostic]
     let pluginInstallationFailures: [String: String]
     let shortcutErrors: [String: String]
 
     init(
         installedPluginIDs: [String],
         deferredPluginPreferenceIDs: [String] = [],
+        pluginOutcomes: [PreferencesPluginBackupDiagnostic] = [],
         pluginInstallationFailures: [String: String],
         shortcutErrors: [String: String]
     ) {
         self.installedPluginIDs = installedPluginIDs
         self.deferredPluginPreferenceIDs = deferredPluginPreferenceIDs
+        self.pluginOutcomes = pluginOutcomes
         self.pluginInstallationFailures = pluginInstallationFailures
         self.shortcutErrors = shortcutErrors
+    }
+}
+
+/// Contains stable identifiers and reason codes only. It never authorizes imported content.
+struct PreferencesPluginBackupDiagnostic: Codable, Equatable, Sendable, Identifiable {
+    let pluginID: String
+    let status: String
+    let exclusions: [String]
+    var id: String { pluginID }
+    var blocksSelectedExport: Bool { status == "failed" || status == "unavailable" }
+
+    static func bounded(_ values: [Self]?) -> [Self]? {
+        guard let values, values.count <= 512 else { return nil }
+        var seen = Set<String>()
+        return values.filter { value in
+            value.pluginID.utf8.count <= 128 && PluginPackageManifestLoader.isValidPluginID(value.pluginID)
+                && value.status.utf8.count <= 32 && !value.status.isEmpty
+                && value.exclusions.count <= 16
+                && value.exclusions.allSatisfy { $0.utf8.count <= 64 && !$0.isEmpty }
+                && seen.insert(value.pluginID).inserted
+        }
+    }
+}
+
+struct PreferencesBackupExportResult {
+    let backup: PreferencesBackup
+    let pluginOutcomes: [PreferencesPluginBackupDiagnostic]
+
+    func requiringSuccessfulSelection() throws -> PreferencesBackup {
+        let failed = pluginOutcomes.filter(\.blocksSelectedExport).map(\.pluginID)
+        guard failed.isEmpty else { throw PreferencesBackupExportError(pluginIDs: failed) }
+        return backup
+    }
+}
+
+struct PreferencesBackupExportError: LocalizedError {
+    let pluginIDs: [String]
+    var errorDescription: String? {
+        AppL10n.preferencesBackupFormat(
+            "preferencesBackup.export.failedPlugins", defaultValue: "以下插件无法备份。请取消选择后重试：%@", pluginIDs.joined(separator: ", ")
+        )
     }
 }
 

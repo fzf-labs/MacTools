@@ -62,6 +62,7 @@ struct PluginCatalogEntry: Codable, Identifiable, Equatable {
     let actions: PluginProductMetadata.Actions?
     let setup: PluginProductMetadata.Setup?
     let relationships: PluginProductMetadata.Relationships?
+    let preferencesBackup: PluginPreferencesBackupCoverage?
 
     init(
         id: String,
@@ -83,7 +84,8 @@ struct PluginCatalogEntry: Codable, Identifiable, Equatable {
         privacy: PluginProductMetadata.Privacy? = nil,
         actions: PluginProductMetadata.Actions? = nil,
         setup: PluginProductMetadata.Setup? = nil,
-        relationships: PluginProductMetadata.Relationships? = nil
+        relationships: PluginProductMetadata.Relationships? = nil,
+        preferencesBackup: PluginPreferencesBackupCoverage? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -105,6 +107,7 @@ struct PluginCatalogEntry: Codable, Identifiable, Equatable {
         self.actions = actions
         self.setup = setup
         self.relationships = relationships
+        self.preferencesBackup = preferencesBackup
     }
 
     var localizedDisplayName: String {

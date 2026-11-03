@@ -17,7 +17,7 @@
 | 窗口导航与排列 | [窗口切换](plugins/window-switcher.md) · [窗口布局](plugins/window-layouts.md) |
 | 键盘、鼠标与手势映射 | [输入映射](plugins/input-remapping.md) |
 | 系统设置与配置方案 | [Mac 设置](plugins/mac-settings.md) |
-| 菜单栏自定义 | [隐藏菜单栏图标](plugins/menu-bar-hidden.md) · [自定义图标](plugins/menu-bar-icons.md) |
+| 菜单栏自定义 | [隐藏菜单栏图标](plugins/menu-bar-hidden.md) · [自定义图标](plugins/menu-bar-icons.md) · [灵动岛悬浮面板](plugins/notch-hover-panel.md) |
 | 音频控制 | [应用音量](plugins/app-volume.md) · [显示器音量](plugins/display-volume.md) |
 | 监控 | [设备电量](plugins/device-battery.md) · [Duo 状态](plugins/duo-status.md) · [AI 用量](plugins/ai-usage.md) |
 | Siri | [使用与限制](plugins/siri.md) |

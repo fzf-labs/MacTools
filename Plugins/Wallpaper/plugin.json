@@ -452,5 +452,13 @@
     "includedPackIDs": [],
     "suggestedRecipeIDs": [],
     "supersedesPluginIDs": []
+  },
+  "preferencesBackup": {
+    "status": "unsupported",
+    "exclusions": [
+      "application-paths",
+      "private-content",
+      "device-state"
+    ]
   }
 }

@@ -928,6 +928,50 @@ final class ClipboardHistoryPluginTests: XCTestCase {
         plugin.controller.stop()
     }
 
+    func testPortableRetentionRestorePreservesHistoryAcrossTimerAndRestart() async throws {
+        let item = ClipboardHistoryItem(id: UUID(), text: "Retain private history", capturedAt: Date().addingTimeInterval(-40 * 86_400), sourceApplication: nil, isPinned: false, lastUsedAt: nil)
+        let persistence = BlockingClipboardHistoryPersistence(items: [item])
+        persistence.allowSaveToFinish()
+        let storage = FakePluginStorage()
+        storage.set(0, forKey: "expiration-days")
+        let plugin = makePlugin(pasteboard: PluginTestClipboardPasteboard(), persistence: persistence, storage: storage)
+        defer { plugin.controller.stop() }
+        plugin.controller.start()
+        await waitUntilLoaded(plugin.controller)
+        let source = makePlugin(pasteboard: PluginTestClipboardPasteboard(), storage: FakePluginStorage())
+        source.controller.settings.expiration = .oneDay
+        storage.set(true, forKey: "saved-keyword-expansion-enabled")
+        XCTAssertTrue(plugin.restorePortablePreferencesReportingResult(from: try XCTUnwrap(source.makePortablePreferencesBackup())))
+        plugin.controller.processRetentionExpiration(now: Date())
+        XCTAssertEqual(plugin.controller.items.map(\.id), [item.id])
+        XCTAssertEqual(plugin.controller.items.first?.text, item.text)
+        XCTAssertTrue(storage.bool(forKey: "saved-keyword-expansion-enabled"))
+        plugin.controller.stop()
+        plugin.controller.start()
+        await waitUntilLoaded(plugin.controller)
+        plugin.controller.processRetentionExpiration(now: Date())
+        XCTAssertEqual(plugin.controller.items.map(\.id), [item.id])
+        plugin.controller.stop()
+        let pasteboard = PluginTestClipboardPasteboard()
+        let reloaded = makePlugin(pasteboard: pasteboard, persistence: persistence, storage: storage)
+        defer { reloaded.controller.stop() }
+        reloaded.controller.start()
+        await waitUntilLoaded(reloaded.controller)
+        XCTAssertEqual(reloaded.controller.items.map(\.id), [item.id])
+        // Unrelated UI preferences must not resume retention.
+        reloaded.controller.settings.hidesSequentialHUDPreview.toggle()
+        XCTAssertEqual(reloaded.controller.items.map(\.id), [item.id])
+        pasteboard.simulateCopy("A new ordinary capture")
+        reloaded.controller.processPasteboardChange()
+        await reloaded.controller.waitForCaptureProcessingForTesting()
+        XCTAssertFalse(reloaded.controller.items.contains { $0.id == item.id })
+        XCTAssertFalse(reloaded.controller.settings.isRetentionDeferred)
+        let prunedPersisted = await waitUntil { !persistence.savedItems.contains { $0.id == item.id } }
+        XCTAssertTrue(prunedPersisted)
+        let localReference = ActionReference(key: ActionKey(providerID: "clipboard", actionID: ClipboardItemShortcutStore.definitionID(for: item.id)))
+        XCTAssertEqual(plugin.backupDisposition(for: localReference), .excluded)
+    }
+
     private func makePlugin(
         pasteboard: (any ClipboardPasteboardAccess)? = nil,
         persistence: (any ClipboardHistoryPersisting)? = nil,

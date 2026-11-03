@@ -13,7 +13,7 @@ import MacToolsPluginKit
 /// back to alphabetical (`nil`) and never crash.
 @MainActor
 final class LaunchpadLayoutStore: ObservableObject {
-    private enum Keys {
+    enum Keys {
         static let customLayout = "customLayout"
     }
 
@@ -30,6 +30,7 @@ final class LaunchpadLayoutStore: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = LaunchpadPortablePreferences.store(storage: storage).recover()
         self.layout = Self.loadLayout(from: storage, decoder: decoder, logger: logger)
     }
 
@@ -74,8 +75,9 @@ final class LaunchpadLayoutStore: ObservableObject {
     /// write) when already alphabetical.
     func resetToAlphabetical() {
         guard layout != nil else { return }
+        guard LaunchpadPortablePreferences.store(storage: storage).commit([:], removing: [Keys.customLayout]) else { return }
         layout = nil
-        storage.removeObject(forKey: Keys.customLayout)
+        onPersistentPreferencesChange?()
     }
 
     // MARK: - Folders (19b)
@@ -333,7 +335,7 @@ final class LaunchpadLayoutStore: ObservableObject {
     /// duplicate root id or an app referenced twice would make moves target the wrong node and
     /// then persist that corruption back. (Empty folders stay valid — the reconcile tolerance
     /// window keeps them around deliberately.)
-    private static func isSemanticallyValid(_ layout: LaunchpadLayout) -> Bool {
+    static func isSemanticallyValid(_ layout: LaunchpadLayout) -> Bool {
         var rootIDs = Set<String>()
         var appIDs = Set<String>()
         for node in layout.nodes {
@@ -367,16 +369,14 @@ final class LaunchpadLayoutStore: ObservableObject {
         setLayout(LaunchpadLayout(version: current.version, nodes: nodes))
     }
 
-    private func setLayout(_ newLayout: LaunchpadLayout) {
-        layout = newLayout
-        persist(newLayout)
-    }
+    var onPersistentPreferencesChange: (() -> Void)?
+    func reloadCommittedSnapshot() { layout = Self.loadLayout(from: storage, decoder: decoder, logger: logger) }
 
-    private func persist(_ layout: LaunchpadLayout) {
-        guard let data = try? encoder.encode(layout) else {
-            logger.error("Failed to encode custom layout; skipping persist.")
-            return
-        }
-        storage.set(data, forKey: Keys.customLayout)
+    private func setLayout(_ newLayout: LaunchpadLayout) {
+        guard newLayout != layout, Self.isSemanticallyValid(newLayout),
+              let data = try? encoder.encode(newLayout),
+              LaunchpadPortablePreferences.store(storage: storage).commit([Keys.customLayout: .data(data)]) else { return }
+        layout = newLayout
+        onPersistentPreferencesChange?()
     }
 }

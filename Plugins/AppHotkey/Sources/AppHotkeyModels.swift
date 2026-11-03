@@ -8,18 +8,24 @@ struct AppShortcutEntry: Codable, Identifiable, Equatable {
     var bundleURLString: String
     var displayName: String
     var shortcut: ShortcutBinding?
+    var portableApplicationReference: PortableApplicationReference?
 
-    var bundleURL: URL? { URL(string: bundleURLString) }
+    var bundleURL: URL? {
+        guard !bundleURLString.isEmpty, let url = URL(string: bundleURLString), url.isFileURL,
+              url.pathExtension == "app" else { return nil }
+        return url
+    }
 
     init(
         id: UUID = UUID(),
-        bundleURL: URL,
+        bundleURL: URL?,
         displayName: String,
         shortcut: ShortcutBinding? = nil
     ) {
         self.id = id
-        self.bundleURLString = bundleURL.absoluteString
+        self.bundleURLString = bundleURL?.absoluteString ?? ""
         self.displayName = displayName
         self.shortcut = shortcut
+        self.portableApplicationReference = nil
     }
 }

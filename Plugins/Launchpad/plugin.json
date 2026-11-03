@@ -1,113 +1,47 @@
 {
-  "id": "launchpad",
-  "displayName": "启动台",
-  "summary": "用全局热键或菜单栏打开应用网格，搜索并启动。",
-  "localizedMetadata": {
-    "ar": {
-      "displayName": "Launchpad",
-      "summary": "افتح شبكة التطبيقات من اختصار عام أو شريط القوائم، ثم ابحث وشغّل التطبيقات."
-    },
-    "de": {
-      "displayName": "Launchpad",
-      "summary": "Öffnet das App-Raster per globalem Kurzbefehl oder über die Menüleiste, sucht und startet Apps."
-    },
-    "en": {
-      "displayName": "Launchpad",
-      "summary": "Open the app grid from a global shortcut or the menu bar, then search and launch apps."
-    },
-    "es": {
-      "displayName": "Launchpad",
-      "summary": "Abre la cuadrícula de apps desde un atajo global o la barra de menús; busca y abre apps."
-    },
-    "fr": {
-      "displayName": "Launchpad",
-      "summary": "Ouvrez la grille d’apps avec un raccourci global ou la barre des menus, puis recherchez et lancez des apps."
-    },
-    "ja": {
-      "displayName": "Launchpad",
-      "summary": "グローバルショートカットまたはメニューバーからアプリグリッドを開き、検索して起動します。"
-    },
-    "ko": {
-      "displayName": "Launchpad",
-      "summary": "전역 단축키나 메뉴 막대에서 앱 그리드를 열고, 검색해 실행합니다."
-    },
-    "pt": {
-      "displayName": "Launchpad",
-      "summary": "Abra a grade de apps por um atalho global ou pela barra de menus, depois pesquise e abra apps."
-    },
-    "ru": {
-      "displayName": "Launchpad",
-      "summary": "Открывайте сетку приложений глобальным сочетанием клавиш или из строки меню, ищите и запускайте приложения."
-    },
-    "tr": {
-      "displayName": "Launchpad",
-      "summary": "Uygulama ızgarasını genel bir kısayolla veya menü çubuğundan açın, ardından uygulamaları arayıp başlatın."
-    },
-    "zh-Hans": {
-      "displayName": "启动台",
-      "summary": "用全局热键或菜单栏打开应用网格，搜索并启动。"
-    },
-    "zh-Hant": {
-      "displayName": "啟動台",
-      "summary": "用全域快速鍵或選單列打開 App 網格，搜尋並啟動。"
-    }
+  "actions": {
+    "providers": [
+      {
+        "id": "launchpad",
+        "kind": "static",
+        "staticActions": [
+          {
+            "id": "toggleLaunchpad",
+            "title": "@productStrings.display-name",
+            "description": "@productStrings.summary",
+            "keywords": [
+              "启动台",
+              "打开启动台",
+              "Launchpad",
+              "launchpad",
+              "togglelaunchpad"
+            ],
+            "systemImage": "square.grid.3x3.fill",
+            "parameters": [],
+            "permissionIDs": [],
+            "risk": "safe",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": false,
+            "externalInvocation": "allowed"
+          }
+        ],
+        "dynamicTemplates": []
+      }
+    ]
   },
-  "productStrings": {
-    "display-name": "@displayName",
-    "summary": "@summary",
-    "discovery.hot-corner": "@localizable.settings.hotCorner.title",
-    "discovery.app-launcher": {
-      "ar": "مشغّل التطبيقات",
-      "de": "App-Starter",
-      "en": "App Launcher",
-      "es": "Lanzador de aplicaciones",
-      "fr": "Lanceur d’applications",
-      "ja": "アプリランチャー",
-      "ko": "앱 실행기",
-      "pt": "Inicializador de aplicativos",
-      "ru": "Запуск приложений",
-      "tr": "Uygulama başlatıcı",
-      "zh-Hans": "应用启动器",
-      "zh-Hant": "應用程式啟動器"
-    },
-    "discovery.app-folders": {
-      "ar": "مجلدات التطبيقات",
-      "de": "App-Ordner",
-      "en": "App Folders",
-      "es": "Carpetas de aplicaciones",
-      "fr": "Dossiers d’applications",
-      "ja": "アプリのフォルダ",
-      "ko": "앱 폴더",
-      "pt": "Pastas de aplicativos",
-      "ru": "Папки приложений",
-      "tr": "Uygulama klasörleri",
-      "zh-Hans": "应用文件夹",
-      "zh-Hant": "應用程式資料夾"
-    },
-    "discovery.fuzzy-search": {
-      "ar": "بحث تقريبي",
-      "de": "Unscharfe Suche",
-      "en": "Fuzzy Search",
-      "es": "Búsqueda aproximada",
-      "fr": "Recherche approximative",
-      "ja": "あいまい検索",
-      "ko": "유사 검색",
-      "pt": "Busca aproximada",
-      "ru": "Нечёткий поиск",
-      "tr": "Yaklaşık arama",
-      "zh-Hans": "模糊搜索",
-      "zh-Hant": "模糊搜尋"
-    }
-  },
-  "version": "2.1.0",
-  "minHostVersion": "2.2.0",
-  "pluginKitVersion": 7,
-  "bundleRelativePath": "Launchpad.bundle",
-  "factoryClass": "LaunchpadPlugin.LaunchpadPluginFactory",
   "build": {
     "project": "../../MacTools.xcodeproj",
     "scheme": "LaunchpadPlugin"
   },
+  "bundleRelativePath": "Launchpad.bundle",
   "capabilities": {
     "panelItems": [
       "row",
@@ -115,22 +49,7 @@
     ],
     "settings": "form"
   },
-  "permissions": [],
   "category": "system",
-  "presentation": {
-    "longDescription": "@productStrings.summary",
-    "examples": [
-      {
-        "id": "primary-use",
-        "text": "@productStrings.summary"
-      }
-    ],
-    "screenshots": [],
-    "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
-    "supportURL": "https://github.com/ggbond268/MacTools/issues",
-    "publisher": "MacTools",
-    "license": "GPL-3.0-only"
-  },
   "discovery": {
     "keywords": [
       "launchpad",
@@ -200,18 +119,81 @@
       "@productStrings.discovery.fuzzy-search"
     ]
   },
-  "requirements": {
-    "minimumMacOSVersion": "14.0",
-    "architectures": [
-      "arm64",
-      "x86_64"
+  "displayName": "启动台",
+  "factoryClass": "LaunchpadPlugin.LaunchpadPluginFactory",
+  "id": "launchpad",
+  "localizedMetadata": {
+    "ar": {
+      "displayName": "Launchpad",
+      "summary": "افتح شبكة التطبيقات من اختصار عام أو شريط القوائم، ثم ابحث وشغّل التطبيقات."
+    },
+    "de": {
+      "displayName": "Launchpad",
+      "summary": "Öffnet das App-Raster per globalem Kurzbefehl oder über die Menüleiste, sucht und startet Apps."
+    },
+    "en": {
+      "displayName": "Launchpad",
+      "summary": "Open the app grid from a global shortcut or the menu bar, then search and launch apps."
+    },
+    "es": {
+      "displayName": "Launchpad",
+      "summary": "Abre la cuadrícula de apps desde un atajo global o la barra de menús; busca y abre apps."
+    },
+    "fr": {
+      "displayName": "Launchpad",
+      "summary": "Ouvrez la grille d’apps avec un raccourci global ou la barre des menus, puis recherchez et lancez des apps."
+    },
+    "ja": {
+      "displayName": "Launchpad",
+      "summary": "グローバルショートカットまたはメニューバーからアプリグリッドを開き、検索して起動します。"
+    },
+    "ko": {
+      "displayName": "Launchpad",
+      "summary": "전역 단축키나 메뉴 막대에서 앱 그리드를 열고, 검색해 실행합니다."
+    },
+    "pt": {
+      "displayName": "Launchpad",
+      "summary": "Abra a grade de apps por um atalho global ou pela barra de menus, depois pesquise e abra apps."
+    },
+    "ru": {
+      "displayName": "Launchpad",
+      "summary": "Открывайте сетку приложений глобальным сочетанием клавиш или из строки меню, ищите и запускайте приложения."
+    },
+    "tr": {
+      "displayName": "Launchpad",
+      "summary": "Uygulama ızgarasını genel bir kısayolla veya menü çubuğundan açın, ardından uygulamaları arayıp başlatın."
+    },
+    "zh-Hans": {
+      "displayName": "启动台",
+      "summary": "用全局热键或菜单栏打开应用网格，搜索并启动。"
+    },
+    "zh-Hant": {
+      "displayName": "啟動台",
+      "summary": "用全域快速鍵或選單列打開 App 網格，搜尋並啟動。"
+    }
+  },
+  "minHostVersion": "2.2.0",
+  "permissions": [],
+  "pluginKitVersion": 7,
+  "preferencesBackup": {
+    "status": "partial",
+    "exclusions": [
+      "application-paths"
+    ]
+  },
+  "presentation": {
+    "longDescription": "@productStrings.summary",
+    "examples": [
+      {
+        "id": "primary-use",
+        "text": "@productStrings.summary"
+      }
     ],
-    "hardware": [],
-    "applications": [],
-    "executables": [],
-    "permissionIDs": [],
-    "setupComplexity": "none",
-    "requiresRelaunch": false
+    "screenshots": [],
+    "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
+    "supportURL": "https://github.com/ggbond268/MacTools/issues",
+    "publisher": "MacTools",
+    "license": "GPL-3.0-only"
   },
   "privacy": {
     "dataObserved": [
@@ -230,9 +212,52 @@
     "processesSensitiveUserContent": false,
     "diagnosticExportsContainUserData": false
   },
-  "setup": {
-    "steps": [],
-    "optionalSurfaces": []
+  "productStrings": {
+    "display-name": "@displayName",
+    "summary": "@summary",
+    "discovery.hot-corner": "@localizable.settings.hotCorner.title",
+    "discovery.app-launcher": {
+      "ar": "مشغّل التطبيقات",
+      "de": "App-Starter",
+      "en": "App Launcher",
+      "es": "Lanzador de aplicaciones",
+      "fr": "Lanceur d’applications",
+      "ja": "アプリランチャー",
+      "ko": "앱 실행기",
+      "pt": "Inicializador de aplicativos",
+      "ru": "Запуск приложений",
+      "tr": "Uygulama başlatıcı",
+      "zh-Hans": "应用启动器",
+      "zh-Hant": "應用程式啟動器"
+    },
+    "discovery.app-folders": {
+      "ar": "مجلدات التطبيقات",
+      "de": "App-Ordner",
+      "en": "App Folders",
+      "es": "Carpetas de aplicaciones",
+      "fr": "Dossiers d’applications",
+      "ja": "アプリのフォルダ",
+      "ko": "앱 폴더",
+      "pt": "Pastas de aplicativos",
+      "ru": "Папки приложений",
+      "tr": "Uygulama klasörleri",
+      "zh-Hans": "应用文件夹",
+      "zh-Hant": "應用程式資料夾"
+    },
+    "discovery.fuzzy-search": {
+      "ar": "بحث تقريبي",
+      "de": "Unscharfe Suche",
+      "en": "Fuzzy Search",
+      "es": "Búsqueda aproximada",
+      "fr": "Recherche approximative",
+      "ja": "あいまい検索",
+      "ko": "유사 검색",
+      "pt": "Busca aproximada",
+      "ru": "Нечёткий поиск",
+      "tr": "Yaklaşık arama",
+      "zh-Hans": "模糊搜索",
+      "zh-Hant": "模糊搜尋"
+    }
   },
   "relationships": {
     "relatedPluginIDs": [],
@@ -240,42 +265,23 @@
     "suggestedRecipeIDs": [],
     "supersedesPluginIDs": []
   },
-  "actions": {
-    "providers": [
-      {
-        "id": "launchpad",
-        "kind": "static",
-        "staticActions": [
-          {
-            "id": "toggleLaunchpad",
-            "title": "@productStrings.display-name",
-            "description": "@productStrings.summary",
-            "keywords": [
-              "启动台",
-              "打开启动台",
-              "Launchpad",
-              "launchpad",
-              "togglelaunchpad"
-            ],
-            "systemImage": "square.grid.3x3.fill",
-            "parameters": [],
-            "permissionIDs": [],
-            "risk": "safe",
-            "surfaces": [
-              "unified-search",
-              "global-shortcut",
-              "run-link",
-              "workflow",
-              "action-grid",
-              "trackpad-gesture",
-              "manual"
-            ],
-            "automaticEligible": false,
-            "externalInvocation": "allowed"
-          }
-        ],
-        "dynamicTemplates": []
-      }
-    ]
-  }
+  "requirements": {
+    "minimumMacOSVersion": "14.0",
+    "architectures": [
+      "arm64",
+      "x86_64"
+    ],
+    "hardware": [],
+    "applications": [],
+    "executables": [],
+    "permissionIDs": [],
+    "setupComplexity": "none",
+    "requiresRelaunch": false
+  },
+  "setup": {
+    "steps": [],
+    "optionalSurfaces": []
+  },
+  "summary": "用全局热键或菜单栏打开应用网格，搜索并启动。",
+  "version": "2.2.0"
 }

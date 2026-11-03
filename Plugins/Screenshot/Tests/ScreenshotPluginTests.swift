@@ -6,6 +6,18 @@ import XCTest
 
 @MainActor
 final class ScreenshotPluginTests: XCTestCase {
+    func testPortableRecordingPreferenceKeepsDestinationFolder() throws {
+        let source = ScreenshotEnvironment(storage: ScreenshotTestStorage(), localization: PluginLocalization(bundle: .main))
+        source.recordingAutoZoom = false
+        let storage = ScreenshotTestStorage()
+        storage.set("/tmp/destination-captures", forKey: "saveFolder")
+        let destination = ScreenshotEnvironment(storage: storage, localization: PluginLocalization(bundle: .main))
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertFalse(destination.recordingAutoZoom)
+        XCTAssertEqual(storage.string(forKey: "saveFolder"), "/tmp/destination-captures")
+        XCTAssertEqual(destination.presentationGeneration, 0)
+    }
+
     private var permissionGranted = true
     func testHostPanelActionsShortcutsAndPermissionContracts() {
         let plugin = makePlugin()

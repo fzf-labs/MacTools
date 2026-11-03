@@ -5163,76 +5163,76 @@
     "manager.note.placeholder": {
       "extractionState": "manual",
       "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "أضف ملاحظة محلية لعنصر التشغيل هذا. تبقى على هذا الـ Mac ولا تُكتب في plist."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Fügen Sie eine lokale Notiz für dieses Startelement hinzu. Es bleibt auf diesem Mac und wird nicht in die Plist geschrieben."
-          }
-        },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Add a local note for this launch item. It stays on this Mac and is not written to the plist."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Añade una nota local para este elemento de inicio. Se queda en este Mac y no se escribe en el plist."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajoutez une note locale à cet élément de lancement. Elle reste sur ce Mac et n’est pas écrite dans le plist."
-          }
-        },
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "この起動項目にローカルメモを追加します。この Mac にのみ保存され、plist には書き込まれません。"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "이 시작 항목에 로컬 메모를 추가합니다. 이 Mac에만 저장되며 plist에는 기록되지 않습니다."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Adicione uma nota local para este item de inicialização. Ela fica neste Mac e não é gravada no plist."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Добавьте локальную заметку для этого элемента запуска. Она останется на этом Mac и не будет записана в plist."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bu başlatma öğesi için yerel bir not ekleyin. Not bu Mac'te kalır ve plist dosyasına yazılmaz."
+            "value": "Add a note for this launch item (not written to the plist)."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "为这个启动项添加本地备注（仅保存在本机，不写入 plist）。"
+            "value": "为这个启动项添加备注（不写入 plist）。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "為這個啟動項添加本地備註（僅保存在本機，不寫入 plist）。"
+            "value": "為此啟動項目新增備註（不會寫入 plist）。"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Añade una nota para este elemento (no se escribe en el plist)."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajoutez une note pour cet élément (non écrite dans le plist)."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавьте заметку к элементу (без записи в plist)."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adicione uma nota para este item (não é gravada no plist)."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notiz für dieses Startobjekt hinzufügen (wird nicht in die plist geschrieben)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この起動項目にメモを追加します（plistには書き込みません）。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 시작 항목의 메모를 추가하세요(plist에는 기록하지 않음)."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أضف ملاحظة لهذا العنصر (لا تُكتب في plist)."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu başlangıç öğesine not ekleyin (plist dosyasına yazılmaz)."
           }
         }
       }
@@ -8544,6 +8544,234 @@
           "stringUnit": {
             "state": "translated",
             "value": "全部狀態"
+          }
+        }
+      }
+    },
+    "backup.includeNotes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include notes in backups"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将备注包含在备份中"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將備註包含在備份中"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluir notas en las copias"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inclure les notes dans les sauvegardes"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включать заметки в резервные копии"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluir notas nos backups"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notizen in Sicherungen einschließen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メモをバックアップに含める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "백업에 메모 포함"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تضمين الملاحظات في النسخ الاحتياطية"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notları yedeklere dahil et"
+          }
+        }
+      }
+    },
+    "backup.includeNotes.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to manual backups, automatic backups, and cloud sync. Only favorites are included by default."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "适用于手动备份、自动备份和云同步。默认仅备份关注项。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用於手動備份、自動備份和雲端同步。預設僅備份關注項目。"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se aplica a copias manuales, automáticas y a la sincronización. Solo se incluyen favoritos de forma predeterminada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’applique aux sauvegardes manuelles, automatiques et à la synchronisation. Seuls les favoris sont inclus par défaut."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для ручных и автоматических копий и облачной синхронизации. По умолчанию включены только избранные."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se a backups manuais, automáticos e à sincronização. Por padrão, inclui apenas favoritos."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt für manuelle und automatische Sicherungen sowie Cloud-Synchronisierung. Standardmäßig werden nur Favoriten gesichert."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手動・自動バックアップとクラウド同期に適用します。既定ではお気に入りのみ含まれます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수동·자동 백업과 클라우드 동기화에 적용됩니다. 기본적으로 즐겨찾기만 포함됩니다."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ينطبق على النسخ اليدوي والتلقائي والمزامنة. تُضمّن المفضلة فقط افتراضيًا."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuel ve otomatik yedekler ile bulut eşzamanlama için geçerlidir. Varsayılan olarak yalnızca favoriler dahil edilir."
+          }
+        }
+      }
+    },
+    "backup.unmatched": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Launch item settings awaiting a match"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待匹配的启动项配置"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待配對的啟動項目設定"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de inicio pendientes de coincidencia"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages de démarrage en attente de correspondance"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Настройки запуска без соответствующего элемента"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes de inicialização aguardando correspondência"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startobjekt-Einstellungen ohne Zuordnung"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応する起動項目を待つ設定"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일치 항목 대기 중인 시작 설정"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إعدادات بدء التشغيل التي تنتظر مطابقة"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eşleşme bekleyen başlangıç öğesi ayarları"
           }
         }
       }

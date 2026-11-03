@@ -61,7 +61,11 @@ final class AIAssistantPlugin:
     var requestSettingsPresentation: (() -> Void)?
     var focusedWindowTargetProvider: (() -> PluginFocusedWindowTarget?)?
 
+    var onPersistentPreferencesChange: (() -> Void)?
     private let storage: PluginStorage
+    private var providerEditorRevision = 0
+    private var promptEditorRevision = 0
+    private var credentialAuthorization: PortableCredentialAuthorization { .init(storage: storage) }
     private let accessibilityTrustProvider: () -> Bool
     private let accessibilityTrustRequester: (Bool) -> Bool
     private let secretStore: any AIAssistantSecretStoring
@@ -93,6 +97,7 @@ final class AIAssistantPlugin:
         let localization = localization ?? PluginLocalization(bundle: context.resourceBundle)
         self.localization = localization
         self.storage = context.storage
+        _ = Self.portableStore(storage: context.storage).recover()
         self.accessibilityTrustProvider = accessibilityTrustProvider
         self.accessibilityTrustRequester = accessibilityTrustRequester
         self.secretStore = secretStore
@@ -106,6 +111,11 @@ final class AIAssistantPlugin:
         let providerProfileStore = AIAssistantProviderProfileStore(storage: context.storage, localization: localization)
         self.providerProfileStore = providerProfileStore
         self.providerProfiles = providerProfileStore.loadProfiles()
+        if !PortableCredentialAuthorization(storage: context.storage).seedIfNeeded(
+            profiles: Dictionary(self.providerProfiles.map { ($0.id, $0.baseURL) }, uniquingKeysWith: { first, _ in first }),
+            store: Self.portableStore(storage: context.storage)) {
+            AIAssistantLog.provider.error("Could not initialize local credential authorization.")
+        }
         self.promptStore = AIAssistantPromptStore(storage: context.storage, localization: localization)
         self.prompts = promptStore.loadPrompts()
         self.cachedAPIKey = nil
@@ -312,6 +322,7 @@ final class AIAssistantPlugin:
 
     var settingsPage: PluginSettingsPage? {
         .form(description: metadata.defaultDescription, sections: [
+            promptBackupSection,
             PluginSettingsSection(
                 id: "ai-service",
                 title: localization.string("settings.service.title", defaultValue: "AI 服务"),
@@ -322,7 +333,7 @@ final class AIAssistantPlugin:
                     let localization = self.localization
                     AIAssistantServiceSettingsView(
                         profiles: self.providerProfiles,
-                        apiKey: self.cachedAPIKey ?? "",
+                        apiKey: "",
                         localization: localization,
                         onSave: { [weak self] profiles, apiKey in
                             self?.saveProviderConfiguration(profiles: profiles, apiKey: apiKey)
@@ -350,6 +361,7 @@ final class AIAssistantPlugin:
                             return await self.testConnection(profile: profile, apiKey: apiKey)
                         }
                     )
+                    .id(self.providerEditorRevision)
                 }
             },
             PluginSettingsSection(
@@ -416,6 +428,7 @@ final class AIAssistantPlugin:
                                 )
                         }
                     )
+                    .id(self.promptEditorRevision)
                 }
             }
         ])
@@ -426,7 +439,9 @@ final class AIAssistantPlugin:
             return
         }
 
-        storage.set(isEnabled, forKey: AIAssistantConstants.StorageKey.shortcutEnabled)
+        guard isEnabled != isShortcutEnabled,
+              portableStore.commit([AIAssistantConstants.StorageKey.shortcutEnabled: .boolean(isEnabled)]) else { return }
+        onPersistentPreferencesChange?()
         onStateChange?()
     }
 
@@ -473,10 +488,14 @@ final class AIAssistantPlugin:
     }
 
     func handleSettingsAction(_ action: PluginSettingsAction) {
-        guard case let .setBoolean(controlID, value) = action,
-              controlID == AIAssistantConstants.StorageKey.shortcutUsesClipboard
+        guard case let .setBoolean(controlID, value) = action else { return }
+        if controlID == Self.promptBackupKey { setIncludesPromptText(value); return }
+        guard controlID == AIAssistantConstants.StorageKey.shortcutUsesClipboard
                 || controlID == AIAssistantConstants.StorageKey.allowsSimulatedCopy else { return }
-        storage.set(value, forKey: controlID)
+        if controlID == AIAssistantConstants.StorageKey.shortcutUsesClipboard {
+            guard portableStore.commit([controlID: .boolean(value)]) else { return }
+            onPersistentPreferencesChange?()
+        } else { storage.set(value, forKey: controlID) }
         onStateChange?()
     }
 
@@ -628,6 +647,9 @@ final class AIAssistantPlugin:
             ))
         }
 
+        guard credentialAuthorization.allows(profileID: profile.id, baseURL: profile.baseURL) else {
+            return .failure(AIAssistantProviderError(message: localization.string("panelError.missingAPIKey", defaultValue: "请配置 API Key")))
+        }
         do {
             let apiKey = try loadAPIKey()
             guard let trimmedKey = Self.normalizedAPIKey(apiKey) else {
@@ -656,7 +678,7 @@ final class AIAssistantPlugin:
         profile: AIAssistantProviderProfile,
         apiKey: String
     ) async -> AIAssistantOutcome<[String]> {
-        let resolved = await resolveAPIKey(preferred: apiKey)
+        let resolved = await resolveAPIKey(preferred: apiKey, profile: profile)
         switch resolved {
         case let .failure(message):
             return .failure(message)
@@ -685,7 +707,7 @@ final class AIAssistantPlugin:
             return .failure(validationError.errorDescription(localization: localization))
         }
 
-        let resolved = await resolveAPIKey(preferred: apiKey)
+        let resolved = await resolveAPIKey(preferred: apiKey, profile: profile)
         switch resolved {
         case let .failure(message):
             return .failure(message)
@@ -712,11 +734,14 @@ final class AIAssistantPlugin:
 
     /// Resolves the effective API key for a request, preferring the edited field
     /// and falling back to the stored Keychain entry. Runs on `@MainActor`.
-    private func resolveAPIKey(preferred: String) async -> AIAssistantOutcome<String> {
+    private func resolveAPIKey(preferred: String, profile: AIAssistantProviderProfile) async -> AIAssistantOutcome<String> {
         if let normalizedKey = Self.normalizedAPIKey(preferred) {
             return .success(normalizedKey)
         }
 
+        guard credentialAuthorization.allows(profileID: profile.id, baseURL: profile.baseURL) else {
+            return .failure(localization.string("panelError.missingAPIKey", defaultValue: "请配置 API Key"))
+        }
         do {
             let key = try loadAPIKey()
             if let normalizedKey = Self.normalizedAPIKey(key) {
@@ -765,14 +790,25 @@ final class AIAssistantPlugin:
             }
         }
 
+        if Self.normalizedAPIKey(apiKey) == nil,
+           profiles.contains(where: { $0.isEnabled && !credentialAuthorization.allows(profileID: $0.id, baseURL: $0.baseURL) }) {
+            return localization.string("panelError.missingAPIKey", defaultValue: "请配置 API Key")
+        }
         do {
-            if let normalizedAPIKey = Self.normalizedAPIKey(apiKey) {
-                try secretStore.saveAPIKey(normalizedAPIKey)
-                cachedAPIKey = normalizedAPIKey
-                didLoadAPIKey = true
+            let previousBackup = makePortablePreferencesBackup()
+            let profilesData = try JSONEncoder().encode(profiles.map { $0.normalized() })
+            var replacements: [PortableCredentialAuthorization.Replacement] = []
+            var endpoints: [String: String] = [:]
+            if let key = Self.normalizedAPIKey(apiKey) {
+                cachedAPIKey = nil
+                didLoadAPIKey = false
+                replacements = [.init(profileIDs: nil,
+                    load: { try self.secretStore.loadAPIKey() },
+                    save: { try self.secretStore.saveAPIKey(key) })]
+                endpoints = Dictionary(profiles.map { ($0.id, $0.baseURL) }, uniquingKeysWith: { first, _ in first })
             }
-
-            try providerProfileStore.saveProfiles(profiles)
+            try credentialAuthorization.replaceCredentials(replacements, authorizing: endpoints,
+                values: [AIAssistantConstants.StorageKey.providerProfiles: .data(profilesData)], store: portableStore)
             providerProfiles = providerProfileStore.loadProfiles()
             apiKeyState = .present
             if let coordinator {
@@ -781,6 +817,7 @@ final class AIAssistantPlugin:
                 panelController.close()
             }
             coordinator = nil
+            if previousBackup != makePortablePreferencesBackup() { onPersistentPreferencesChange?() }
             onStateChange?()
             return nil
         } catch {
@@ -803,6 +840,8 @@ final class AIAssistantPlugin:
         }
 
         do {
+            guard portableStore.recover() else { throw CocoaError(.fileWriteUnknown) }
+            let previousBackup = makePortablePreferencesBackup()
             try promptStore.savePrompts(prompts)
             self.prompts = promptStore.loadPrompts()
             if let coordinator {
@@ -811,6 +850,7 @@ final class AIAssistantPlugin:
                 panelController.close()
             }
             coordinator = nil
+            if previousBackup != makePortablePreferencesBackup() { onPersistentPreferencesChange?() }
             onStateChange?()
             return nil
         } catch {
@@ -840,5 +880,126 @@ final class AIAssistantPlugin:
     private static func normalizedAPIKey(_ apiKey: String?) -> String? {
         let trimmedKey = apiKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmedKey.isEmpty ? nil : trimmedKey
+    }
+}
+
+extension AIAssistantPlugin {
+    private static let promptBackupKey = "preferences-backup.include-prompt-text"
+    private var includesPromptText: Bool { storage.bool(forKey: Self.promptBackupKey) }
+    private var promptBackupSection: PluginSettingsSection {
+        PluginSettingsSection(
+            id: "preferences-backup", title: localization.string("settings.backup.title", defaultValue: "偏好设置备份"),
+            systemImage: "externaldrive", rows: [PluginSettingsRow(
+                id: Self.promptBackupKey,
+                title: localization.string("settings.backup.includePromptText", defaultValue: "将自定义提示词包含在备份中"),
+                description: localization.string("settings.backup.scope", defaultValue: "同时用于手动备份、自动备份和云同步。不包含 API 密钥。"),
+                control: .toggle(isOn: includesPromptText)
+            )]
+        )
+    }
+    private func setIncludesPromptText(_ value: Bool) {
+        guard value != includesPromptText,
+              portableStore.commit([Self.promptBackupKey: .boolean(value)]) else { return }
+        onPersistentPreferencesChange?()
+        onStateChange?()
+    }
+}
+
+extension AIAssistantPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling, PluginPortablePreferencesActionReferencesProviding, PluginActionReferenceBackupProviding {
+    private struct PortablePreferences: Codable {
+        let formatVersion: Int
+        let profiles: [AIAssistantProviderProfile]
+        let shortcutEnabled: Bool
+        let shortcutUsesClipboard: Bool
+        let prompts: [AIAssistantPrompt]?
+    }
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            AIAssistantConstants.StorageKey.providerProfiles: .data(Data("[]".utf8), maximumBytes: 1_024 * 1_024) {
+                (try? JSONDecoder().decode([AIAssistantProviderProfile].self, from: $0)).map { $0.count <= 64 } == true
+            },
+            AIAssistantConstants.StorageKey.prompts: .data(Data("[]".utf8), maximumBytes: 1_024 * 1_024) {
+                (try? JSONDecoder().decode([AIAssistantPrompt].self, from: $0)).map { $0.count <= 256 } == true
+            },
+            AIAssistantConstants.StorageKey.shortcutEnabled: .boolean(true),
+            AIAssistantConstants.StorageKey.shortcutUsesClipboard: .boolean(false),
+            Self.promptBackupKey: .boolean(false),
+            PortableCredentialAuthorization.key: PortableCredentialAuthorization.field
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    private func decodedPortable(_ data: Data) -> PortablePreferences? {
+        guard data.count <= 2 * 1_024 * 1_024, let payload = try? JSONDecoder().decode(PortablePreferences.self, from: data), payload.formatVersion == 1,
+              (1...64).contains(payload.profiles.count), Set(payload.profiles.map(\.id)).count == payload.profiles.count,
+              payload.profiles.allSatisfy({ profile in
+                  PortablePreferencesValidation.identifier(profile.id)
+                      && PortablePreferencesValidation.text(profile.name, maximumBytes: 256, allowsEmpty: !profile.isEnabled)
+                      && PortablePreferencesValidation.endpoint(profile.baseURL, allowsIncomplete: !profile.isEnabled)
+                      && PortablePreferencesValidation.text(profile.model, maximumBytes: 256, allowsEmpty: !profile.isEnabled)
+                      && profile.temperature.isFinite && (0...2).contains(profile.temperature)
+                      && (!profile.isEnabled || profile.validationError == nil)
+              }) else { return nil }
+        if let prompts = payload.prompts {
+            guard prompts.count <= 256, Set(prompts.map(\.id)).count == prompts.count,
+                  prompts.allSatisfy({ prompt in
+                      PortablePreferencesValidation.identifier(prompt.id) && PortablePreferencesValidation.text(prompt.name, maximumBytes: 256)
+                          && prompt.template.utf8.count <= 65_536 && (prompt.systemPrompt?.utf8.count ?? 0) <= 65_536
+                          && prompt.temperature.isFinite && (0...2).contains(prompt.temperature)
+                          && (!prompt.isEnabled || prompt.template.contains("{{text}}"))
+                  }) else { return nil }
+        }
+        return payload
+    }
+    func makePortablePreferencesBackup() -> Data? {
+        var keys: Set<String> = [AIAssistantConstants.StorageKey.providerProfiles,
+            AIAssistantConstants.StorageKey.shortcutEnabled, AIAssistantConstants.StorageKey.shortcutUsesClipboard]
+        if includesPromptText { keys.insert(AIAssistantConstants.StorageKey.prompts) }
+        guard portableStore.backup(including: keys) != nil else { return nil }
+        let payload = PortablePreferences(formatVersion: 1, profiles: providerProfiles, shortcutEnabled: isShortcutEnabled,
+            shortcutUsesClipboard: shortcutUsesClipboard, prompts: includesPromptText ? prompts : nil)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(payload), decodedPortable(data) != nil else { return nil }
+        return data
+    }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard credentialAuthorization.isInitialized, let payload = decodedPortable(data), let profileData = try? JSONEncoder().encode(payload.profiles) else { return false }
+        let before = makePortablePreferencesBackup()
+        var values: [String: PortablePreferenceValue] = [
+            AIAssistantConstants.StorageKey.providerProfiles: .data(profileData),
+            AIAssistantConstants.StorageKey.shortcutEnabled: .boolean(payload.shortcutEnabled),
+            AIAssistantConstants.StorageKey.shortcutUsesClipboard: .boolean(payload.shortcutUsesClipboard)
+        ]
+        if let incoming = payload.prompts {
+            let protected = !includesPromptText && storage.data(forKey: AIAssistantConstants.StorageKey.prompts) != nil ? prompts : []
+            guard !incoming.contains(where: { incoming in protected.contains { $0.id == incoming.id && $0 != incoming } }) else { return false }
+            let candidate = incoming + protected.filter { local in !incoming.contains { $0.id == local.id } }
+            guard candidate.count <= 256, let encoded = try? JSONEncoder().encode(candidate) else { return false }
+            values[AIAssistantConstants.StorageKey.prompts] = .data(encoded)
+        }
+        let previousPrompts = prompts
+        guard portableStore.commit(values) else { return false }
+        providerProfiles = providerProfileStore.loadProfiles()
+        prompts = promptStore.loadPrompts()
+        if prompts != previousPrompts { promptEditorRevision += 1 }
+        if let coordinator { coordinator.close() } else { panelController.close() }
+        coordinator = nil
+        providerEditorRevision += 1
+        if let profile = enabledValidProfiles.first, !credentialAuthorization.allows(profileID: profile.id, baseURL: profile.baseURL) { apiKeyState = .missing }
+        // Keep destination credential state; import does not read or manufacture Keychain grants.
+        if before != makePortablePreferencesBackup() { onPersistentPreferencesChange?() }
+        onStateChange?()
+        return true
+    }
+    func actionReferences(inPortablePreferences data: Data) -> [ActionReference]? {
+        guard let payload = decodedPortable(data) else { return nil }
+        return (payload.prompts ?? []).map { ActionReference(key: ActionKey(providerID: metadata.id, actionID: $0.id)) }
+    }
+    func backupDisposition(for reference: ActionReference) -> PluginActionReferenceBackupDisposition {
+        guard reference.key.providerID == metadata.id, reference.parameters.entries.isEmpty,
+              PortablePreferencesValidation.identifier(reference.key.actionID) else { return .excluded }
+        return .requiresPluginPreferences
     }
 }

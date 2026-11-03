@@ -38,6 +38,7 @@ final class BatteryChargeLimitStore: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
 
         // isEnabled — default off; user must opt in. We store the inverse of
         // "explicitly disabled" so the first launch is a clean disabled state.
@@ -59,6 +60,26 @@ final class BatteryChargeLimitStore: ObservableObject {
         } else {
             self.mode = .holdAtLimit
         }
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Key.limitPercent: .integer(BatteryChargeLimits.defaultPercent, range: BatteryChargeLimits.minimumPercent...BatteryChargeLimits.maximumPercent),
+            Key.mode: .choice("holdAtLimit", allowed: ["holdAtLimit", "charging", "discharging"])
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        // An active session reads these values on timer/wake events. Preserve it until locally disabled.
+        guard !isEnabled else { return false }
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        limitPercent = storage.object(forKey: Key.limitPercent) as? Int ?? BatteryChargeLimits.defaultPercent
+        mode = storage.string(forKey: Key.mode).flatMap(BatteryChargeMode.init(rawValue:)) ?? .holdAtLimit
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
     }
 
     // MARK: - Mutators
@@ -106,9 +127,11 @@ final class BatteryChargeLimitStore: ObservableObject {
             return .rejected(rollbackSucceeded: rawStateMatches(previousRaw))
         }
 
+        let portableChanged = limitPercent != normalized.limitPercent || mode != normalized.mode
         isEnabled = normalized.isEnabled
         limitPercent = normalized.limitPercent
         mode = normalized.mode
+        if portableChanged { onPersistentPreferencesChange?() }
         return .committed
     }
 

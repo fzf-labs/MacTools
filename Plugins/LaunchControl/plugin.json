@@ -185,7 +185,7 @@
       "zh-Hant": "背景服務"
     }
   },
-  "version": "2.1.0",
+  "version": "2.2.0",
   "minHostVersion": "2.0.1",
   "pluginKitVersion": 7,
   "bundleRelativePath": "LaunchControl.bundle",
@@ -302,7 +302,8 @@
       "productivity-state"
     ],
     "dataPersisted": [
-      "plugin-configuration"
+      "plugin-configuration",
+      "user-notes"
     ],
     "retention": {
       "policy": "user-controlled"
@@ -439,6 +440,14 @@
           }
         ]
       }
+    ]
+  },
+  "preferencesBackup": {
+    "status": "partial",
+    "exclusions": [
+      "private-content",
+      "local-activation",
+      "local-policy"
     ]
   }
 }

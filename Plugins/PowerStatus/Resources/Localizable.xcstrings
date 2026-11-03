@@ -609,6 +609,70 @@
         "ar" : { "stringUnit" : { "state" : "translated", "value" : "متوسط استهلاك الطاقة خلال آخر فترة قياس." } }
       }
     },
+    "energyApps.expandHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show the apps using the most energy" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展开查看高耗电应用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "展開查看高耗電應用" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "電力消費の多いアプリを表示" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "에너지 사용이 많은 앱 보기" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Apps mit dem höchsten Energieverbrauch anzeigen" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Afficher les apps les plus énergivores" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar las apps que más energía consumen" } },
+        "pt" : { "stringUnit" : { "state" : "translated", "value" : "Mostrar os apps que mais consomem energia" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Показать приложения с наибольшим энергопотреблением" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "En çok enerji tüketen uygulamaları göster" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "عرض التطبيقات الأكثر استهلاكًا للطاقة" } }
+      }
+    },
+    "energyApps.collapseHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Collapse the high energy apps list" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "收起高耗电应用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "收起高耗電應用" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "電力消費の多いアプリを折りたたむ" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "에너지 사용이 많은 앱 접기" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Liste der Apps mit hohem Energieverbrauch einklappen" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Réduire la liste des apps les plus énergivores" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Contraer la lista de apps con mayor consumo" } },
+        "pt" : { "stringUnit" : { "state" : "translated", "value" : "Recolher a lista de apps com maior consumo" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Свернуть список приложений с высоким энергопотреблением" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yüksek enerji tüketen uygulama listesini daralt" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "طي قائمة التطبيقات عالية الاستهلاك" } }
+      }
+    },
+    "energyApps.loading" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Measuring app energy…" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "正在采集应用功耗…" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "正在收集應用功耗…" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "アプリの消費電力を計測中…" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "앱 전력 사용량 측정 중…" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "App-Energieverbrauch wird gemessen…" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Mesure de la consommation des apps…" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "Midiendo el consumo de las apps…" } },
+        "pt" : { "stringUnit" : { "state" : "translated", "value" : "Medindo o consumo dos apps…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Измерение энергопотребления приложений…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Uygulama enerji tüketimi ölçülüyor…" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "جارٍ قياس استهلاك التطبيقات للطاقة…" } }
+      }
+    },
+    "energyApps.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No high energy apps found" } },
+        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未发现高耗电应用" } },
+        "zh-Hant" : { "stringUnit" : { "state" : "translated", "value" : "未發現高耗電應用" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "電力消費の多いアプリはありません" } },
+        "ko" : { "stringUnit" : { "state" : "translated", "value" : "에너지 사용이 많은 앱이 없습니다" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine Apps mit hohem Energieverbrauch gefunden" } },
+        "fr" : { "stringUnit" : { "state" : "translated", "value" : "Aucune app très énergivore trouvée" } },
+        "es" : { "stringUnit" : { "state" : "translated", "value" : "No se encontraron apps con alto consumo" } },
+        "pt" : { "stringUnit" : { "state" : "translated", "value" : "Nenhum app com alto consumo encontrado" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Приложения с высоким энергопотреблением не найдены" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yüksek enerji tüketen uygulama bulunamadı" } },
+        "ar" : { "stringUnit" : { "state" : "translated", "value" : "لم يتم العثور على تطبيقات عالية الاستهلاك" } }
+      }
+    },
     "sensors.title" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Temperature & Power" } },

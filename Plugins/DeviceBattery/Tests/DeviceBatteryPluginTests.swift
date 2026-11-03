@@ -4,6 +4,23 @@ import MacToolsPluginKit
 
 @MainActor
 final class DeviceBatteryPluginTests: XCTestCase {
+    func testPortableSettingsRetainLocalDeviceState() throws {
+        let source = DeviceBatteryStore(storage: DeviceBatteryMemoryStorage())
+        source.setLayoutMode(.list)
+        source.setShowVendorHIDDevices(false)
+        source.setLowBatteryNotificationEnabled(true)
+        source.setLowBatteryNotificationThreshold(35)
+        let storage = DeviceBatteryMemoryStorage()
+        storage.set("private-device", forKey: "device-cache")
+        let destination = DeviceBatteryStore(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertEqual(destination.layoutMode, .list)
+        XCTAssertFalse(destination.showVendorHIDDevices)
+        XCTAssertTrue(destination.lowBatteryNotificationEnabled)
+        XCTAssertEqual(destination.lowBatteryNotificationThreshold, 35)
+        XCTAssertEqual(storage.string(forKey: "device-cache"), "private-device")
+    }
+
 
     func testStorePersistsLayoutAndSources() {
         let storage = DeviceBatteryMemoryStorage()
@@ -449,6 +466,55 @@ final class DeviceBatteryPluginTests: XCTestCase {
         XCTAssertEqual(notifier.notifications.count, 2)
     }
 
+    func testNewLocalAuthorizationRecoversWarningSuppressedAfterImportWithoutRepeating() {
+        let notifier = PendingAuthorizationLowBatteryNotifier()
+        let controller = DeviceBatteryLowBatteryNotificationController(notifier: notifier)
+        let snapshot = makeSnapshot(items: [makeBatteryItem(id: "mouse", name: "Mouse", level: 10)])
+        var threshold = 20
+        func evaluate() {
+            controller.evaluate(snapshot: snapshot, isEnabled: true, threshold: threshold,
+                localization: PluginLocalization(bundle: .main))
+        }
+
+        evaluate() // Imported monitoring can run before the first local authorization request.
+        XCTAssertEqual(notifier.attempts, 1)
+        XCTAssertEqual(notifier.delivered, 0)
+        threshold = 21
+        controller.requestAuthorization(reevaluate: evaluate)
+        controller.requestAuthorization(reevaluate: evaluate)
+        evaluate()
+        XCTAssertEqual(notifier.authorizationRequests, 1)
+        XCTAssertEqual(notifier.attempts, 1)
+        notifier.completeAuthorization(newlyGranted: true)
+        XCTAssertEqual(notifier.delivered, 1)
+
+        threshold = 22
+        controller.requestAuthorization(reevaluate: evaluate)
+        evaluate()
+        notifier.completeAuthorization(newlyGranted: false)
+        evaluate()
+        XCTAssertEqual(notifier.delivered, 1)
+    }
+
+    func testAuthorizationCompletionUsesCurrentEnabledState() {
+        let notifier = PendingAuthorizationLowBatteryNotifier()
+        let controller = DeviceBatteryLowBatteryNotificationController(notifier: notifier)
+        let snapshot = makeSnapshot(items: [makeBatteryItem(id: "mouse", name: "Mouse", level: 10)])
+        var isEnabled = true
+        func evaluate() {
+            controller.evaluate(snapshot: snapshot, isEnabled: isEnabled, threshold: 20,
+                localization: PluginLocalization(bundle: .main))
+        }
+        controller.requestAuthorization(reevaluate: evaluate)
+        isEnabled = false
+        evaluate()
+        notifier.completeAuthorization(newlyGranted: true)
+        XCTAssertEqual(notifier.delivered, 0)
+        isEnabled = true
+        evaluate()
+        XCTAssertEqual(notifier.delivered, 1)
+    }
+
     func testLowBatteryNotificationIgnoresChargingDevicesAndBoundaryValue() {
         let notifier = RecordingLowBatteryNotifier()
         let controller = DeviceBatteryLowBatteryNotificationController(notifier: notifier)
@@ -572,6 +638,32 @@ private final class RecordingLowBatteryNotifier: DeviceBatteryLowBatteryNotifyin
                 localization: localization
             )
         )
+    }
+}
+
+@MainActor
+private final class PendingAuthorizationLowBatteryNotifier: DeviceBatteryLowBatteryNotifying {
+    private var completion: (@MainActor (Bool) -> Void)?
+    private var isAuthorized = false
+    private(set) var authorizationRequests = 0
+    private(set) var attempts = 0
+    private(set) var delivered = 0
+
+    func requestAuthorization(completion: @escaping @MainActor (Bool) -> Void) {
+        authorizationRequests += 1
+        self.completion = completion
+    }
+
+    func completeAuthorization(newlyGranted: Bool) {
+        isAuthorized = isAuthorized || newlyGranted
+        let callback = completion
+        completion = nil
+        callback?(newlyGranted)
+    }
+
+    func notifyLowBatteryDevices(_ items: [DeviceBatteryItem], threshold: Int, localization: PluginLocalization) {
+        attempts += 1
+        if isAuthorized { delivered += 1 }
     }
 }
 

@@ -20,6 +20,7 @@ final class ScreenshotEnvironment: NSObject {
 
     init(storage: any PluginStorage, localization: PluginLocalization) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.localization = localization
         super.init()
     }
@@ -45,9 +46,10 @@ final class ScreenshotEnvironment: NSObject {
     var recordingAutoZoom: Bool {
         get { storage.object(forKey: "recordingAutoZoom") as? Bool ?? true }
         set {
-            guard newValue != recordingAutoZoom else { return }
-            storage.set(newValue, forKey: "recordingAutoZoom")
+            guard newValue != recordingAutoZoom,
+                  portableStore.commit(["recordingAutoZoom": .boolean(newValue)]) else { return }
             onPreferencesChange?()
+            onPersistentPreferencesChange?()
         }
     }
 
@@ -78,6 +80,19 @@ final class ScreenshotEnvironment: NSObject {
             return string("record.audio.hostUpdate", "当前版本的 MacTools 不支持录音，请更新主程序后使用。仍可无声录屏。")
         default: return captureErrorDescription(error)
         }
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: ["recordingAutoZoom": .boolean(true)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let before = recordingAutoZoom
+        guard portableStore.restore(data) else { return false }
+        if recordingAutoZoom != before { onPersistentPreferencesChange?() }
+        return true
     }
 
     var saveFolderDisplayName: String { FileManager.default.displayName(atPath: saveFolder.path) }

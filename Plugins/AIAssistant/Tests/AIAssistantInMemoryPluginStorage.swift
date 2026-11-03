@@ -4,6 +4,8 @@ import MacToolsPluginKit
 @MainActor
 final class AIAssistantInMemoryPluginStorage: PluginStorage {
     private var values: [String: Any] = [:]
+    var blockedSetKeys: Set<String> = []
+    var blockedRemoveKeys: Set<String> = []
 
     func object(forKey key: String) -> Any? {
         values[key]
@@ -30,6 +32,7 @@ final class AIAssistantInMemoryPluginStorage: PluginStorage {
     }
 
     func set(_ value: Any?, forKey key: String) {
+        guard !blockedSetKeys.contains(key) else { return }
         guard let value else {
             removeObject(forKey: key)
             return
@@ -39,6 +42,7 @@ final class AIAssistantInMemoryPluginStorage: PluginStorage {
     }
 
     func removeObject(forKey key: String) {
+        guard !blockedRemoveKeys.contains(key) else { return }
         values.removeValue(forKey: key)
     }
 

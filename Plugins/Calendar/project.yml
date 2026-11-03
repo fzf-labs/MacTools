@@ -14,3 +14,7 @@ bundle:
         - "$(SRCROOT)/Plugins/Calendar/CalendarPluginResources/ChinaHolidayOverrides.json"
       outputFiles:
         - "$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/CalendarPluginResources/ChinaHolidayOverrides.json"
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

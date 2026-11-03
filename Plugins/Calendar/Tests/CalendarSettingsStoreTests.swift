@@ -5,6 +5,23 @@ import MacToolsPluginKit
 
 @MainActor
 final class CalendarSettingsStoreTests: XCTestCase {
+    func testPortableSettingsPreserveExplicitCalendarAcrossLanguages() throws {
+        let source = CalendarSettingsStore(storage: CalendarSettingsMemoryStorage(), languageIdentifier: "en")
+        source.setWeekStartDay(.monday)
+        source.setAgendaRange(CalendarAgendaRange(dayCount: 5, direction: .past))
+        source.setShowsRecentAgenda(false)
+        let storage = CalendarSettingsMemoryStorage()
+        storage.set("private", forKey: "local-calendar")
+        let destination = CalendarSettingsStore(storage: storage, languageIdentifier: "zh-Hans")
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        let reloaded = CalendarSettingsStore(storage: storage, languageIdentifier: "zh-Hans")
+        XCTAssertEqual(reloaded.alternateCalendar, .none)
+        XCTAssertEqual(reloaded.weekStartDay, .monday)
+        XCTAssertFalse(reloaded.showsRecentAgenda)
+        XCTAssertEqual(reloaded.agendaRange, CalendarAgendaRange(dayCount: 5, direction: .past))
+        XCTAssertEqual(storage.string(forKey: "local-calendar"), "private")
+    }
+
 
     func testWeekStartPersistsAndReloads() {
         let storage = CalendarSettingsMemoryStorage()

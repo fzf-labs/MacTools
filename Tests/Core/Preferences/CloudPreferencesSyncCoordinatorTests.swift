@@ -4,6 +4,24 @@ import MacToolsPluginKit
 
 @MainActor
 final class CloudPreferencesSyncCoordinatorTests: XCTestCase {
+    func testExportFailurePreservesCanonicalCloudSnapshot() async throws {
+        let directory = makeTemporaryDirectoryURL()
+        let coordinator = CloudPreferencesSyncCoordinator(userDefaults: makeDefaults(), debounceDelay: .seconds(60))
+        let good = makeBackup(marker: "last-good")
+        coordinator.snapshotProvider = { good }
+        coordinator.setSyncDirectoryURL(directory)
+        coordinator.setEnabled(true)
+        try await coordinator.syncNow()
+        let file = directory.appendingPathComponent(CloudPreferencesSnapshot.defaultFileName)
+        let bytes = try Data(contentsOf: file)
+        let generation = coordinator.currentGeneration
+        coordinator.snapshotProvider = { throw PreferencesBackupExportError(pluginIDs: ["failed"]) }
+        do { try await coordinator.syncNow(); XCTFail("An incomplete export must fail") } catch {}
+        XCTAssertEqual(try Data(contentsOf: file), bytes)
+        XCTAssertEqual(coordinator.currentGeneration, generation)
+        coordinator.setEnabled(false)
+    }
+
     private var temporaryURLs: [URL] = []
     private var defaultsSuiteNames: [String] = []
 

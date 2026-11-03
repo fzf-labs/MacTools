@@ -32,6 +32,7 @@ struct DuoStatusIconOptionsStore {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
     }
 
     /// A missing key keeps the default, so an option the user never touched
@@ -85,27 +86,54 @@ struct DuoStatusIconOptionsStore {
         return options
     }
 
-    func save(_ options: DuoStatusIconOptions) {
-        storage.set(options.iconSize.rawValue, forKey: Key.iconSize)
-        storage.set(options.bottomIndicator.rawValue, forKey: Key.bottomIndicator)
-        storage.set(options.volumeStyle.rawValue, forKey: Key.volumeStyle)
-        storage.set(options.showsBatteryPercentage, forKey: Key.showsBatteryPercentage)
-        storage.set(options.showsPercentageWhenConnected, forKey: Key.showsPercentageWhenConnected)
-        storage.set(options.showsChargingIndicator, forKey: Key.showsChargingIndicator)
-        storage.set(options.batteryColorPolicy.rawValue, forKey: Key.batteryColorPolicy)
-        storage.set(
-            Self.clampedThreshold(options.batteryCriticalThreshold),
-            forKey: Key.batteryCriticalThreshold
-        )
-        storage.set(options.distinguishesNoInternet, forKey: Key.distinguishesNoInternet)
-        storage.set(options.distinguishesHotspot, forKey: Key.distinguishesHotspot)
-        storage.set(options.distinguishesTemporaryNetwork, forKey: Key.distinguishesTemporaryNetwork)
-        storage.set(options.distinguishesInternetSharing, forKey: Key.distinguishesInternetSharing)
-        storage.set(options.showsBluetoothAudioGlyph, forKey: Key.showsBluetoothAudioGlyph)
-        storage.set(
-            options.bluetoothGlyphPrioritizesNetworkErrors,
-            forKey: Key.bluetoothGlyphPrioritizesNetworkErrors
-        )
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Key.iconSize: .choice("small", allowed: DuoStatusIconSize.allCases.map(\.rawValue)),
+            Key.bottomIndicator: .choice("wifi", allowed: DuoStatusBottomIndicator.allCases.map(\.rawValue)),
+            Key.volumeStyle: .choice("dots", allowed: DuoStatusVolumeStyle.allCases.map(\.rawValue)),
+            Key.batteryColorPolicy: .choice("legacy", allowed: DuoStatusBatteryColorPolicy.allCases.map(\.rawValue)),
+            Key.showsBatteryPercentage: .boolean(false),
+            Key.showsPercentageWhenConnected: .boolean(false),
+            Key.showsChargingIndicator: .boolean(true),
+            Key.distinguishesNoInternet: .boolean(false),
+            Key.distinguishesHotspot: .boolean(false),
+            Key.distinguishesTemporaryNetwork: .boolean(false),
+            Key.distinguishesInternetSharing: .boolean(false),
+            Key.showsBluetoothAudioGlyph: .boolean(false),
+            Key.bluetoothGlyphPrioritizesNetworkErrors: .boolean(true),
+            Key.batteryCriticalThreshold: PortablePreferenceField(fallback: .integer(20)) {
+                if case let .integer(value) = $0 { (5...50).contains(value) && value % 5 == 0 } else { false }
+            }
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? {
+        // Read through the legacy color-policy adapter without mutating old storage.
+        let options = load()
+        return portableStore.backup(overriding: values(options))
+    }
+    func restorePortableBackup(_ data: Data) -> Bool { portableStore.restore(data) }
+
+    @discardableResult
+    func save(_ options: DuoStatusIconOptions) -> Bool { portableStore.commit(values(options)) }
+
+    private func values(_ options: DuoStatusIconOptions) -> [String: PortablePreferenceValue] {
+        [
+            Key.iconSize: .string(options.iconSize.rawValue),
+            Key.bottomIndicator: .string(options.bottomIndicator.rawValue),
+            Key.volumeStyle: .string(options.volumeStyle.rawValue),
+            Key.batteryColorPolicy: .string(options.batteryColorPolicy.rawValue),
+            Key.showsBatteryPercentage: .boolean(options.showsBatteryPercentage),
+            Key.showsPercentageWhenConnected: .boolean(options.showsPercentageWhenConnected),
+            Key.showsChargingIndicator: .boolean(options.showsChargingIndicator),
+            Key.distinguishesNoInternet: .boolean(options.distinguishesNoInternet),
+            Key.distinguishesHotspot: .boolean(options.distinguishesHotspot),
+            Key.distinguishesTemporaryNetwork: .boolean(options.distinguishesTemporaryNetwork),
+            Key.distinguishesInternetSharing: .boolean(options.distinguishesInternetSharing),
+            Key.showsBluetoothAudioGlyph: .boolean(options.showsBluetoothAudioGlyph),
+            Key.bluetoothGlyphPrioritizesNetworkErrors: .boolean(options.bluetoothGlyphPrioritizesNetworkErrors),
+            Key.batteryCriticalThreshold: .integer(Self.clampedThreshold(options.batteryCriticalThreshold))
+        ]
     }
 
     /// Snaps to the slider's step and clamps to its range so a stored value from

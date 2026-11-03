@@ -14,8 +14,8 @@ final class LaunchpadAppCatalog: ObservableObject {
     @Published private(set) var apps: [LaunchpadAppItem] = []
     @Published private(set) var isLoading = false
 
+    var onAppsDidReload: (() -> Void)?
     private let iconCache = NSCache<NSString, NSImage>()
-    private var reloadGeneration = 0
 
     init() {
         iconCache.countLimit = 512
@@ -31,6 +31,7 @@ final class LaunchpadAppCatalog: ObservableObject {
         guard let hostContext else { return }
         apps = hostContext.snapshot().map { .init(id: $0.id, name: $0.name, url: $0.url) }
         isLoading = apps.isEmpty
+        onAppsDidReload?()
     }
 
     func icon(for app: LaunchpadAppItem) -> NSImage {

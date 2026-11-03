@@ -210,6 +210,10 @@ final class TrackpadGesturesPlugin: MacToolsPlugin, TrackpadInputServiceConsumin
                 resolvedLocalization.string("panel.button.settings", defaultValue: "设置")
             }
         )
+        store.onViewPreferencesPersisted = { [weak self] in
+            self?.persistentPreferencesChanges.didPersist()
+            self?.onStateChange?()
+        }
         if store.didPersistPortablePreferencesDuringInitialization {
             persistentPreferencesChanges.didPersist()
         }
@@ -807,6 +811,7 @@ final class TrackpadGesturesPlugin: MacToolsPlugin, TrackpadInputServiceConsumin
     }
 
     private func restorePortablePreferencesAndNotify(from data: Data) -> Bool {
+        let previousView = [store.mappingSort.rawValue, store.mappingStatusFilter.rawValue, store.mappingActionFilter.rawValue]
         let previousMappings = store.mappings
         let previousIgnoresGesturesWhileTyping = store.ignoresGesturesWhileTyping
         let previousTypingGracePeriod = store.typingGracePeriod
@@ -817,6 +822,9 @@ final class TrackpadGesturesPlugin: MacToolsPlugin, TrackpadInputServiceConsumin
             || store.ignoresGesturesWhileTyping != previousIgnoresGesturesWhileTyping
             || store.typingGracePeriod != previousTypingGracePeriod {
             configurationDidChange()
+        } else if previousView != [store.mappingSort.rawValue, store.mappingStatusFilter.rawValue, store.mappingActionFilter.rawValue] {
+            persistentPreferencesChanges.didPersist()
+            onStateChange?()
         }
         return true
     }

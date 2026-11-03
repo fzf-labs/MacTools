@@ -57,6 +57,8 @@ final class MenuBarHiddenManager: ObservableObject {
     private var shouldRestoreHiddenAfterDrag = false
     private var dragSessionID = 0
     private var currentDisplayID = CGMainDisplayID()
+    private var activeInteractionCount = 0
+    private var moveOperationID: UUID?
     private var moveTask: Task<Void, Never>?
     private var clickTask: Task<Void, Never>?
     private var pendingClickRequests: [PendingClickRequest] = []
@@ -119,6 +121,31 @@ final class MenuBarHiddenManager: ObservableObject {
         )
     }
     #endif
+
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { store.onPersistentPreferencesChange }
+        set { store.onPersistentPreferencesChange = newValue }
+    }
+    func portableBackup() -> Data? { store.portableBackup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard !isDraggingMenuBarItem, !isRecoveringControlItemOrder, activeInteractionCount == 0,
+              moveTask == nil, clickTask == nil, pendingClickRequests.isEmpty,
+              temporarilyShownItemContexts.isEmpty, menuBarDragCommitTask == nil else { return false }
+        guard store.restorePortableBackup(data) else { return false }
+        // Cancel only queued work: the busy guard excludes any synthesized mouse drag.
+        layoutRestoreTask?.cancel(); layoutRestoreTask = nil
+        alwaysHiddenRestoreTask?.cancel(); alwaysHiddenRestoreTask = nil
+        hiddenRestoreTask?.cancel(); hiddenRestoreTask = nil
+        refreshPermissions()
+        if isActive {
+            applyEnabledState(store.isEnabled)
+            updateAlwaysHiddenDividerVisibility()
+            rebuildSnapshot()
+            scheduleStoredLayoutRestoreIfNeeded()
+            scheduleAlwaysHiddenItemsRestoreIfNeeded()
+        }
+        return true
+    }
 
     // MARK: - Lifecycle
 
@@ -209,37 +236,19 @@ final class MenuBarHiddenManager: ObservableObject {
         get { store.isAlwaysHiddenEnabled }
         set {
             guard store.isAlwaysHiddenEnabled != newValue else { return }
-            alwaysHiddenRestoreTask?.cancel()
-            alwaysHiddenRestoreTask = nil
-            guard permissions.canManageItems || !newValue else {
-                store.isAlwaysHiddenEnabled = false
-                updateAlwaysHiddenDividerVisibility()
-                rebuildSnapshot()
-                refreshIconsIfUIVisible()
-                return
-            }
             store.isAlwaysHiddenEnabled = newValue
             updateAlwaysHiddenDividerVisibility()
             rebuildSnapshot()
-            if newValue {
-                scheduleAlwaysHiddenItemsRestoreIfNeeded(delay: .milliseconds(500))
-            }
+            scheduleAlwaysHiddenItemsRestoreIfNeeded(delay: .milliseconds(500))
             scheduleStoredLayoutRestoreIfNeeded(delay: .milliseconds(500))
             refreshIconsIfUIVisible()
         }
     }
-
     var showsHiddenIconsInPanel: Bool {
         get { store.showsHiddenIconsInPanel }
-        set {
-            guard store.showsHiddenIconsInPanel != newValue else { return }
-            guard permissions.canManageItems || !newValue else {
-                store.showsHiddenIconsInPanel = false
-                return
-            }
-            store.showsHiddenIconsInPanel = newValue
-        }
+        set { store.showsHiddenIconsInPanel = newValue }
     }
+    private var effectiveAlwaysHiddenEnabled: Bool { permissions.canManageItems && store.isAlwaysHiddenEnabled }
 
     var canShowHiddenIconsInPanel: Bool {
         permissions.canManageItems && store.showsHiddenIconsInPanel
@@ -302,9 +311,6 @@ final class MenuBarHiddenManager: ObservableObject {
             controlItemRecoveryTask = nil
             isRecoveringControlItemOrder = false
             shouldRestoreHiddenAfterDrag = shouldRestoreHidden
-            if store.isEnabled {
-                store.isEnabled = false
-            }
             installAndShow()
             divider.showSection(isDragging: true)
             updateAlwaysHiddenDividerVisibility()
@@ -342,8 +348,13 @@ final class MenuBarHiddenManager: ObservableObject {
         layoutRestoreTask?.cancel()
         layoutRestoreTask = nil
         moveTask?.cancel()
+        let operationID = UUID()
+        moveOperationID = operationID
         moveTask = Task { [weak self] in
             guard let self else { return }
+            defer {
+                if self.moveOperationID == operationID { self.moveTask = nil; self.moveOperationID = nil }
+            }
             let moved = await self.performMove(item: item, toSection: section, placement: placement)
             guard moved else { return }
             self.updateStoredLayoutAfterMove(
@@ -390,16 +401,7 @@ final class MenuBarHiddenManager: ObservableObject {
         let current = currentPermissions()
         guard permissions != current else { return }
         permissions = current
-        if !current.canManageItems {
-            if store.isAlwaysHiddenEnabled {
-                store.isAlwaysHiddenEnabled = false
-                updateAlwaysHiddenDividerVisibility()
-                rebuildSnapshot()
-            }
-            if store.showsHiddenIconsInPanel {
-                store.showsHiddenIconsInPanel = false
-            }
-        }
+        updateAlwaysHiddenDividerVisibility()
     }
 
     func currentPermissions() -> MenuBarHiddenPermissionsStatus {
@@ -431,7 +433,7 @@ final class MenuBarHiddenManager: ObservableObject {
 
     private func updateAlwaysHiddenDividerVisibility() {
         guard isActive else { return }
-        if store.isAlwaysHiddenEnabled {
+        if effectiveAlwaysHiddenEnabled {
             if !alwaysHiddenDivider.isInstalled {
                 alwaysHiddenDivider.install()
             }
@@ -469,7 +471,7 @@ final class MenuBarHiddenManager: ObservableObject {
         }
 
         let layoutItems = MenuBarHiddenLayoutPolicy.layoutEditorItems(from: allItems)
-        let alwaysHiddenDividerBounds = store.isAlwaysHiddenEnabled ? result.alwaysHiddenDividerBounds : nil
+        let alwaysHiddenDividerBounds = effectiveAlwaysHiddenEnabled ? result.alwaysHiddenDividerBounds : nil
         let visibleItems = MenuBarHiddenLayoutPolicy.visibleItems(
             from: layoutItems,
             hiddenDividerBounds: hiddenDividerBounds,
@@ -546,6 +548,8 @@ final class MenuBarHiddenManager: ObservableObject {
         toSection: MenuBarHiddenSection,
         placement: MenuBarHiddenMovePlacement
     ) async -> Bool {
+        activeInteractionCount += 1
+        defer { activeInteractionCount -= 1 }
         await events.waitForUserInputPause()
 
         let live = enumerateMenuBarItems(
@@ -610,8 +614,10 @@ final class MenuBarHiddenManager: ObservableObject {
         switch destination {
         case .alwaysHidden:
             store.recordAlwaysHiddenItem((movedItem ?? originalItem).tag)
+            let ordered = snapshot.alwaysHiddenItems.filter(\.canBeHidden).map { $0.tag.stableKey }
+            store.orderedAlwaysHiddenItemStableKeys = ordered + store.orderedAlwaysHiddenItemStableKeys.filter { !ordered.contains($0) }
         case .visible, .hidden:
-            if store.isAlwaysHiddenEnabled {
+            if effectiveAlwaysHiddenEnabled {
                 store.removeAlwaysHiddenItem(originalItem.tag)
                 if let movedItem {
                     store.removeAlwaysHiddenItem(movedItem.tag)
@@ -671,7 +677,7 @@ final class MenuBarHiddenManager: ObservableObject {
             visibleItemStableKeys: store.visibleItemStableKeys,
             hiddenItemStableKeys: store.hiddenItemStableKeys,
             alwaysHiddenItemStableKeys: store.alwaysHiddenItemStableKeys,
-            isAlwaysHiddenEnabled: store.isAlwaysHiddenEnabled
+            isAlwaysHiddenEnabled: effectiveAlwaysHiddenEnabled
         )
     }
 
@@ -764,7 +770,12 @@ final class MenuBarHiddenManager: ObservableObject {
                 storedLayout: layout
             )
             guard desiredSection != .alwaysHidden else { return nil }
-            guard currentSections[key] != desiredSection else { return nil }
+            let sectionKeys = desiredSection == .visible ? layout.visibleItemStableKeys : layout.hiddenItemStableKeys
+            let sectionItems = desiredSection == .visible ? snapshot.visibleItems : snapshot.hiddenItems
+            let currentKeys = sectionItems.map { $0.tag.stableKey }
+            let expected = sectionKeys.filter { currentKeys.contains($0) }
+            let actual = currentKeys.filter { expected.contains($0) }
+            guard currentSections[key] != desiredSection || actual != expected else { return nil }
             guard !MenuBarHiddenLayoutPolicy.shouldRejectMoveToSection(item: item, section: desiredSection) else {
                 return nil
             }
@@ -800,7 +811,8 @@ final class MenuBarHiddenManager: ObservableObject {
             sectionKeys = store.hiddenItemStableKeys
             sectionItems = snapshot.hiddenItems
         case .alwaysHidden:
-            return .end
+            sectionKeys = store.orderedAlwaysHiddenItemStableKeys
+            sectionItems = snapshot.alwaysHiddenItems
         }
 
         guard let index = sectionKeys.firstIndex(of: item.tag.stableKey) else {
@@ -859,7 +871,7 @@ final class MenuBarHiddenManager: ObservableObject {
                 return
             }
 
-            if await performMove(item: item, toSection: .alwaysHidden, placement: .end) {
+            if await performMove(item: item, toSection: .alwaysHidden, placement: storedVisibleHiddenPlacement(for: item, in: .alwaysHidden)) {
                 restoredCount += 1
             }
             try? await Task.sleep(for: .milliseconds(100))
@@ -873,7 +885,7 @@ final class MenuBarHiddenManager: ObservableObject {
 
     private var canRestoreAlwaysHiddenItems: Bool {
         isActive
-            && store.isAlwaysHiddenEnabled
+            && effectiveAlwaysHiddenEnabled
             && permissions.canManageItems
             && alwaysHiddenDivider.isInstalled
             && !isDraggingMenuBarItem
@@ -882,10 +894,14 @@ final class MenuBarHiddenManager: ObservableObject {
     }
 
     private func alwaysHiddenRestoreCandidates() -> [MenuBarItem] {
-        MenuBarHiddenAlwaysHiddenRestorePolicy.restoreCandidates(
-            snapshot: snapshot,
-            recordedStableKeys: store.alwaysHiddenItemStableKeys
-        )
+        let missing = MenuBarHiddenAlwaysHiddenRestorePolicy.restoreCandidates(snapshot: snapshot, recordedStableKeys: store.alwaysHiddenItemStableKeys)
+        let keys = store.orderedAlwaysHiddenItemStableKeys
+        let current = snapshot.alwaysHiddenItems.map { $0.tag.stableKey }
+        let expected = keys.filter { current.contains($0) }
+        let actual = current.filter { expected.contains($0) }
+        let reorder = actual == expected ? [] : snapshot.alwaysHiddenItems.filter { expected.contains($0.tag.stableKey) }
+        let byKey = Dictionary(grouping: missing + reorder, by: { $0.tag.stableKey }).compactMapValues(\.first)
+        return keys.compactMap { byKey[$0] }
     }
 
     private func computeMoveTarget(
@@ -1801,7 +1817,7 @@ final class MenuBarHiddenManager: ObservableObject {
 
     private func recoverAlwaysHiddenDividerIfNeeded(sessionID: Int?) {
         guard
-            store.isAlwaysHiddenEnabled,
+            effectiveAlwaysHiddenEnabled,
             alwaysHiddenDivider.isInstalled,
             !isDraggingMenuBarItem,
             !isRecoveringControlItemOrder
@@ -2242,7 +2258,7 @@ final class MenuBarHiddenManager: ObservableObject {
 
         let layoutItems = MenuBarHiddenLayoutPolicy.layoutEditorItems(from: result.items)
         let alwaysHiddenDividerBounds: CGRect?
-        if store.isAlwaysHiddenEnabled {
+        if effectiveAlwaysHiddenEnabled {
             guard let bounds = result.alwaysHiddenDividerBounds else { return }
             alwaysHiddenDividerBounds = bounds
         } else {
@@ -2275,7 +2291,7 @@ final class MenuBarHiddenManager: ObservableObject {
             hiddenKeys: nextVisibleHidden.hiddenItemStableKeys
         )
 
-        guard store.isAlwaysHiddenEnabled else { return }
+        guard effectiveAlwaysHiddenEnabled else { return }
 
         let currentAlwaysHiddenKeys = Set(alwaysHiddenItems.filter(\.canBeHidden).map(\.tag.stableKey))
         let currentItemKeys = Set(layoutItems.map(\.tag.stableKey))
@@ -2283,8 +2299,8 @@ final class MenuBarHiddenManager: ObservableObject {
         let keysStillMissing = previousKeys.subtracting(currentItemKeys)
         let nextKeys = keysStillMissing.union(currentAlwaysHiddenKeys)
 
-        guard nextKeys != previousKeys else { return }
-        store.alwaysHiddenItemStableKeys = nextKeys
+        let ordered = alwaysHiddenItems.filter(\.canBeHidden).map { $0.tag.stableKey }
+        store.orderedAlwaysHiddenItemStableKeys = ordered + store.orderedAlwaysHiddenItemStableKeys.filter { nextKeys.contains($0) && !ordered.contains($0) }
     }
 
     private func finishMenuBarDragCommit(sessionID: Int) {
@@ -2308,7 +2324,7 @@ final class MenuBarHiddenManager: ObservableObject {
             divider.showSection(isDragging: isDraggingMenuBarItem)
         }
 
-        if store.isAlwaysHiddenEnabled {
+        if effectiveAlwaysHiddenEnabled {
             if alwaysHiddenDivider.isInstalled {
                 alwaysHiddenDivider.hideSection()
             }
@@ -2336,7 +2352,6 @@ final class MenuBarHiddenManager: ObservableObject {
                 }
 
                 self.shouldRestoreHiddenAfterDrag = false
-                self.store.isEnabled = true
                 self.installAndExpand()
                 self.rebuildSnapshot()
                 self.scheduleAlwaysHiddenItemsRestoreIfNeeded()

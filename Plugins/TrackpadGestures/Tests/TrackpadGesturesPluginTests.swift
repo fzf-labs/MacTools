@@ -199,6 +199,24 @@ private final class MockMultitouchFrameListener: MultitouchFrameListening {
 
 @MainActor
 final class TrackpadGestureStoreTests: XCTestCase {
+    func testPortableViewPreferencesRoundTripAndLegacyPayloadPreservesDestination() throws {
+        let source = TrackpadGestureStore(storage: TrackpadGestureMemoryStorage(), legacyMiddleClick: nil)
+        source.setMappingSort(.addedOrder)
+        source.setMappingStatusFilter(.disabled)
+        source.setMappingActionFilter(.singleKey)
+        let destination = TrackpadGestureStore(storage: TrackpadGestureMemoryStorage(), legacyMiddleClick: nil)
+        let data = try XCTUnwrap(source.portableBackup())
+        XCTAssertTrue(destination.restorePortableBackup(data))
+        XCTAssertEqual(destination.mappingSort, .addedOrder)
+        XCTAssertEqual(destination.mappingStatusFilter, .disabled)
+        XCTAssertEqual(destination.mappingActionFilter, .singleKey)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        for key in ["mappingSort", "mappingStatusFilter", "mappingActionFilter"] { legacy.removeValue(forKey: key) }
+        destination.setMappingSort(.actionName)
+        XCTAssertTrue(destination.restorePortableBackup(try JSONSerialization.data(withJSONObject: legacy)))
+        XCTAssertEqual(destination.mappingSort, .actionName)
+    }
+
 
     func testAddEditToggleDeleteAndPersistence() throws {
         let storage = TrackpadGestureMemoryStorage()

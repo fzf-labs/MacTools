@@ -822,6 +822,60 @@ final class PowerStatusPluginTests: XCTestCase {
         )
     }
 
+    func testEnergyAppsLayoutHeightGrowsOnlyWhenExpanded() {
+        let collapsed = PowerStatusLayout.contentHeight(
+            flowRowCount: 3,
+            diagramRowCount: 1,
+            capacityTileCount: 7,
+            voltageCurrentTileCount: 4,
+            energyAppCount: 5,
+            isEnergyAppsExpanded: false,
+            isDataAvailable: true
+        )
+        let collapsedWithoutRows = PowerStatusLayout.contentHeight(
+            flowRowCount: 3,
+            diagramRowCount: 1,
+            capacityTileCount: 7,
+            voltageCurrentTileCount: 4,
+            energyAppCount: 0,
+            isEnergyAppsExpanded: false,
+            isDataAvailable: true
+        )
+        let expanded = PowerStatusLayout.contentHeight(
+            flowRowCount: 3,
+            diagramRowCount: 1,
+            capacityTileCount: 7,
+            voltageCurrentTileCount: 4,
+            energyAppCount: 5,
+            isEnergyAppsExpanded: true,
+            isDataAvailable: true
+        )
+        let expandedWithoutRows = PowerStatusLayout.contentHeight(
+            flowRowCount: 3,
+            diagramRowCount: 1,
+            capacityTileCount: 7,
+            voltageCurrentTileCount: 4,
+            energyAppCount: 0,
+            isEnergyAppsExpanded: true,
+            isDataAvailable: true
+        )
+
+        XCTAssertEqual(collapsed, collapsedWithoutRows, accuracy: 0.5)
+        XCTAssertGreaterThan(expanded, collapsed)
+        XCTAssertEqual(
+            expanded - collapsed,
+            PowerStatusLayout.sectionHeaderContent
+                + 5 * PowerStatusLayout.appEnergyRowHeight
+                + 4 * PowerStatusLayout.rowVertical,
+            accuracy: 0.5
+        )
+        XCTAssertEqual(
+            expandedWithoutRows - collapsed,
+            PowerStatusLayout.sectionHeaderContent + PowerStatusLayout.appEnergyRowHeight,
+            accuracy: 0.5
+        )
+    }
+
     // MARK: - Helpers
 
     private func makeSnapshot(

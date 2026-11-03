@@ -503,7 +503,7 @@ def main() -> None:
         }
         for section in (
             "presentation", "discovery", "requirements", "privacy",
-            "actions", "setup", "relationships",
+            "actions", "setup", "relationships", "preferencesBackup",
         ):
             if section in projected:
                 entry[section] = projected[section]

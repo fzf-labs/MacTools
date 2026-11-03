@@ -1,3 +1,6 @@
 settings:
   base:
     OTHER_LDFLAGS: -framework IOKit
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

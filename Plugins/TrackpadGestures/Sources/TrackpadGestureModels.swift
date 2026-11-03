@@ -27,20 +27,20 @@ extension TrackpadGesture {
 
 }
 
-enum TrackpadGestureMappingSort: String, CaseIterable, Sendable {
+enum TrackpadGestureMappingSort: String, Codable, CaseIterable, Sendable {
     case gesture
     case enabledFirst
     case actionName
     case addedOrder
 }
 
-enum TrackpadGestureMappingStatusFilter: String, CaseIterable, Sendable {
+enum TrackpadGestureMappingStatusFilter: String, Codable, CaseIterable, Sendable {
     case all
     case enabled
     case disabled
 }
 
-enum TrackpadGestureMappingActionFilter: String, CaseIterable, Sendable {
+enum TrackpadGestureMappingActionFilter: String, Codable, CaseIterable, Sendable {
     case all
     case macToolsAction
     case keyboardShortcut
@@ -150,12 +150,19 @@ final class TrackpadGestureStore: ObservableObject {
         let mappings: [TrackpadGestureMapping]
         let ignoresGesturesWhileTyping: Bool
         let typingGracePeriod: TimeInterval
+        var mappingSort: TrackpadGestureMappingSort?
+        var mappingStatusFilter: TrackpadGestureMappingStatusFilter?
+        var mappingActionFilter: TrackpadGestureMappingActionFilter?
     }
 
     private struct PortableRestoreTransaction: Codable {
         let mappings: Data?
         let ignoresGesturesWhileTyping: Bool?
         let typingGracePeriod: TimeInterval?
+        var includesViewPreferences: Bool?
+        var mappingSort: String?
+        var mappingStatusFilter: String?
+        var mappingActionFilter: String?
     }
 
     private static let portableBackupFormatVersion = 1
@@ -187,6 +194,7 @@ final class TrackpadGestureStore: ObservableObject {
     @Published private(set) var mappingActionFilter: TrackpadGestureMappingActionFilter
     private(set) var didPersistPortablePreferencesDuringInitialization = false
 
+    var onViewPreferencesPersisted: (() -> Void)?
     private let storage: any PluginStorage
     private let encoder = JSONEncoder()
 
@@ -371,20 +379,38 @@ final class TrackpadGestureStore: ObservableObject {
 
     func setMappingSort(_ sort: TrackpadGestureMappingSort) {
         guard mappingSort != sort else { return }
-        mappingSort = sort
+        let previous = storage.object(forKey: Key.mappingSort)
         storage.set(sort.rawValue, forKey: Key.mappingSort)
+        guard storage.string(forKey: Key.mappingSort) == sort.rawValue else {
+            Self.setOptional(previous, forKey: Key.mappingSort, storage: storage)
+            return
+        }
+        mappingSort = sort
+        onViewPreferencesPersisted?()
     }
 
     func setMappingStatusFilter(_ filter: TrackpadGestureMappingStatusFilter) {
         guard mappingStatusFilter != filter else { return }
-        mappingStatusFilter = filter
+        let previous = storage.object(forKey: Key.mappingStatusFilter)
         storage.set(filter.rawValue, forKey: Key.mappingStatusFilter)
+        guard storage.string(forKey: Key.mappingStatusFilter) == filter.rawValue else {
+            Self.setOptional(previous, forKey: Key.mappingStatusFilter, storage: storage)
+            return
+        }
+        mappingStatusFilter = filter
+        onViewPreferencesPersisted?()
     }
 
     func setMappingActionFilter(_ filter: TrackpadGestureMappingActionFilter) {
         guard mappingActionFilter != filter else { return }
-        mappingActionFilter = filter
+        let previous = storage.object(forKey: Key.mappingActionFilter)
         storage.set(filter.rawValue, forKey: Key.mappingActionFilter)
+        guard storage.string(forKey: Key.mappingActionFilter) == filter.rawValue else {
+            Self.setOptional(previous, forKey: Key.mappingActionFilter, storage: storage)
+            return
+        }
+        mappingActionFilter = filter
+        onViewPreferencesPersisted?()
     }
 
     func resetMappingViewPreferences() {
@@ -421,7 +447,8 @@ final class TrackpadGestureStore: ObservableObject {
                 return context?.canExport(reference) ?? true
             },
             ignoresGesturesWhileTyping: ignoresGesturesWhileTyping,
-            typingGracePeriod: typingGracePeriod
+            typingGracePeriod: typingGracePeriod,
+            mappingSort: mappingSort, mappingStatusFilter: mappingStatusFilter, mappingActionFilter: mappingActionFilter
         )
         guard let data = try? encoder.encode(backup),
               data.count <= Self.maximumPortableBackupByteCount else {
@@ -462,7 +489,10 @@ final class TrackpadGestureStore: ObservableObject {
         let gracePeriod = TrackpadTypingSuppressionGate.clamped(backup.typingGracePeriod)
         if backup.mappings == mappings,
            backup.ignoresGesturesWhileTyping == ignoresGesturesWhileTyping,
-           gracePeriod == typingGracePeriod {
+           gracePeriod == typingGracePeriod,
+           (backup.mappingSort ?? mappingSort) == mappingSort,
+           (backup.mappingStatusFilter ?? mappingStatusFilter) == mappingStatusFilter,
+           (backup.mappingActionFilter ?? mappingActionFilter) == mappingActionFilter {
             return true
         }
         guard recoverInterruptedPortableRestore(),
@@ -470,7 +500,10 @@ final class TrackpadGestureStore: ObservableObject {
               writePortableValues(
                   mappings: mappingData,
                   ignoresGesturesWhileTyping: backup.ignoresGesturesWhileTyping,
-                  typingGracePeriod: gracePeriod
+                  typingGracePeriod: gracePeriod,
+                  mappingSort: (backup.mappingSort ?? mappingSort).rawValue,
+                  mappingStatusFilter: (backup.mappingStatusFilter ?? mappingStatusFilter).rawValue,
+                  mappingActionFilter: (backup.mappingActionFilter ?? mappingActionFilter).rawValue
               ),
               finishPortableRestoreTransaction() else {
             rollbackPortableRestoreTransaction()
@@ -479,6 +512,9 @@ final class TrackpadGestureStore: ObservableObject {
         mappings = backup.mappings
         ignoresGesturesWhileTyping = backup.ignoresGesturesWhileTyping
         typingGracePeriod = gracePeriod
+        mappingSort = backup.mappingSort ?? mappingSort
+        mappingStatusFilter = backup.mappingStatusFilter ?? mappingStatusFilter
+        mappingActionFilter = backup.mappingActionFilter ?? mappingActionFilter
         return true
     }
 
@@ -497,7 +533,11 @@ final class TrackpadGestureStore: ObservableObject {
             typingGracePeriod: Self.storedDouble(
                 forKey: Key.typingGracePeriod,
                 storage: storage
-            )
+            ),
+            includesViewPreferences: true,
+            mappingSort: storage.string(forKey: Key.mappingSort),
+            mappingStatusFilter: storage.string(forKey: Key.mappingStatusFilter),
+            mappingActionFilter: storage.string(forKey: Key.mappingActionFilter)
         )
         guard let data = try? encoder.encode(transaction) else { return false }
         storage.set(data, forKey: Key.portableRestoreTransaction)
@@ -536,13 +576,16 @@ final class TrackpadGestureStore: ObservableObject {
     private func writePortableValues(
         mappings: Data?,
         ignoresGesturesWhileTyping: Bool?,
-        typingGracePeriod: TimeInterval?
+        typingGracePeriod: TimeInterval?,
+        mappingSort: String?, mappingStatusFilter: String?, mappingActionFilter: String?
     ) -> Bool {
         Self.writePortableValues(
             PortableRestoreTransaction(
                 mappings: mappings,
                 ignoresGesturesWhileTyping: ignoresGesturesWhileTyping,
-                typingGracePeriod: typingGracePeriod
+                typingGracePeriod: typingGracePeriod,
+                includesViewPreferences: true,
+                mappingSort: mappingSort, mappingStatusFilter: mappingStatusFilter, mappingActionFilter: mappingActionFilter
             ),
             storage: storage
         )
@@ -563,6 +606,14 @@ final class TrackpadGestureStore: ObservableObject {
             forKey: Key.typingGracePeriod,
             storage: storage
         )
+        if values.includesViewPreferences == true {
+            setOptional(values.mappingSort, forKey: Key.mappingSort, storage: storage)
+            setOptional(values.mappingStatusFilter, forKey: Key.mappingStatusFilter, storage: storage)
+            setOptional(values.mappingActionFilter, forKey: Key.mappingActionFilter, storage: storage)
+            guard storage.string(forKey: Key.mappingSort) == values.mappingSort,
+                  storage.string(forKey: Key.mappingStatusFilter) == values.mappingStatusFilter,
+                  storage.string(forKey: Key.mappingActionFilter) == values.mappingActionFilter else { return false }
+        }
         return storage.data(forKey: Key.mappings) == values.mappings
             && storedBool(forKey: Key.ignoreWhileTyping, storage: storage)
                 == values.ignoresGesturesWhileTyping

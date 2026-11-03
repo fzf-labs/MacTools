@@ -16,7 +16,7 @@ private struct SystemDataPluginProvider: PluginProvider {
     func makePlugins() -> [any MacToolsPlugin] {
         let localization = PluginLocalization(bundle: context.resourceBundle)
         let controller = SystemDataController(scanner: SystemDataScanner())
-        return [SystemDataPlugin(controller: controller, localization: localization)]
+        return [SystemDataPlugin(controller: controller, localization: localization, storage: context.storage)]
     }
 }
 
@@ -45,7 +45,8 @@ public final class SystemDataPlugin: MacToolsPlugin, PluginSettingsPresenting {
         static let widget = "overview"
     }
 
-    init(controller: SystemDataController, localization: PluginLocalization) {
+    init(controller: SystemDataController, localization: PluginLocalization, storage: (any PluginStorage)? = nil) {
+        if let storage { preferences.attach(storage: storage) }
         self.controller = controller
         self.localization = localization
         self.metadata = PluginMetadata(
@@ -316,5 +317,23 @@ public final class SystemDataPlugin: MacToolsPlugin, PluginSettingsPresenting {
 
     public func deactivate(reason: PluginDeactivationReason) {
         controller.cancel()
+    }
+}
+
+// MARK: - Portable preferences
+
+extension SystemDataPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    public var onPersistentPreferencesChange: (() -> Void)? {
+        get { preferences.onPersistentPreferencesChange }
+        set { preferences.onPersistentPreferencesChange = newValue }
+    }
+
+    public func makePortablePreferencesBackup() -> Data? { preferences.portableBackup() }
+    public func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    public func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard preferences.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
     }
 }

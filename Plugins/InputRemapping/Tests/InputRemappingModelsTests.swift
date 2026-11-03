@@ -3,8 +3,12 @@ import Carbon.HIToolbox
 import CoreGraphics
 import Foundation
 import MacToolsPluginKit
+import SwiftUI
 import XCTest
 @testable import InputRemappingPlugin
+@testable import class MacTools.PluginHost
+@testable import class MacTools.PreferencesBackupStore
+@testable import struct MacTools.PreferencesBackup
 
 @MainActor
 private final class InputRemappingMemoryStorage: PluginStorage {
@@ -118,6 +122,82 @@ private final class InputRemappingLockedCounter: @unchecked Sendable {
 }
 
 final class InputRemappingModelsTests: XCTestCase {
+    @MainActor
+    func testMountedEditorPreservesCloudRestoredRuleOnSubsequentToggle() async throws {
+        guard ProcessInfo.processInfo.environment["MACTOOLS_RUN_DESKTOP_TESTS"] == "1" else {
+            throw XCTSkip("Run on demand to verify the mounted native editor.")
+        }
+        let storage = InputRemappingMemoryStorage()
+        let rule = InputRemappingRule(buttonNumber: 4, action: .mouseBack)
+        storage.set(try JSONEncoder().encode([rule]), forKey: "input-remapping.rules.v1")
+        let plugin = InputRemappingPlugin(context: PluginRuntimeContext(pluginID: "input-remapping", storage: storage),
+            tap: InputRemappingTapSpy(), accessibilityTrusted: { true }, requestAccessibilityTrust: { _ in true },
+            inputMonitoringStatus: { .granted }, openURL: { _ in })
+        let suite = "InputRemappingEditorTests." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let host = PluginHost(plugins: [plugin], shortcutStore: .init(userDefaults: defaults),
+            pluginOrderingStore: .init(userDefaults: defaults), preferencesBackupStore: PreferencesBackupStore(userDefaults: defaults),
+            globalShortcutManager: .init(registrar: FakeCarbonHotKeyRegistrar()), loadDynamicPluginsOnInit: false)
+        defer { host.deactivateAllPlugins() }
+        guard case let .workspace(workspace) = try XCTUnwrap(plugin.settingsPage).body else {
+            return XCTFail("Expected the plugin workspace")
+        }
+        let view = NSHostingView(rootView: workspace.makeView(.init(pluginID: "input-remapping")).frame(width: 1100, height: 700))
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 1100, height: 700),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = view
+        window.orderBack(nil)
+        defer { window.close() }
+        func findSwitch(_ node: NSView) -> NSSwitch? {
+            if let control = node as? NSSwitch { return control }
+            for child in node.subviews { if let control = findSwitch(child) { return control } }
+            return nil
+        }
+        try await Task.sleep(for: .milliseconds(200))
+        view.layoutSubtreeIfNeeded()
+        _ = try XCTUnwrap(findSwitch(view))
+        var incomingRule = rule
+        incomingRule.action = .mouseForward
+        let sourceStorage = InputRemappingMemoryStorage()
+        sourceStorage.set(try JSONEncoder().encode([incomingRule]), forKey: "input-remapping.rules.v1")
+        let source = InputRemappingStore(storage: sourceStorage)
+        let current = host.makePreferencesBackup()
+        let incoming = PreferencesBackup(application: current.application, pluginDisplay: current.pluginDisplay,
+            shortcutCustomizations: current.shortcutCustomizations,
+            pluginPreferences: ["input-remapping": try XCTUnwrap(source.portableBackup())])
+
+        _ = try host.importCloudPreferences(incoming)
+        XCTAssertEqual(plugin.store.rules.first?.action, .mouseForward)
+        try await Task.sleep(for: .milliseconds(200))
+        view.layoutSubtreeIfNeeded()
+        let control = try XCTUnwrap(findSwitch(view))
+        let event = try XCTUnwrap(NSEvent.mouseEvent(with: .rightMouseDown,
+            location: control.convert(.zero, to: nil), modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1))
+        control.rightMouseDown(with: event)
+        let saved = try XCTUnwrap(InputRemappingStore(storage: storage).rules.first)
+        XCTAssertEqual(saved.action, .mouseForward)
+        XCTAssertFalse(saved.isEnabled)
+    }
+
+    @MainActor
+    func testPortableRulesKeepIdentityAndRequireLocalUnsafeAuthorization() throws {
+        let source = InputRemappingStore(storage: InputRemappingMemoryStorage())
+        source.addRule()
+        var rule = try XCTUnwrap(source.rules.first)
+        rule.replaceTrigger(.keyboard(keyCode: 0, modifiers: []))
+        rule.isUnsafeTriggerConfirmed = true
+        rule.isEnabled = true
+        source.replace(rule)
+        let destination = InputRemappingStore(storage: InputRemappingMemoryStorage())
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertEqual(destination.rules.first?.id, rule.id)
+        XCTAssertFalse(try XCTUnwrap(destination.rules.first).isUnsafeTriggerConfirmed)
+        XCTAssertFalse(try XCTUnwrap(destination.rules.first).isEnabled)
+    }
+
 
     func testUnsupportedPersistedSingleKeyIsDisabledWithoutDroppingRule() throws {
         var rule = InputRemappingRule(buttonNumber: 4, action: .mouseBack)

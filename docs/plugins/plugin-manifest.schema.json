@@ -26,6 +26,22 @@
     "capabilities": {"$ref": "#/$defs/capabilities"},
     "permissions": {"type": "array", "items": {"$ref": "#/$defs/permission"}, "uniqueItems": true},
     "category": {"enum": ["display", "audio", "system", "storage", "productivity", "monitoring", "other"]},
+    "preferencesBackup": {
+      "type": "object",
+      "required": ["status", "exclusions"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["portable", "partial", "localOnly", "none", "unsupported"]},
+        "exclusions": {
+          "type": "array", "uniqueItems": true, "maxItems": 9,
+          "items": {"enum": ["credentials", "permissions", "history", "private-content", "device-state", "local-activation", "application-paths", "external-authorization", "local-policy"]}
+        }
+      },
+      "allOf": [
+        {"if": {"properties": {"status": {"const": "partial"}}}, "then": {"properties": {"exclusions": {"minItems": 1}}}},
+        {"if": {"properties": {"status": {"enum": ["portable", "none"]}}}, "then": {"properties": {"exclusions": {"maxItems": 0}}}}
+      ]
+    },
     "uninstallDataPolicy": {"enum": ["preserve", "removePrivateData"]},
     "releaseChannel": {"type": "string", "minLength": 1},
     "releaseNotesURL": {"type": "string", "format": "uri", "pattern": "^https://"},

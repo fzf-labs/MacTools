@@ -563,6 +563,45 @@ final class WindowSwitcherPluginTests: XCTestCase {
         XCTAssertTrue(didRaise)
     }
 
+    func testPortableCanonicalAppBindingSurvivesDifferentProcessAndWindowIdentities() throws {
+        let source = WindowSwitcherStore(storage: WindowSwitcherMemoryStorage())
+        let app = makeEntry(index: 0, appName: "Editor", bundleIdentifier: "com.example.editor")
+        _ = source.setManualShortcut("q", for: app.id, in: [app])
+        let data = try XCTUnwrap(source.portableBackup())
+        let storage = WindowSwitcherMemoryStorage()
+        let destination = WindowSwitcherStore(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(data))
+        var firstWindow = app
+        firstWindow.windowNumber = 42
+        XCTAssertEqual(destination.assignShortcuts(to: [firstWindow]).first?.shortcutToken, "q")
+        XCTAssertEqual(destination.portableBackup(), data)
+        let reloaded = WindowSwitcherStore(storage: storage)
+        var secondWindow = makeEntry(index: 20, appName: "Editor", bundleIdentifier: "com.example.editor")
+        secondWindow.windowNumber = 900
+        let entries = reloaded.assignShortcuts(to: [secondWindow])
+        XCTAssertEqual(entries.first?.shortcutToken, "q")
+        XCTAssertEqual(reloaded.portableBackup(), data)
+        _ = reloaded.setManualShortcut(nil, for: secondWindow.id, in: entries)
+        XCTAssertNil(reloaded.shortcutBindings.manual["bundle:com.example.editor"])
+    }
+
+    func testFailedManualWriteReportsFailureAndInactiveDuplicateTokensRemainPortable() throws {
+        let storage = FakePluginStorage()
+        let store = WindowSwitcherStore(storage: storage)
+        let a = makeEntry(index: 0, appName: "A", bundleIdentifier: "com.example.a")
+        let b = makeEntry(index: 1, appName: "B", bundleIdentifier: "com.example.b")
+        _ = store.setManualShortcut("q", for: a.id, in: [a])
+        _ = store.setManualShortcut("q", for: b.id, in: [b])
+        XCTAssertNotNil(store.portableBackup())
+        let before = store.shortcutBindings
+        var signals = 0
+        store.onPersistentPreferencesChange = { signals += 1 }
+        storage.rejectedKeys.insert("shortcut-bindings")
+        if case .updated = store.setManualShortcut("w", for: b.id, in: [b]) { XCTFail("Failed write reported success") }
+        XCTAssertEqual(store.shortcutBindings, before)
+        XCTAssertEqual(signals, 0)
+    }
+
     private func makeEntry(
         index: Int,
         appName: String,

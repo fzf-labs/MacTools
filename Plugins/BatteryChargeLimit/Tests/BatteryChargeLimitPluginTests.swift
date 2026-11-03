@@ -70,6 +70,23 @@ private final class MockBatteryWriter: BatteryChargeLimitWriting {
 
 @MainActor
 final class BatteryChargeLimitPluginTests: XCTestCase {
+    func testPortableParametersDoNotActivateAndRejectAnActiveDestination() throws {
+        let source = BatteryChargeLimitStore(storage: BatteryChargeLimitMemoryStorage())
+        _ = source.setLimitPercent(65)
+        _ = source.setMode(.charging)
+        let destination = BatteryChargeLimitStore(storage: BatteryChargeLimitMemoryStorage())
+        let data = try XCTUnwrap(source.portableBackup())
+        XCTAssertTrue(destination.restorePortableBackup(data))
+        XCTAssertEqual(destination.limitPercent, 65)
+        XCTAssertEqual(destination.mode, .charging)
+        XCTAssertFalse(destination.isEnabled)
+        _ = destination.setEnabled(true)
+        _ = destination.setLimitPercent(80)
+        XCTAssertFalse(destination.restorePortableBackup(data))
+        XCTAssertEqual(destination.limitPercent, 80)
+        XCTAssertTrue(destination.isEnabled)
+    }
+
 
     // MARK: Metadata
 

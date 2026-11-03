@@ -5,6 +5,49 @@ import MacToolsPluginKit
 
 @MainActor
 final class WindowLayoutsPluginTests: XCTestCase {
+    func testPortableRestoreReconfiguresActiveFeaturesAndIndexesCustomActions() throws {
+        let sourceStorage = WindowLayoutsMemoryStorage()
+        let sourceStore = WindowLayoutsStore(storage: sourceStorage)
+        sourceStore.setModifierDragEnabled(true)
+        sourceStore.setCenteredGuidesEnabled(true)
+        sourceStore.setModifierDragModifiers([.command, .control])
+        let command = try XCTUnwrap(sourceStore.addCustomCommand(name: "Reading"))
+        let source = makePlugin(storage: sourceStorage)
+        let data = try XCTUnwrap(source.makePortablePreferencesBackup())
+        let session = MockWindowModifierDragSession()
+        let target = makePlugin(modifierDragSession: session)
+        target.activate(context: PluginRuntimeContext(pluginID: "window-layouts"))
+        var persistedChanges = 0
+        target.onPersistentPreferencesChange = { persistedChanges += 1 }
+
+        XCTAssertTrue(target.restorePortablePreferencesReportingResult(from: data))
+        XCTAssertEqual(persistedChanges, 1)
+        XCTAssertTrue(session.centeredGuidesEnabled)
+        XCTAssertTrue(session.modifierDragEnabled)
+        XCTAssertEqual(session.configuredModifiers, [.command, .control])
+        let references = try XCTUnwrap(target.actionReferences(inPortablePreferences: data))
+        XCTAssertEqual(references.map(\.key.actionID), [command.actionID])
+        XCTAssertEqual(target.backupDisposition(for: references[0]), .requiresPluginPreferences)
+        XCTAssertTrue(target.actionDefinitions.contains { $0.key == references[0].key })
+        XCTAssertTrue(target.restorePortablePreferencesReportingResult(from: data))
+        XCTAssertEqual(persistedChanges, 1)
+    }
+
+    func testPortableRestoreKeepsPermissionDeniedFeaturesInactive() throws {
+        let sourceStorage = WindowLayoutsMemoryStorage()
+        let store = WindowLayoutsStore(storage: sourceStorage)
+        store.setModifierDragEnabled(true)
+        store.setCenteredGuidesEnabled(true)
+        let session = MockWindowModifierDragSession()
+        let target = makePlugin(modifierDragSession: session, accessibilityTrusted: { false })
+        target.activate(context: PluginRuntimeContext(pluginID: "window-layouts"))
+
+        XCTAssertTrue(target.restorePortablePreferencesReportingResult(from: try XCTUnwrap(store.portableBackup())))
+        XCTAssertTrue(target.isModifierDragEnabled)
+        XCTAssertEqual(session.startCount, 0)
+        XCTAssertFalse(session.isRunning)
+    }
+
     func testPermissionMembershipTracksCustomCommandsAndRejectsUnknownProviders() throws {
         let plugin = makePlugin()
         plugin.performActionShortcutReplacementTransaction = { _, _, commit in commit() }

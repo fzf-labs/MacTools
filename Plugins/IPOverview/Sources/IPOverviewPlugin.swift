@@ -303,3 +303,21 @@ final class IPOverviewPlugin:
         )
     }
 }
+
+// MARK: - Portable preferences
+
+extension IPOverviewPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { viewModel.onPersistentPreferencesChange }
+        set { viewModel.onPersistentPreferencesChange = newValue }
+    }
+
+    func makePortablePreferencesBackup() -> Data? { viewModel.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard viewModel.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
+    }
+}

@@ -26,6 +26,22 @@ NEW_API_MINIMUM_HOSTS = {
     "ApplicationCatalogHostContext": "2.2.0",
     "ApplicationCatalogHostContextConsuming": "2.2.0",
 
+
+    "PluginVoiceProvider": "2.2.0",
+    "PluginVoiceCapability": "2.2.0",
+    "PluginVoiceRequest": "2.2.0",
+    "PluginVoiceReply": "2.2.0",
+    "PluginVoiceQuery": "2.2.0",
+    "PluginVoiceQueryProviding": "2.2.0",
+    "PluginVoiceParameterizedActionProviding": "2.2.0",
+    "PluginVoiceSelfActionProviding": "2.2.0",
+    "PluginVoiceControlHostContext": "2.2.0",
+    "PluginVoiceControlHostContextConsuming": "2.2.0",
+    "PluginPermissionKind.microphone": "2.2.0",
+
+    "PluginAppMenuBarIconVisibilityControlling": "2.2.0",
+    "PluginMenuBarPanelPresentationRequest": "2.2.0",
+    "PluginMenuBarPanelPresenting": "2.2.0",
     "PluginPanelCompactSwitchProviding": "2.1.0",
     "TrackpadSensorContact": "2.1.0",
     "TrackpadSensorFrame": "2.1.0",
@@ -90,6 +106,7 @@ NEW_API_MINIMUM_HOSTS = {
     # Canonical action registry, execution, discovery, and surface bridges.
     "ActionKey": "1.2.0",
     "ActionParameterSet": "1.2.0",
+    "ActionParameterValue": "1.2.0",
     "ActionParameterDefinition": "1.2.0",
     "ActionDefinition": "1.2.0",
     "ActionReference": "1.2.0",
@@ -209,6 +226,9 @@ NEW_API_MINIMUM_HOSTS = {
 
 
 def source_uses_symbol(source: str, symbol: str) -> bool:
+    if symbol == "PluginPermissionKind.microphone":
+        # AVFoundation device types and recording option properties share this case name.
+        return re.search(r"(?:PluginPermissionKind\.microphone\b|\bkind\s*:\s*\.microphone\b)", source) is not None
     return re.search(rf"(?<![A-Za-z0-9_]){re.escape(symbol)}(?![A-Za-z0-9_])", source) is not None
 
 
@@ -345,6 +365,19 @@ class PluginMinimumHostCompatibilityTests(unittest.TestCase):
 
         self.assertEqual(violations, [], "\n".join(violations))
 
+    def test_microphone_permission_is_distinct_from_recording_options(self) -> None:
+        recording = "AVCaptureDevice.DiscoverySession(deviceTypes: [.microphone]); if options.microphone {}"
+        self.assertEqual(minimum_host_violations("recording", "2.0.1", recording), [])
+        for source in ["kind: .microphone", "PluginPermissionKind.microphone"]:
+            self.assertTrue(minimum_host_violations("voice", "2.1.0", source))
+
+    def test_voice_bridge_public_types_require_host_2_2_0(self) -> None:
+        source = PLUGIN_INTERFACES.with_name("PluginVoiceControlHostContext.swift").read_text(encoding="utf-8")
+        for symbol in public_top_level_type_names(source):
+            with self.subTest(symbol=symbol):
+                self.assertEqual(NEW_API_MINIMUM_HOSTS.get(symbol), "2.2.0")
+                self.assertTrue(minimum_host_violations("probe", "2.1.0", symbol))
+
     def test_plugin_permission_kind_preserves_released_case_order(self) -> None:
         source = PLUGIN_MODELS.read_text(encoding="utf-8")
         match = re.search(
@@ -436,6 +469,20 @@ class PluginMinimumHostCompatibilityTests(unittest.TestCase):
             self.assertEqual(NEW_API_MINIMUM_HOSTS[symbol], "1.2.1")
             self.assertEqual(len(minimum_host_violations("probe", "1.2.0", symbol)), 1)
             self.assertEqual(minimum_host_violations("probe", "1.2.1", symbol), [])
+
+    def test_host_2_2_0_apis_require_host_2_2_0(self) -> None:
+        symbols = {
+            "PluginAppMenuBarIconVisibilityControlling",
+            "PluginMenuBarPanelPresentationRequest",
+            "PluginMenuBarPanelPresenting",
+        }
+        interfaces = PLUGIN_INTERFACES.read_text(encoding="utf-8")
+        self.assertTrue(symbols <= public_top_level_type_names(interfaces))
+        for symbol in symbols:
+            with self.subTest(symbol=symbol):
+                self.assertEqual(NEW_API_MINIMUM_HOSTS[symbol], "2.2.0")
+                self.assertEqual(len(minimum_host_violations("probe", "2.1.0", symbol)), 1)
+                self.assertEqual(minimum_host_violations("probe", "2.2.0", symbol), [])
 
     def test_global_panel_inventory_requires_host_1_3_1(self) -> None:
         source = (REPO_ROOT / "Sources/MacToolsPluginKit/PluginPanelPresentation.swift").read_text(encoding="utf-8")

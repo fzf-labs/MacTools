@@ -351,6 +351,55 @@ final class ClipboardSavedLibraryTests: XCTestCase {
     }
 
     @MainActor
+    func testCreatingMultipleSnippetsPreservesItemsWhenEditingAndReloading() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ClipboardSavedLibraryCreationTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let store = IncrementalEncryptedClipboardSavedLibraryStore(
+            databaseURL: directory.appendingPathComponent("clipboard.sqlite3"),
+            keyStore: SavedLibraryTestKeyStore()
+        )
+        let controller = ClipboardSavedLibraryController(
+            pasteboard: SavedLibraryTestPasteboard(),
+            persistence: store
+        )
+        await startSavedLibrary(controller)
+        defer { controller.stop() }
+
+        var firstDraft = ClipboardSnippetDraft.empty
+        firstDraft.title = "First snippet"
+        firstDraft.content = "First content"
+        let firstResult = await controller.saveSnippet(firstDraft)
+        let first = try XCTUnwrap(firstResult)
+
+        var secondDraft = ClipboardSnippetDraft.empty
+        secondDraft.title = "Second snippet"
+        secondDraft.content = "Second content"
+        let secondResult = await controller.saveSnippet(secondDraft)
+        let second = try XCTUnwrap(secondResult)
+
+        XCTAssertNotEqual(first.id, second.id)
+        XCTAssertEqual(controller.items.count, 2)
+
+        let draftToEdit = await controller.draft(for: first.id)
+        var editedDraft = try XCTUnwrap(draftToEdit)
+        editedDraft.title = "Edited first snippet"
+        editedDraft.content = "Edited first content"
+        let edited = await controller.saveSnippet(editedDraft)
+        XCTAssertEqual(edited?.id, first.id)
+
+        let reloadedItems = try store.load()
+        XCTAssertEqual(reloadedItems.count, 2)
+        let reloadedFirst = try XCTUnwrap(reloadedItems.first { $0.id == first.id })
+        let reloadedSecond = try XCTUnwrap(reloadedItems.first { $0.id == second.id })
+        XCTAssertEqual(reloadedFirst.title, "Edited first snippet")
+        XCTAssertEqual(try reloadedFirst.loadPayload().plainText, "Edited first content")
+        XCTAssertEqual(reloadedSecond.title, "Second snippet")
+        XCTAssertEqual(try reloadedSecond.loadPayload().plainText, "Second content")
+    }
+
+    @MainActor
     func testControllerRejectsDuplicateAndWhitespaceKeywords() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ClipboardSavedLibraryKeywordTests-\(UUID().uuidString)")

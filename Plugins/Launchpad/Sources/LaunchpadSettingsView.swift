@@ -19,6 +19,7 @@ struct LaunchpadSettingsView: View {
     @ObservedObject var layoutStore: LaunchpadLayoutStore
     let localization: PluginLocalization
     let sectionKind: SectionKind
+    var retainedApplicationName: (String) -> String? = { _ in nil }
 
     private var isAutoColumns: Binding<Bool> {
         Binding(
@@ -79,7 +80,7 @@ struct LaunchpadSettingsView: View {
     /// Hidden ids are absolute paths; derive a display name without needing the catalog
     /// (the app may even be uninstalled).
     private func appName(for id: String) -> String {
-        URL(fileURLWithPath: id).deletingPathExtension().lastPathComponent
+        retainedApplicationName(id) ?? URL(fileURLWithPath: id).deletingPathExtension().lastPathComponent
     }
 
     @ViewBuilder

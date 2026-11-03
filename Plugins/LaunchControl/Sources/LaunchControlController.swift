@@ -7,12 +7,16 @@ final class LaunchControlController: ObservableObject {
     @Published private(set) var snapshot = LaunchControlSnapshot()
 
     var onStateChange: (() -> Void)?
+    var onPersistentPreferencesChange: (() -> Void)?
+    @Published private(set) var noteRestorationRevisions: [String: UInt] = [:]
+    private let portablePreferences: LaunchControlPortablePreferences
 
     private let scanner: LaunchControlScanner
     private let runner: any LaunchControlCommandRunning
     private let favoritesStore: LaunchControlFavoritesStore
     private let notesStore: LaunchControlNotesStore
     private let localization: PluginLocalization
+    private var activeOperations = 0
     private var refreshTask: Task<Void, Never>?
 
     init(
@@ -24,12 +28,19 @@ final class LaunchControlController: ObservableObject {
         localization: PluginLocalization = PluginLocalization(bundle: .main),
         initialSnapshot: LaunchControlSnapshot = LaunchControlSnapshot()
     ) {
+        self.portablePreferences = LaunchControlPortablePreferences(storage: context.storage)
+        _ = LaunchControlPortablePreferences.store(context.storage).recover()
         self.snapshot = initialSnapshot
         self.runner = runner
         self.favoritesStore = favoritesStore ?? LaunchControlFavoritesStore(context: context)
         self.notesStore = notesStore ?? LaunchControlNotesStore(context: context)
         self.localization = localization
         self.scanner = scanner ?? LaunchControlScanner(runner: runner, localization: localization)
+        self.favoritesStore.onMutation = { [weak self] in self?.onPersistentPreferencesChange?() }
+        self.notesStore.onMutation = { [weak self] in
+            guard let self, self.portablePreferences.includesNotes else { return }
+            self.onPersistentPreferencesChange?()
+        }
     }
 
     deinit {
@@ -97,7 +108,7 @@ final class LaunchControlController: ObservableObject {
     }
 
     func setFavorite(_ isFavorite: Bool, for item: LaunchControlItem) {
-        favoritesStore.setFavorite(isFavorite, for: item.id)
+        guard favoritesStore.setFavorite(isFavorite, for: item.id) else { return }
         refreshPersistedState(for: item)
         snapshot.operationMessage = isFavorite
             ? localization.format("controller.favorite.added", defaultValue: "已关注 %@", item.label)
@@ -106,13 +117,42 @@ final class LaunchControlController: ObservableObject {
     }
 
     func setNote(_ note: String, for item: LaunchControlItem) {
-        notesStore.setNote(note, for: item.id)
+        guard notesStore.setNote(note, for: item.id) else { return }
         refreshPersistedState(for: item)
         let isCleared = note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         snapshot.operationMessage = isCleared
             ? localization.format("controller.note.cleared", defaultValue: "已清除备注：%@", item.label)
             : localization.format("controller.note.saved", defaultValue: "已保存备注：%@", item.label)
         onStateChange?()
+    }
+
+    var includesNotesInBackup: Bool { portablePreferences.includesNotes }
+
+    func setIncludesNotesInBackup(_ value: Bool) {
+        guard value != includesNotesInBackup, portablePreferences.setIncludesNotes(value) else { return }
+        onPersistentPreferencesChange?()
+        onStateChange?()
+        objectWillChange.send()
+    }
+
+    var unmatchedBackupReferences: [LaunchControlPortablePreferences.Reference] {
+        portablePreferences.unmatchedReferences(matching: Set(snapshot.items.map(\.id)))
+    }
+
+    func preferencesBackup() -> Data? { portablePreferences.backup() }
+
+    func restorePreferencesBackup(_ data: Data) -> Bool {
+        guard !snapshot.isRefreshing, activeOperations == 0 else { return false }
+        let previous = portablePreferences.backup()
+        guard portablePreferences.restore(data) else { return false }
+        let previousNotes = Dictionary(uniqueKeysWithValues: snapshot.items.map { ($0.id, $0.note) })
+        snapshot.items = sortedItems(snapshot.items.map(applyingPersistedState))
+        for item in snapshot.items where previousNotes[item.id] != item.note {
+            noteRestorationRevisions[item.id, default: 0] &+= 1
+        }
+        onStateChange?()
+        if previous != portablePreferences.backup() { onPersistentPreferencesChange?() }
+        return true
     }
 
     func bootstrap(_ item: LaunchControlItem) {
@@ -310,6 +350,8 @@ final class LaunchControlController: ObservableObject {
             return false
         }
 
+        activeOperations += 1
+        defer { activeOperations -= 1 }
         snapshot.operationMessage = localization.format(
             "controller.operation.running",
             defaultValue: "%@ %@...",

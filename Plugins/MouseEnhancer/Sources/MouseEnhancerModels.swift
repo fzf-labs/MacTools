@@ -195,6 +195,7 @@ final class MouseEnhancerStore: ObservableObject {
 
     init(storage: any PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.configuration = MouseEnhancerConfiguration(
             reverseMouseHorizontal: Self.bool(
                 forKey: StorageKey.reverseMouseHorizontal,
@@ -257,6 +258,33 @@ final class MouseEnhancerStore: ObservableObject {
                 storage: storage
             )
         )
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            StorageKey.reverseMouseHorizontal: .boolean(MouseEnhancerConfiguration.default.reverseMouseHorizontal),
+            StorageKey.reverseMouseVertical: .boolean(MouseEnhancerConfiguration.default.reverseMouseVertical),
+            StorageKey.reverseTrackpadHorizontal: .boolean(MouseEnhancerConfiguration.default.reverseTrackpadHorizontal),
+            StorageKey.reverseTrackpadVertical: .boolean(MouseEnhancerConfiguration.default.reverseTrackpadVertical),
+            StorageKey.middleClickEnabled: .boolean(MouseEnhancerConfiguration.default.middleClickEnabled),
+            StorageKey.smoothScrollingEnabled: .boolean(MouseEnhancerConfiguration.default.smoothScrollingEnabled),
+            StorageKey.mouseScrollStep: .number(MouseEnhancerConfiguration.defaultScrollStep, range: MouseEnhancerConfiguration.scrollStepRange),
+            StorageKey.mouseScrollGain: .number(MouseEnhancerConfiguration.defaultScrollGain, range: MouseEnhancerConfiguration.scrollGainRange),
+            StorageKey.trackpadScrollStep: .number(MouseEnhancerConfiguration.defaultScrollStep, range: MouseEnhancerConfiguration.scrollStepRange),
+            StorageKey.trackpadScrollGain: .number(MouseEnhancerConfiguration.defaultScrollGain, range: MouseEnhancerConfiguration.scrollGainRange),
+            StorageKey.mouseScrollDuration: .number(MouseEnhancerConfiguration.defaultScrollDuration, range: MouseEnhancerConfiguration.scrollDurationRange),
+            StorageKey.middleClickFingerCount: .integer(3, range: 3...5)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = configuration
+        guard portableStore.restore(data) else { return false }
+        configuration = MouseEnhancerStore(storage: storage).configuration
+        if previous != configuration { onPersistentPreferencesChange?() }
+        return true
     }
 
     func setReverseMouseHorizontal(_ isEnabled: Bool) {
@@ -348,8 +376,16 @@ final class MouseEnhancerStore: ObservableObject {
             return
         }
 
-        storage.set(value, forKey: key)
+        let candidate: PortablePreferenceValue
+        switch value {
+        case let value as Bool: candidate = .boolean(value)
+        case let value as Int: candidate = .integer(value)
+        case let value as Double: candidate = .number(value)
+        default: return
+        }
+        guard portableStore.commit([key: candidate]) else { return }
         configuration = next
+        onPersistentPreferencesChange?()
     }
 
     private static func bool(

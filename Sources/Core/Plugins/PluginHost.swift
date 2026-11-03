@@ -428,6 +428,7 @@ final class PluginHost: ObservableObject {
     }
     private let builtInPlugins: [any MacToolsPlugin]
     private var deactivatedPluginInstances = Set<ObjectIdentifier>()
+    private var voiceControlContextOwner: ObjectIdentifier?
     private let shortcutStore: ShortcutStore
     private let disabledPreferences: DisabledPluginPreferencesStore
     private let pluginOrderingStore: PluginOrderingStore
@@ -452,6 +453,13 @@ final class PluginHost: ObservableObject {
     /// Emitted after a complete panel update, including layout-only mutations.
     let menuBarPanelContentDidChange = PassthroughSubject<Void, Never>()
     var menuBarPanelPresentationHandler: ((String, Bool) -> Void)?
+    /// Injected by the app shell for plugins that present the regular menu-bar
+    /// panel at an explicit screen anchor.
+    var anchoredMenuBarPanelPresentationHandler:
+        ((PluginMenuBarPanelPresentationRequest) -> Bool)?
+    var anchoredMenuBarPanelDismissalHandler: ((_ animated: Bool) -> Bool)?
+    var anchoredMenuBarPanelFrameProvider: (() -> NSRect?)?
+    var anchoredMenuBarPanelVisibilityProvider: (() -> Bool)?
     private let preferencesBackupStore: any PreferencesBackupApplicationStoring
     private let automaticPreferencesBackupCoordinator: AutomaticPreferencesBackupCoordinator?
     private let cloudPreferencesSyncCoordinator: CloudPreferencesSyncCoordinator?
@@ -494,6 +502,7 @@ final class PluginHost: ObservableObject {
 #if DEBUG
     var actionShortcutBurstUptimeProviderForTests: (() -> TimeInterval)?
 #endif
+    private var preferencesBackupExportActionReferences: [String: Set<ActionReference>]?
     private var preferencesBackupExportSelection: PreferencesBackupSelection?
     private var preferencesBackupRestoreContext: PreferencesActionRestoreContext?
     private var isRestoringPendingPluginPreferences = false
@@ -600,6 +609,17 @@ final class PluginHost: ObservableObject {
             configureHostStatusItemCallbacks(for: activePlugins)
         }
     }
+
+    /// Installed by `MenuBarStatusItemController`. Receives the effective
+    /// visibility of the app's main menu-bar icon after plugin requests change.
+    var appMenuBarIconVisibilityHandler: ((Bool) -> Void)? = nil {
+        didSet {
+            appMenuBarIconVisibilityHandler?(isAppMenuBarIconVisible)
+        }
+    }
+
+    private var appMenuBarIconHiddenRequesters: Set<String> = []
+    var isAppMenuBarIconVisible: Bool { appMenuBarIconHiddenRequesters.isEmpty }
 
     convenience init(
         loadDynamicPluginsOnInit: Bool = true,
@@ -786,8 +806,13 @@ final class PluginHost: ObservableObject {
                 self.panelCoordinator.removePlugin(pluginID)
                 self.deactivatedPluginInstances.formUnion(self.dynamicPlugins
                     .filter { $0.metadata.id == pluginID }.map { ObjectIdentifier($0) })
+                self.voiceControlRouter.revoke(owner: pluginID)
+                for plugin in self.dynamicPlugins where plugin.metadata.id == pluginID {
+                    (plugin as? any PluginVoiceControlHostContextConsuming)?.voiceControlHostContext = nil
+                }
                 self.menuBarIconCoordinator.unregister(pluginID: pluginID, reason: reason,
                     preservingSelection: reason == .disabled && dynamicPluginManager?.isPluginEnabled(pluginID) == false)
+                self.clearAppMenuBarIconVisibilityRequest(for: pluginID)
             }
             let legacyHiddenPluginIDs = dynamicPluginManager.legacyHiddenPluginIDs()
             if menuBarPanelStore.migrateLegacyHiddenPlugins(legacyHiddenPluginIDs) {
@@ -846,7 +871,8 @@ final class PluginHost: ObservableObject {
         if let automaticPreferencesBackupCoordinator {
             automaticPreferencesBackupEnabled = automaticPreferencesBackupCoordinator.isEnabled
             automaticPreferencesBackupCoordinator.snapshotProvider = { [weak self] in
-                self?.makePreferencesBackup()
+                guard let self else { return nil }
+                return try self.makePreferencesBackupExport().requiringSuccessfulSelection()
             }
             automaticPreferencesBackupCoordinator.failureHandler = { error in
                 AppLog.preferencesBackup.error(
@@ -869,7 +895,8 @@ final class PluginHost: ObservableObject {
             cloudPreferencesSyncStatus = cloudPreferencesSyncCoordinator.status
             cloudPreferencesSyncDirectoryURL = cloudPreferencesSyncCoordinator.syncDirectoryURL
             cloudPreferencesSyncCoordinator.snapshotProvider = { [weak self] in
-                self?.makePreferencesBackup()
+                guard let self else { return nil }
+                return try self.makePreferencesBackupExport().requiringSuccessfulSelection()
             }
             cloudPreferencesSyncCoordinator.importHandler = { [weak self] backup in
                 guard let self else { return }
@@ -978,8 +1005,10 @@ final class PluginHost: ObservableObject {
     }
 
     func deactivateAllPlugins(reason: PluginDeactivationReason = .hostShutdown) {
+        voiceControlRouter.revoke(owner: "voice-control")
         trackpadInputService.shutdown()
         menuBarIconCoordinator.deactivateAll(reason: reason)
+        appMenuBarIconHiddenRequesters.removeAll()
         pluginStateChangeRebuildTask?.cancel()
         pluginStateChangeRebuildTask = nil
         hideAllPanelItems()
@@ -1035,6 +1064,12 @@ final class PluginHost: ObservableObject {
     func makePreferencesBackup(
         selection requestedSelection: PreferencesBackupSelection? = nil
     ) -> PreferencesBackup {
+        makePreferencesBackupExport(selection: requestedSelection).backup
+    }
+
+    func makePreferencesBackupExport(
+        selection requestedSelection: PreferencesBackupSelection? = nil
+    ) -> PreferencesBackupExportResult {
         let shortcutDescriptors = shortcutDescriptors()
         var shortcutCustomizations = shortcutStore.customizations(
             for: shortcutDescriptors.map(\.itemID)
@@ -1051,14 +1086,31 @@ final class PluginHost: ObservableObject {
 
         let proposedSelection = requestedSelection ?? allPortablePreferencesSelection
         preferencesBackupExportSelection = proposedSelection
-        defer { preferencesBackupExportSelection = nil }
-        let proposedPortablePreferences = portablePluginPreferences()
-        let selection = requestedSelection
-            ?? .all(pluginPreferenceIDs: Set(proposedPortablePreferences.keys))
+        defer { preferencesBackupExportSelection = nil; preferencesBackupExportActionReferences = nil }
+        preferencesBackupExportActionReferences = [:]
+        let exported = portablePluginPreferences(selectedIDs: proposedSelection.pluginPreferenceIDs)
+        let proposedPortablePreferences = exported.preferences
+        var selection = proposedSelection
+        selection.pluginPreferenceIDs.formIntersection(proposedPortablePreferences.keys)
         var dependencySelection = selection
         dependencySelection.pluginPreferenceIDs.formIntersection(proposedPortablePreferences.keys)
         preferencesBackupExportSelection = dependencySelection
 
+        for descriptor in shortcutDescriptors {
+            guard let provider = descriptor.plugin as? any PluginActionReferenceBackupProviding else { continue }
+            let reference = ActionReference(key: ActionKey(providerID: descriptor.pluginID, actionID: descriptor.definition.actionID))
+            let disposition = guardedValue(for: descriptor.plugin, operation: "classify shortcut preference backup", provider.backupDisposition(for: reference)) ?? .excluded
+            let included: Bool
+            switch disposition {
+            case .selfContained: included = true
+            case .excluded: included = false
+            case .requiresPluginPreferences:
+                included = dependencySelection.pluginPreferenceIDs.contains(descriptor.pluginID)
+                    && (!(descriptor.plugin is any PluginPortablePreferencesActionReferencesProviding)
+                        || (exported.references[descriptor.pluginID] ?? []).contains(reference))
+            }
+            if !included { shortcutCustomizations.removeValue(forKey: descriptor.itemID) }
+        }
         let automationSnapshot = automationController.preferencesBackupSnapshot()
         let portableWorkflowIDs = WorkflowPortabilityAnalysis.portableWorkflowIDs(
             in: automationSnapshot.workflows,
@@ -1085,7 +1137,7 @@ final class PluginHost: ObservableObject {
                 selection: dependencySelection
             ) == .portable
         }
-        return PreferencesBackup(
+        let backup = PreferencesBackup(
             application: preferencesBackupStore.applicationPreferences(),
             pluginEnabledStates: dynamicPluginManager?.pluginEnabledStates,
             pluginDisplay: PluginDisplayPreferencesBackup(
@@ -1098,9 +1150,7 @@ final class PluginHost: ObservableObject {
                 }
                 : [],
             pluginPreferences: selectedPortablePreferences,
-            pluginPreferenceActionReferences: portablePreferenceActionReferences(
-                in: selectedPortablePreferences
-            ),
+            pluginPreferenceActionReferences: exported.references,
             actionInvocationPresets: selection.includesRunLinks
                 ? actionPresetStore.presets().compactMap { preset in
                     let migratedReference = migratedActionReferenceForRestore(preset.reference)
@@ -1122,8 +1172,10 @@ final class PluginHost: ObservableObject {
                         && AutomationRulePortabilityAnalysis.isPortable($0)
                 }
                 : [],
-            selection: selection
+            selection: selection,
+            pluginDiagnostics: exported.outcomes
         )
+        return PreferencesBackupExportResult(backup: backup, pluginOutcomes: exported.outcomes)
     }
 
     var deviceLocalAutomationRuleCount: Int {
@@ -1146,7 +1198,7 @@ final class PluginHost: ObservableObject {
             in: backup,
             selection: effectiveSelection
         )
-        return try PreferencesImportPreview.make(
+        var preview = try PreferencesImportPreview.make(
             backup: backup,
             availablePluginIDs: Set(installedPluginIDs),
             availableShortcutIDs: Set(
@@ -1171,6 +1223,12 @@ final class PluginHost: ObservableObject {
             selection: effectiveSelection,
             applicationPreferencesAreValid: preferencesBackupStore.validates
         )
+        let availableProviders = Set(activePlugins.filter { $0 is any PluginPortablePreferencesProviding }.map { $0.metadata.id })
+        preview.pluginDiagnostics = preview.pluginDiagnostics.map { diagnostic in
+            guard diagnostic.status == "readyToRestore", !availableProviders.contains(diagnostic.pluginID) else { return diagnostic }
+            return .init(pluginID: diagnostic.pluginID, status: "unavailable", exclusions: diagnostic.exclusions)
+        }
+        return preview
     }
 
     func importPreferences(
@@ -1228,6 +1286,10 @@ final class PluginHost: ObservableObject {
             installedPluginIDs: installedPluginIDs,
             deferredPluginPreferenceIDs: Array(Set(deferredPluginPreferenceIDs)
                 .union(importedResult.deferredPluginPreferenceIDs)).sorted(),
+            pluginOutcomes: importedResult.pluginOutcomes.map { outcome in
+                deferredPluginPreferenceIDs.contains(outcome.pluginID)
+                    ? .init(pluginID: outcome.pluginID, status: "deferred", exclusions: outcome.exclusions) : outcome
+            },
             pluginInstallationFailures: pluginInstallationFailures,
             shortcutErrors: shortcutErrors
         )
@@ -1249,7 +1311,7 @@ final class PluginHost: ObservableObject {
     /// Cloud updates replace portable records only. Local records are captured
     /// from their stores, since a portable backup deliberately omits them.
     func importCloudPreferences(_ backup: PreferencesBackup) throws -> PreferencesImportResult {
-        let exported = makePreferencesBackup()
+        let exported = try makePreferencesBackupExport().requiringSuccessfulSelection()
         let portable = CloudPreferencesSyncCoordinator.filterMachineSpecificPreferences(exported)
         let automation = automationController.preferencesBackupSnapshot()
         let portableWorkflowIDs = Set((portable.workflows ?? []).map(\.id))
@@ -1343,9 +1405,6 @@ final class PluginHost: ObservableObject {
                 )
             } else { entry.value }
         }
-        let shortcutCustomizations = backup.shortcutCustomizations.merging(
-            local?.shortcutCustomizations ?? [:], uniquingKeysWith: { _, local in local }
-        )
         preferencesBackupRestoreContext = restoreContext
         defer {
             preferencesBackupRestoreContext = nil
@@ -1464,7 +1523,14 @@ final class PluginHost: ObservableObject {
                 corePlugin(for: pluginID)?.metadata.title ?? pluginID
             )
         }
+        var importedShortcutCustomizations: [String: ShortcutCustomization] = [:]
         if selection.includesShortcuts {
+            // Source definitions must succeed before their recorder bindings can transfer.
+            // Merge destination-only cloud bindings afterward; they are not incoming content.
+            let shortcutCustomizations = restorableShortcutCustomizations(
+                backup.shortcutCustomizations, context: restoreContext
+            ).merging(local?.shortcutCustomizations ?? [:], uniquingKeysWith: { _, local in local })
+            importedShortcutCustomizations = shortcutCustomizations
             if backup.actionShortcutAssignmentsWereEncoded {
                 let descriptors = shortcutDescriptors()
                 let appCustomizations = Dictionary(
@@ -1576,19 +1642,33 @@ final class PluginHost: ObservableObject {
         }
         if selection.includesShortcuts {
             for (id, snapshot) in disabledPluginSnapshots {
-                let importedIDs = shortcutCustomizations.keys.filter { $0.hasPrefix(id + ".shortcut.") }
+                let importedIDs = importedShortcutCustomizations.keys.filter { $0.hasPrefix(id + ".shortcut.") }
                 var updated = snapshot
                 updated.shortcutIDs = Array(Set(snapshot.shortcutIDs).union(importedIDs)).sorted()
                 try disabledPreferences.save(updated, pluginID: id)
                 for shortcutID in updated.shortcutIDs {
-                    shortcutStore.setCustomization(shortcutCustomizations[shortcutID] ?? .inheritDefault, for: shortcutID)
+                    shortcutStore.setCustomization(importedShortcutCustomizations[shortcutID] ?? .inheritDefault, for: shortcutID)
                 }
             }
         }
         rebuildDerivedState(synchronizingShortcuts: true)
+        let restoredIDs = restoredProviderIDs.union(restoredSurfaceIDs)
+        let outcomes = selection.pluginPreferenceIDs.sorted().map { id in
+            var status = restoredIDs.contains(id) ? "restored" : "failedRestore"
+            if deferredPluginPreferenceIDs.contains(id) { status = "deferred" }
+            else if local?.protectedPluginIDs.contains(id) == true { status = "localOnly" }
+            else if !activePlugins.contains(where: { $0.metadata.id == id && $0 is any PluginPortablePreferencesProviding }) { status = "unavailable" }
+            if restoredIDs.contains(id), let plugin = corePlugin(for: id),
+               guardedValue(for: plugin, operation: "check restored preference permissions", {
+                   plugin.permissionRequirements.contains { !plugin.permissionState(for: $0.id).isGranted }
+               }()) == true { status = "needsAttention" }
+            return PreferencesPluginBackupDiagnostic(pluginID: id, status: status, exclusions: [])
+        }
         return PreferencesImportResult(
             installedPluginIDs: [],
             deferredPluginPreferenceIDs: deferredPluginPreferenceIDs.sorted(),
+
+            pluginOutcomes: outcomes,
             pluginInstallationFailures: [:],
             shortcutErrors: shortcutErrors
         )
@@ -2873,9 +2953,28 @@ final class PluginHost: ObservableObject {
     }
 
     private var portablePluginPreferenceIDs: Set<String> {
-        Set(activePlugins.compactMap { plugin in
+        Set(plugins.compactMap { plugin in
             plugin is any PluginPortablePreferencesProviding ? plugin.metadata.id : nil
+        }).union(dynamicPluginManifestsByID.compactMap { id, manifest in
+            manifest.preferencesBackup?.expectsProvider == true ? id : nil
         }).union(disabledPluginSnapshots.compactMap { $0.value.preferences == nil ? nil : $0.key })
+    }
+
+    var preferencesBackupCandidateIDs: Set<String> { portablePluginPreferenceIDs }
+
+    var preferencesBackupCoverage: [PreferencesPluginBackupDiagnostic] {
+        let loadedIDs = Set(plugins.map { $0.metadata.id })
+        return loadedIDs.union(dynamicPluginManifestsByID.keys).sorted().map { id in
+            let declaration = dynamicPluginManifestsByID[id]?.preferencesBackup
+            let hasProvider = plugins.contains { $0.metadata.id == id && $0 is any PluginPortablePreferencesProviding }
+            let providerAvailable = activePlugins.contains { $0.metadata.id == id && $0 is any PluginPortablePreferencesProviding }
+                || disabledPluginSnapshots[id]?.preferences != nil
+            let status = (declaration?.expectsProvider == true || hasProvider) && !providerAvailable
+                ? "unavailable" : (declaration?.status.rawValue ?? (hasProvider ? "unspecified" : "unknown"))
+            return PreferencesPluginBackupDiagnostic(
+                pluginID: id, status: status, exclusions: declaration?.exclusions.map(\.rawValue) ?? []
+            )
+        }
     }
 
     private var allPortablePreferencesSelection: PreferencesBackupSelection {
@@ -2892,11 +2991,11 @@ final class PluginHost: ObservableObject {
                 ? .portable : .knownNonPortable
         }
         let schemaPortability = actionRegistry.portability(of: reference)
-        guard schemaPortability == .portable else { return schemaPortability }
+        guard schemaPortability != .knownNonPortable else { return schemaPortability }
         guard let plugin = activePlugins.first(where: {
             $0.metadata.id == reference.key.providerID
         }), let provider = plugin as? any PluginActionReferenceBackupProviding else {
-            return .portable
+            return schemaPortability
         }
 
         switch guardedValue(
@@ -2905,11 +3004,16 @@ final class PluginHost: ObservableObject {
             provider.backupDisposition(for: reference)
         ) ?? .excluded {
         case .selfContained:
-            return .portable
+            return schemaPortability
         case .requiresPluginPreferences:
-            return selection.pluginPreferenceIDs.contains(plugin.metadata.id)
-                ? .portable
-                : .knownNonPortable
+            guard selection.pluginPreferenceIDs.contains(plugin.metadata.id) else { return .knownNonPortable }
+            if plugin is any PluginPortablePreferencesActionReferencesProviding,
+               let indexes = preferencesBackupExportActionReferences {
+                let migrated = migratedActionReferenceForRestore(reference)
+                let definitions = indexes[plugin.metadata.id] ?? []
+                return definitions.contains(reference) || definitions.contains(migrated) ? .portable : .knownNonPortable
+            }
+            return schemaPortability
         case .excluded:
             return .knownNonPortable
         }
@@ -3241,20 +3345,68 @@ final class PluginHost: ObservableObject {
         return true
     }
 
-    private func portablePluginPreferences() -> [String: Data] {
-        let cached = disabledPluginSnapshots.compactMapValues(\.preferences)
-        return activePlugins.reduce(into: cached) { result, plugin in
-            guard let portablePreferences = plugin as? any PluginPortablePreferencesProviding,
-                  let data = guardedOptionalValue(
-                    for: plugin,
-                    operation: "export portable preferences",
-                    portablePreferences.makePortablePreferencesBackup()
-                  )
-            else {
-                return
-            }
-            result[plugin.metadata.id] = data
+    private func portablePluginPreferences(selectedIDs: Set<String>) -> (
+        preferences: [String: Data], references: [String: [ActionReference]], outcomes: [PreferencesPluginBackupDiagnostic]
+    ) {
+        // Capture intention before guarded calls can isolate an exporter.
+        let candidates = preferencesBackupCoverage
+        let active = Dictionary(activePlugins.map { ($0.metadata.id, $0) }, uniquingKeysWith: { first, _ in first })
+        var preferences: [String: Data] = [:]
+        var references: [String: [ActionReference]] = [:]
+        var outcomes: [PreferencesPluginBackupDiagnostic] = []
+        func usesActionContext(_ id: String) -> Bool {
+            active[id] is any ActionGridHostContextConsuming || active[id] is any TrackpadActionHostContextConsuming
         }
+        let allIDs = Set(candidates.map(\.pluginID)).union(selectedIDs).sorted {
+            if usesActionContext($0) != usesActionContext($1) { return !usesActionContext($0) }
+            return $0 < $1
+        }
+        for id in allIDs {
+            let declaration = candidates.first { $0.pluginID == id }
+            let exclusions = declaration?.exclusions ?? []
+            guard selectedIDs.contains(id) else {
+                outcomes.append(.init(pluginID: id,
+                    status: portablePluginPreferenceIDs.contains(id) ? "notSelected" : (declaration?.status ?? "unknown"), exclusions: exclusions))
+                continue
+            }
+            if let snapshot = disabledPluginSnapshots[id], let data = snapshot.preferences,
+               data.count <= PreferencesBackup.maximumFileSize {
+                preferences[id] = data
+                references[id] = snapshot.pendingRestore ? [] : snapshot.preferenceReferences
+                preferencesBackupExportActionReferences = references.mapValues(Set.init)
+                if var selection = preferencesBackupExportSelection {
+                    selection.pluginPreferenceIDs = Set(preferences.keys)
+                    preferencesBackupExportSelection = selection
+                }
+                outcomes.append(.init(pluginID: id, status: "included", exclusions: exclusions))
+                continue
+            }
+            guard let plugin = active[id], let provider = plugin as? any PluginPortablePreferencesProviding else {
+                outcomes.append(.init(pluginID: id, status: "unavailable", exclusions: exclusions))
+                continue
+            }
+            guard let data = guardedOptionalValue(for: plugin, operation: "export portable preferences", provider.makePortablePreferencesBackup()),
+                  data.count <= PreferencesBackup.maximumFileSize else {
+                outcomes.append(.init(pluginID: id, status: "failed", exclusions: exclusions))
+                continue
+            }
+            if let indexer = plugin as? any PluginPortablePreferencesActionReferencesProviding {
+                guard let indexed = guardedOptionalValue(for: plugin, operation: "index portable preference actions", indexer.actionReferences(inPortablePreferences: data)),
+                      indexed.count <= 10_000 else {
+                    outcomes.append(.init(pluginID: id, status: "failed", exclusions: exclusions))
+                    continue
+                }
+                references[id] = uniqueActionReferences(indexed)
+            }
+            preferences[id] = data
+            preferencesBackupExportActionReferences = references.mapValues(Set.init)
+            if var selection = preferencesBackupExportSelection {
+                selection.pluginPreferenceIDs = Set(preferences.keys)
+                preferencesBackupExportSelection = selection
+            }
+            outcomes.append(.init(pluginID: id, status: "included", exclusions: exclusions))
+        }
+        return (preferences, references, outcomes)
     }
 
     private func portablePreferenceActionReferences(
@@ -3419,30 +3571,6 @@ final class PluginHost: ObservableObject {
         .init(key: .init(providerID: "action-grid", actionID: "show"))
     }
 
-    var starterPackGridPreview: [StarterPackGridPreviewItem] {
-        let storage = UserDefaultsPluginStorage(pluginID: "action-grid", userDefaults: shortcutStore.userDefaults)
-        guard let data = storage.object(forKey: "layout.v1") as? Data, data.count <= 64 * 1_024,
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let entries = object["entries"] as? [[String: Any]], entries.count <= 9 else { return [] }
-        var slots = Set<Int>()
-        return entries.enumerated().compactMap { offset, entry in
-            let slot = entry["slot"] as? Int ?? offset
-            guard (0..<9).contains(slot), slots.insert(slot).inserted else { return nil }
-            let customTitle = entry["customTitle"] as? String
-            if let folder = entry["folder"] as? [String: Any] {
-                return .init(slot: slot, title: customTitle ?? FeatureL10n.string("文件夹"),
-                             symbol: folder["systemImage"] as? String ?? "folder")
-            }
-            let item = (entry["reference"] as? [String: Any]).flatMap { value -> ActionSurfaceCatalogItem? in
-                guard let data = try? JSONSerialization.data(withJSONObject: value),
-                      let reference = try? JSONDecoder().decode(ActionReference.self, from: data) else { return nil }
-                return actionSurfaceItem(for: reference)
-            }
-            return .init(slot: slot, title: customTitle ?? item?.title ?? FeatureL10n.string("不可用操作"),
-                         symbol: item?.systemImage ?? "questionmark.square")
-        }
-    }
-
     /// Inspect the persisted grid as well as portable preferences: a portable
     /// export may omit local-only entries, which must still be preserved.
     private var starterPackGridState: StarterPackGridState {
@@ -3596,6 +3724,25 @@ final class PluginHost: ObservableObject {
                     self?.appPresentationHandler?(.showDashboard)
                 }
             }
+            if let anchoredPanelPresenting = plugin as? any PluginMenuBarPanelPresenting {
+                anchoredPanelPresenting.requestMenuBarPanelPresentation = { [weak self] request in
+                    self?.anchoredMenuBarPanelPresentationHandler?(request) ?? false
+                }
+                anchoredPanelPresenting.requestMenuBarPanelDismissal = { [weak self] animated in
+                    self?.anchoredMenuBarPanelDismissalHandler?(animated) ?? false
+                }
+                anchoredPanelPresenting.presentedMenuBarPanelScreenFrame = { [weak self] in
+                    self?.anchoredMenuBarPanelFrameProvider?()
+                }
+                anchoredPanelPresenting.isPresentedMenuBarPanelVisible = { [weak self] in
+                    self?.anchoredMenuBarPanelVisibilityProvider?() ?? false
+                }
+            }
+            if let appIconVisibility = plugin as? any PluginAppMenuBarIconVisibilityControlling {
+                appIconVisibility.requestAppMenuBarIconVisibility = { [weak self] isVisible in
+                    self?.setAppMenuBarIconVisibility(isVisible, for: pluginID)
+                }
+            }
             if let actionGridConsumer = plugin as? any ActionGridHostContextConsuming {
                 actionGridConsumer.actionGridHostContext = makeActionGridHostContext()
             }
@@ -3605,6 +3752,12 @@ final class PluginHost: ObservableObject {
             }
             if let actionExecutionConsumer = plugin as? any PluginActionExecutionHostContextConsuming {
                 actionExecutionConsumer.actionExecutionHostContext = makePluginActionExecutionHostContext()
+            }
+            if let voiceConsumer = plugin as? any PluginVoiceControlHostContextConsuming,
+               pluginID == "voice-control",
+               voiceControlContextOwner != ObjectIdentifier(plugin) || voiceConsumer.voiceControlHostContext == nil {
+                voiceConsumer.voiceControlHostContext = voiceControlRouter.context(owner: pluginID)
+                voiceControlContextOwner = ObjectIdentifier(plugin)
             }
             if let activityStateHandling = plugin as? any PluginApplicationActivityStateHandling {
                 guardPluginCall(plugin, operation: "set application activity state") {
@@ -3685,6 +3838,26 @@ final class PluginHost: ObservableObject {
         }
     }
 
+    private func setAppMenuBarIconVisibility(_ isVisible: Bool, for pluginID: String) {
+        let changed = isVisible
+            ? appMenuBarIconHiddenRequesters.remove(pluginID) != nil
+            : appMenuBarIconHiddenRequesters.insert(pluginID).inserted
+        guard changed else { return }
+        appMenuBarIconVisibilityHandler?(isAppMenuBarIconVisible)
+    }
+
+    private func clearAppMenuBarIconVisibilityRequest(for pluginID: String) {
+        guard appMenuBarIconHiddenRequesters.remove(pluginID) != nil else { return }
+        appMenuBarIconVisibilityHandler?(isAppMenuBarIconVisible)
+    }
+
+    private func pruneAppMenuBarIconVisibilityRequests(activePluginIDs: Set<String>) {
+        let stalePluginIDs = appMenuBarIconHiddenRequesters.subtracting(activePluginIDs)
+        guard !stalePluginIDs.isEmpty else { return }
+        appMenuBarIconHiddenRequesters.subtract(stalePluginIDs)
+        appMenuBarIconVisibilityHandler?(isAppMenuBarIconVisible)
+    }
+
     private func configureHostStatusItemCallbacks(for plugins: [any MacToolsPlugin]) {
         for plugin in plugins {
             guard let recoverable = plugin as? any MenuBarHostStatusItemRecovering else { continue }
@@ -3713,6 +3886,9 @@ final class PluginHost: ObservableObject {
         }
         deactivatedPluginInstances.formIntersection(dynamicPlugins.map { ObjectIdentifier($0) })
         configureCallbacks(for: dynamicPlugins)
+        pruneAppMenuBarIconVisibilityRequests(
+            activePluginIDs: Set(activePlugins.map(\.metadata.id))
+        )
         rebuildDerivedState(synchronizingShortcuts: true)
         if restorePendingDisabledPreferences() { rebuildDerivedState(synchronizingShortcuts: true) }
     }
@@ -4324,6 +4500,14 @@ final class PluginHost: ObservableObject {
             }
         )
     }
+
+    private lazy var voiceControlRouter = VoiceControlRouter(
+        registry: actionRegistry, executor: actionExecutor, confirmation: actionConfirmationService,
+        plugins: { [weak self] in self?.activePlugins ?? [] },
+        openFeature: { [weak self] id in
+            self?.makePluginActionExecutionHostContext().openProviderSettings(providerID: id)
+        }
+    )
 
     private func makePluginActionExecutionHostContext() -> PluginActionExecutionHostContext {
         PluginActionExecutionHostContext(
@@ -4973,9 +5157,20 @@ final class PluginHost: ObservableObject {
         }
         (plugin as? any PluginSettingsPresenting)?.requestSettingsPresentation = nil
         (plugin as? any PluginDashboardPresenting)?.requestDashboardPresentation = nil
+        if let anchoredPanelPresenting = plugin as? any PluginMenuBarPanelPresenting {
+            anchoredPanelPresenting.requestMenuBarPanelPresentation = nil
+            anchoredPanelPresenting.requestMenuBarPanelDismissal = nil
+            anchoredPanelPresenting.presentedMenuBarPanelScreenFrame = nil
+            anchoredPanelPresenting.isPresentedMenuBarPanelVisible = nil
+        }
+        (plugin as? any PluginAppMenuBarIconVisibilityControlling)?
+            .requestAppMenuBarIconVisibility = nil
+        clearAppMenuBarIconVisibilityRequest(for: pluginID)
         (plugin as? any ActionGridHostContextConsuming)?.actionGridHostContext = nil
         (plugin as? any TrackpadActionHostContextConsuming)?.trackpadActionHostContext = nil
         (plugin as? any PluginActionExecutionHostContextConsuming)?.actionExecutionHostContext = nil
+        voiceControlRouter.revoke(owner: pluginID)
+        (plugin as? any PluginVoiceControlHostContextConsuming)?.voiceControlHostContext = nil
         syncGlobalShortcuts()
     }
 
@@ -5466,6 +5661,20 @@ final class PluginHost: ObservableObject {
         return legacyResolvedBinding(for: descriptor)
     }
 
+    private func restorableShortcutCustomizations(
+        _ incoming: [String: ShortcutCustomization],
+        context: PreferencesActionRestoreContext
+    ) -> [String: ShortcutCustomization] {
+        var result = incoming
+        for descriptor in shortcutDescriptors() where descriptor.plugin is any PluginActionReferenceBackupProviding {
+            let reference = ActionReference(key: .init(providerID: descriptor.pluginID, actionID: descriptor.definition.actionID))
+            if actionReferenceRestorePortability(reference, context: context) == .knownNonPortable {
+                result.removeValue(forKey: descriptor.itemID)
+            }
+        }
+        return result
+    }
+
     private func applyImportedShortcutCustomizations(
         _ importedCustomizations: [String: ShortcutCustomization],
         bridgesLegacyActionAssignments: Bool,
@@ -5477,6 +5686,8 @@ final class PluginHost: ObservableObject {
                 (action, importedCustomizations[action.rawValue] ?? .inheritDefault)
             }
         )
+        // Importing Shortcuts replaces the entire selected category, including local item
+        // bindings omitted from the portable archive. Missing bindings return to defaults.
         let targetCustomizations = Dictionary(
             descriptors.map { descriptor in
                 (descriptor.itemID, importedCustomizations[descriptor.itemID] ?? .inheritDefault)

@@ -127,6 +127,7 @@ final class IPOverviewViewModel: ObservableObject {
         self.leakTester = leakTester ?? IPOverviewLeakTestService(localization: localization)
         self.networkQualityMeasurer = networkQualityMeasurer ?? IPOverviewNetworkQualityService(localization: localization)
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.currentDate = currentDate
         self.pasteboard = pasteboard
         self.hidesSensitiveInfo = storage.bool(forKey: StorageKey.hidesSensitiveInfo)
@@ -245,9 +246,25 @@ final class IPOverviewViewModel: ObservableObject {
         isShowingDetails = false
     }
 
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.hidesSensitiveInfo: .boolean(false)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let before = hidesSensitiveInfo
+        guard portableStore.restore(data) else { return false }
+        hidesSensitiveInfo = storage.object(forKey: StorageKey.hidesSensitiveInfo) as? Bool ?? false
+        if before != hidesSensitiveInfo { onPersistentPreferencesChange?() }
+        return true
+    }
+
     func toggleSensitiveInfoVisibility() {
-        hidesSensitiveInfo.toggle()
-        storage.set(hidesSensitiveInfo, forKey: StorageKey.hidesSensitiveInfo)
+        let candidate = !hidesSensitiveInfo
+        guard portableStore.commit([StorageKey.hidesSensitiveInfo: .boolean(candidate)]) else { return }
+        hidesSensitiveInfo = candidate
+        onPersistentPreferencesChange?()
     }
 
     func cancel() {

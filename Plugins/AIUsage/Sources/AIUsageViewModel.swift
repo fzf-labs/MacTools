@@ -36,6 +36,53 @@ final class AIUsageViewModel: ObservableObject {
         self.preferences = preferences
     }
 
+    private struct PortablePreferences: Codable {
+        let formatVersion: Int
+        let codexEnabled: Bool
+        let claudeEnabled: Bool
+        let refreshInterval: Int
+        let showsMenuBar: Bool
+    }
+    var onPersistentPreferencesChange: (() -> Void)?
+    func portableBackup() -> Data? {
+        try? JSONEncoder().encode(PortablePreferences(
+            formatVersion: 1, codexEnabled: preferences.codexEnabled, claudeEnabled: preferences.claudeEnabled,
+            refreshInterval: preferences.refreshInterval, showsMenuBar: preferences.showsMenuBar
+        ))
+    }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard data.count <= 16_384,
+              let incoming = try? JSONDecoder().decode(PortablePreferences.self, from: data), incoming.formatVersion == 1,
+              AIUsagePreferences.refreshIntervals.contains(incoming.refreshInterval) else { return false }
+        var candidate = preferences
+        candidate.codexEnabled = incoming.codexEnabled
+        candidate.claudeEnabled = incoming.claudeEnabled
+        candidate.refreshInterval = incoming.refreshInterval
+        candidate.showsMenuBar = incoming.showsMenuBar
+        guard persist(candidate) else { return false }
+        let changed = preferences != candidate
+        let intervalChanged = preferences.refreshInterval != candidate.refreshInterval
+        preferences = candidate
+        cancelWork()
+        if intervalChanged { updateSuccessfulRefreshDeadlines() }
+        // Install a future timer without an immediate credential read or network request.
+        if isActive, activityAllowsWork, !preferences.queryableProviders.isEmpty { installTimer() }
+        if changed { onPersistentPreferencesChange?() }
+        onChange?()
+        return true
+    }
+    private func persist(_ candidate: AIUsagePreferences) -> Bool {
+        guard let data = try? JSONEncoder().encode(candidate) else { return false }
+        let previous = storage.object(forKey: Self.preferencesKey)
+        storage.set(data, forKey: Self.preferencesKey)
+        guard storage.data(forKey: Self.preferencesKey) == data else {
+            if let previous { storage.set(previous, forKey: Self.preferencesKey) }
+            else { storage.removeObject(forKey: Self.preferencesKey) }
+            return false
+        }
+        return true
+    }
+
     func start() {
         isActive = true
         resume()
@@ -62,8 +109,12 @@ final class AIUsageViewModel: ObservableObject {
         update(&next)
         next.normalize()
         guard previous != next else { return }
+        guard persist(next) else { return }
         preferences = next
-        if let data = try? JSONEncoder().encode(next) { storage.set(data, forKey: Self.preferencesKey) }
+        if previous.codexEnabled != next.codexEnabled || previous.claudeEnabled != next.claudeEnabled
+            || previous.refreshInterval != next.refreshInterval || previous.showsMenuBar != next.showsMenuBar {
+            onPersistentPreferencesChange?()
+        }
         let accessChanged = previous.allowsCredentialAccess != next.allowsCredentialAccess
             || previous.allowsClaudeKeychain != next.allowsClaudeKeychain
             || previous.enabledProviders != next.enabledProviders
@@ -86,13 +137,17 @@ final class AIUsageViewModel: ObservableObject {
             }
         }
         if previous.refreshInterval != next.refreshInterval {
-            for provider in next.enabledProviders {
-                guard states[provider]?.failure == nil, let snapshot = states[provider]?.snapshot else { continue }
-                states[provider]?.nextRefresh = snapshot.fetchedAt.addingTimeInterval(Double(next.refreshInterval))
-            }
+            updateSuccessfulRefreshDeadlines()
         }
         onChange?()
         resume()
+    }
+
+    private func updateSuccessfulRefreshDeadlines() {
+        for provider in preferences.enabledProviders {
+            guard states[provider]?.failure == nil, let snapshot = states[provider]?.snapshot else { continue }
+            states[provider]?.nextRefresh = snapshot.fetchedAt.addingTimeInterval(Double(preferences.refreshInterval))
+        }
     }
 
     func setClaudeKeychainAccess(_ allowed: Bool) {

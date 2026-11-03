@@ -389,76 +389,76 @@
     "NSMicrophoneUsageDescription": {
       "extractionState": "manual",
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Records your narration only when microphone recording is enabled and saves it in the movie."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "仅在开启麦克风录制时收录讲解，并保存到录像。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "僅在開啟麥克風錄製時收錄講解，並儲存到影片。"
-          }
-        },
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "يسجل شرحك فقط عند تمكين تسجيل الميكروفون ويحفظه في الفيديو."
+            "value": "يستخدم MacTools الميكروفون لتسجيلات الشاشة والمحادثات الصوتية التي تبدأها."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nimmt deinen Kommentar nur bei aktivierter Mikrofonaufnahme auf und speichert ihn im Video."
+            "value": "MacTools verwendet dein Mikrofon für aktivierte Bildschirmaufnahmen und von dir gestartete Sprachgespräche."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacTools uses your microphone for screen recordings you enable and voice conversations you start."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Graba tu narración solo al activar el micrófono y la guarda en el vídeo."
+            "value": "MacTools usa el micrófono para grabaciones de pantalla y conversaciones de voz que inicias."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Enregistre votre commentaire uniquement lorsque le micro est activé et le sauvegarde dans la vidéo."
+            "value": "MacTools utilise votre micro pour les enregistrements d’écran activés et les conversations vocales que vous lancez."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "マイク収録をオンにしたときだけ解説を収録し、動画に保存します。"
+            "value": "有効にした画面収録と開始した音声会話にマイクを使用します。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "마이크 녹음을 켰을 때만 설명을 녹음하여 동영상에 저장합니다."
+            "value": "MacTools는 사용자가 켠 화면 녹화와 시작한 음성 대화에 마이크를 사용합니다."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Grava a narração apenas quando o microfone está ativado e guarda-a no vídeo."
+            "value": "O MacTools usa o microfone nas gravações de ecrã ativadas e nas conversas por voz iniciadas por si."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записывает комментарий только при включённой записи микрофона и сохраняет его в видео."
+            "value": "MacTools использует микрофон для включённой вами записи экрана и запущенных голосовых разговоров."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Anlatımınızı yalnızca mikrofon kaydı açıkken kaydeder ve videoya ekler."
+            "value": "MacTools, etkinleştirdiğiniz ekran kayıtları ve başlattığınız sesli görüşmeler için mikrofonunuzu kullanır."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacTools 在你开启录屏麦克风或启动语音对话时使用麦克风。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MacTools 在你開啟螢幕錄製麥克風或啟動語音對話時使用麥克風。"
           }
         }
       }

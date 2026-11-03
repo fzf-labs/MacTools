@@ -113,6 +113,19 @@ private final class MockMouseEnhancerMiddleClickSession: MouseEnhancerMiddleClic
 
 @MainActor
 final class MouseEnhancerPluginTests: XCTestCase {
+    func testPortableConfigurationRoundTripsWithoutLegacyMigrationRecords() throws {
+        let source = MouseEnhancerStore(storage: MouseEnhancerMemoryStorage())
+        source.setReverseTrackpadHorizontal(true)
+        source.setMouseScrollGain(2.5)
+        source.setSmoothScrollingEnabled(true)
+        let storage = MouseEnhancerMemoryStorage()
+        storage.set("local", forKey: "migration")
+        let destination = MouseEnhancerStore(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertEqual(destination.configuration, source.configuration)
+        XCTAssertEqual(storage.string(forKey: "migration"), "local")
+    }
+
 
     func testConfigurationChangeEnablesSessionWhenAccessibilityGranted() {
         let session = MockMouseEnhancerSession()

@@ -410,6 +410,22 @@ def validate_runtime_envelope(
         ):
             _fail(plugin_id, "id", "must be a valid non-reserved plugin identifier")
         plugin_id = manifest["id"]
+    if "preferencesBackup" in manifest:
+        coverage = manifest["preferencesBackup"]
+        if not isinstance(coverage, dict) or set(coverage) != {"status", "exclusions"}:
+            _fail(plugin_id, "preferencesBackup", "must contain status and exclusions")
+        if not isinstance(coverage["status"], str) or coverage["status"] not in {"portable", "partial", "localOnly", "none", "unsupported"}:
+            _fail(plugin_id, "preferencesBackup.status", "must be a supported coverage status")
+        _unique_strings(coverage["exclusions"], plugin_id, "preferencesBackup.exclusions")
+        if set(coverage["exclusions"]) - {
+            "credentials", "permissions", "history", "private-content", "device-state",
+            "local-activation", "application-paths", "external-authorization", "local-policy",
+        }:
+            _fail(plugin_id, "preferencesBackup.exclusions", "contains an unsupported exclusion")
+        if coverage["status"] == "partial" and not coverage["exclusions"]:
+            _fail(plugin_id, "preferencesBackup.exclusions", "partial coverage requires an exclusion")
+        if coverage["status"] in {"portable", "none"} and coverage["exclusions"]:
+            _fail(plugin_id, "preferencesBackup.exclusions", "this status cannot declare exclusions")
     if "displayName" in manifest:
         _non_empty_string(manifest["displayName"], plugin_id, "displayName")
     if "summary" in manifest:

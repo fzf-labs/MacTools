@@ -661,3 +661,18 @@ enum R2UploadStatus: Equatable {
         }
     }
 }
+
+extension CloudflareR2Plugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { configurationStore.onPersistentPreferencesChange }
+        set { configurationStore.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { configurationStore.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard configurationStore.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
+    }
+}

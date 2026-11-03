@@ -4,6 +4,37 @@ import MacToolsPluginKit
 
 @MainActor
 final class LaunchControlCanonicalActionTests: XCTestCase {
+    func testRestorationInvalidatesOnlyEditorsWhoseSavedNotesChanged() throws {
+        let path = "/Library/LaunchAgents/com.example.synthetic.plist"
+        let item = makeItem(id: path, label: "com.example.synthetic", isFavorite: false)
+        let other = makeItem(id: "/Library/LaunchAgents/com.example.other.plist", label: "com.example.other", isFavorite: false)
+        let storage = FakePluginStorage()
+        let runner = FakeLaunchControlCommandRunner()
+        let controller = LaunchControlController(runner: runner,
+            context: .init(pluginID: "launch-control", storage: storage), initialSnapshot: .init(items: [item, other]))
+        controller.setNote("Saved note", for: item)
+        let reference = LaunchControlPortablePreferences.Reference(location: .globalAgents, plistFileName: "com.example.synthetic.plist")
+        func restore(notes: [LaunchControlPortablePreferences.Note]?) throws {
+            let payload = LaunchControlPortablePreferences.Payload(formatVersion: 1, favorites: [reference], notes: notes)
+            XCTAssertTrue(controller.restorePreferencesBackup(try JSONEncoder().encode(payload)))
+        }
+
+        try restore(notes: nil)
+        XCTAssertTrue(controller.noteRestorationRevisions.isEmpty)
+        XCTAssertEqual(controller.snapshot.items.first { $0.id == path }?.note, "Saved note")
+        controller.setIncludesNotesInBackup(true)
+        try restore(notes: [.init(reference: reference, text: "Saved note")])
+        XCTAssertTrue(controller.noteRestorationRevisions.isEmpty)
+        try restore(notes: [.init(reference: reference, text: "Imported note")])
+        XCTAssertEqual(controller.noteRestorationRevisions, [path: 1])
+        try restore(notes: nil)
+        XCTAssertEqual(controller.noteRestorationRevisions, [path: 1])
+        try restore(notes: [])
+        XCTAssertEqual(controller.noteRestorationRevisions, [path: 2])
+        XCTAssertEqual(controller.snapshot.items.first { $0.id == path }?.note, "")
+        XCTAssertTrue(runner.calls.isEmpty)
+    }
+
     func testOnlyFavoriteManageableItemsPublishCanonicalActions() throws {
         let favorite = makeItem(id: "favorite", label: "com.example.favorite", isFavorite: true)
         let ordinary = makeItem(id: "ordinary", label: "com.example.ordinary", isFavorite: false)

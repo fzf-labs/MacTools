@@ -162,6 +162,7 @@ final class WindowSwitcherStore: ObservableObject {
         }
     ) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.processIsRunning = processIsRunning
         if let data = storage.data(forKey: Keys.configuration),
            let loaded = try? decoder.decode(WindowSwitcherConfiguration.self, from: data) {
@@ -192,74 +193,113 @@ final class WindowSwitcherStore: ObservableObject {
         persist()
     }
 
+    private struct PortableConfiguration: Codable, Equatable {
+        let isEnabled: Bool
+        let mode: WindowSwitcherMode
+        let sortMode: WindowSwitcherSortMode
+        let showsPreview: Bool
+        let preferredLayout: WindowSwitcherLayout?
+        let includesMinimizedWindows: Bool
+        let includesOtherDesktopWindows: Bool
+        let includesFullscreenSpaceWindows: Bool
+    }
+    private struct PortablePreferences: Codable {
+        let formatVersion: Int
+        let configuration: PortableConfiguration
+        let manualAppBindings: [String: String]
+    }
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Keys.configuration: .data(try! JSONEncoder().encode(WindowSwitcherConfiguration.default), maximumBytes: 16_384) {
+                (try? JSONDecoder().decode(WindowSwitcherConfiguration.self, from: $0)) != nil
+            },
+            Keys.shortcutBindings: .data(try! JSONEncoder().encode(WindowSwitcherShortcutBindingState()), maximumBytes: 256 * 1_024) {
+                (try? JSONDecoder().decode(WindowSwitcherShortcutBindingState.self, from: $0))?.version == WindowSwitcherShortcutBindingState.currentVersion
+            }
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    private static func isPortableIdentity(_ identity: String) -> Bool {
+        guard identity.hasPrefix("bundle:") else { return false }
+        let bundleID = identity.dropFirst("bundle:".count)
+        return !bundleID.isEmpty && bundleID.utf8.count <= 255
+            && bundleID.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.union(CharacterSet(charactersIn: ".-_")).contains($0) }
+    }
+    private func portableBindings(_ state: WindowSwitcherShortcutBindingState) -> [String: String] {
+        state.manual.filter { Self.isPortableIdentity($0.key) }
+    }
+    private func portableConfiguration(_ value: WindowSwitcherConfiguration) -> PortableConfiguration {
+        PortableConfiguration(isEnabled: value.isEnabled, mode: value.mode, sortMode: value.sortMode,
+            showsPreview: value.showsPreview, preferredLayout: value.preferredLayout,
+            includesMinimizedWindows: value.includesMinimizedWindows, includesOtherDesktopWindows: value.includesOtherDesktopWindows,
+            includesFullscreenSpaceWindows: value.includesFullscreenSpaceWindows)
+    }
+    private func decodedPortable(_ data: Data) -> PortablePreferences? {
+        guard data.count <= 128 * 1_024, let payload = try? decoder.decode(PortablePreferences.self, from: data), payload.formatVersion == 1,
+              payload.manualAppBindings.count <= WindowSwitcherShortcutAssignment.maximumShortcutCount,
+              payload.manualAppBindings.allSatisfy({ Self.isPortableIdentity($0.key)
+                  && WindowSwitcherShortcutAssignment.normalizedManualToken($0.value) == $0.value
+                  && !WindowSwitcherShortcutAssignment.reservedTokens.contains($0.value) }) else { return nil }
+        return payload
+    }
+    func portableBackup() -> Data? {
+        guard portableStore.backup() != nil else { return nil }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(PortablePreferences(formatVersion: 1, configuration: portableConfiguration(configuration), manualAppBindings: portableBindings(shortcutBindings))),
+              decodedPortable(data) != nil else { return nil }
+        return data
+    }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard shortcutBindings.version == WindowSwitcherShortcutBindingState.currentVersion,
+              let payload = decodedPortable(data) else { return false }
+        var candidate = configuration
+        candidate.isEnabled = payload.configuration.isEnabled
+        candidate.mode = payload.configuration.mode
+        candidate.sortMode = payload.configuration.sortMode
+        candidate.showsPreview = payload.configuration.showsPreview
+        candidate.preferredLayout = payload.configuration.preferredLayout
+        candidate.includesMinimizedWindows = payload.configuration.includesMinimizedWindows
+        candidate.includesOtherDesktopWindows = payload.configuration.includesOtherDesktopWindows
+        candidate.includesFullscreenSpaceWindows = payload.configuration.includesFullscreenSpaceWindows
+        if candidate.mode == .keyWindow { candidate.protectsLegacyCommands = true }
+        var bindings = shortcutBindings
+        bindings.manual = bindings.manual.filter { !Self.isPortableIdentity($0.key) }
+            .merging(payload.manualAppBindings, uniquingKeysWith: { _, incoming in incoming })
+        guard let configData = try? encoder.encode(candidate), let bindingData = try? encoder.encode(bindings) else { return false }
+        let changed = portableConfiguration(configuration) != payload.configuration || portableBindings(shortcutBindings) != payload.manualAppBindings
+        guard portableStore.commit([Keys.configuration: .data(configData), Keys.shortcutBindings: .data(bindingData)]) else { return false }
+        configuration = candidate
+        shortcutBindings = bindings
+        if changed { onPersistentPreferencesChange?() }
+        return true
+    }
+
     func setMode(_ mode: WindowSwitcherMode) {
-        guard configuration.mode != mode else {
-            return
-        }
-
-        configuration.mode = mode
-        if mode == .keyWindow { configuration.protectsLegacyCommands = true }
-        persist()
+        var candidate = configuration
+        candidate.mode = mode
+        if mode == .keyWindow { candidate.protectsLegacyCommands = true }
+        _ = commitConfiguration(candidate)
     }
+    func setSortMode(_ value: WindowSwitcherSortMode) { var candidate = configuration; candidate.sortMode = value; _ = commitConfiguration(candidate) }
+    func setEnabled(_ value: Bool) { var candidate = configuration; candidate.isEnabled = value; _ = commitConfiguration(candidate) }
+    func useCompanionDefaults() { var candidate = configuration; candidate.usesCompanionDefaults = true; _ = commitConfiguration(candidate) }
+    func setShowsPreview(_ value: Bool) { var candidate = configuration; candidate.showsPreview = value; _ = commitConfiguration(candidate) }
+    func setIncludesMinimizedWindows(_ value: Bool) { var candidate = configuration; candidate.includesMinimizedWindows = value; _ = commitConfiguration(candidate) }
+    func setIncludesOtherDesktopWindows(_ value: Bool) { var candidate = configuration; candidate.includesOtherDesktopWindows = value; _ = commitConfiguration(candidate) }
+    func setIncludesFullscreenSpaceWindows(_ value: Bool) { var candidate = configuration; candidate.includesFullscreenSpaceWindows = value; _ = commitConfiguration(candidate) }
+    func setPreferredLayout(_ value: WindowSwitcherLayout) { var candidate = configuration; candidate.preferredLayout = value; _ = commitConfiguration(candidate) }
 
-    func setSortMode(_ sortMode: WindowSwitcherSortMode) {
-        guard configuration.sortMode != sortMode else {
-            return
-        }
+    private func persist() { _ = commitConfiguration(configuration) }
 
-        configuration.sortMode = sortMode
-        persist()
-    }
-
-    func setEnabled(_ isEnabled: Bool) {
-        guard configuration.isEnabled != isEnabled else {
-            return
-        }
-
-        configuration.isEnabled = isEnabled
-        persist()
-    }
-
-    func useCompanionDefaults() {
-        configuration.usesCompanionDefaults = true
-        persist()
-    }
-
-    func setShowsPreview(_ value: Bool) {
-        configuration.showsPreview = value
-        persist()
-    }
-
-    func setIncludesMinimizedWindows(_ value: Bool) {
-        guard configuration.includesMinimizedWindows != value else { return }
-        configuration.includesMinimizedWindows = value
-        persist()
-    }
-
-    func setIncludesOtherDesktopWindows(_ value: Bool) {
-        guard configuration.includesOtherDesktopWindows != value else { return }
-        configuration.includesOtherDesktopWindows = value
-        persist()
-    }
-
-    func setIncludesFullscreenSpaceWindows(_ value: Bool) {
-        guard configuration.includesFullscreenSpaceWindows != value else { return }
-        configuration.includesFullscreenSpaceWindows = value
-        persist()
-    }
-
-    func setPreferredLayout(_ layout: WindowSwitcherLayout) {
-        guard configuration.preferredLayout != layout else { return }
-        configuration.preferredLayout = layout
-        persist()
-    }
-
-    private func persist() {
-        guard let data = try? encoder.encode(configuration) else {
-            return
-        }
-
-        storage.set(data, forKey: Keys.configuration)
+    @discardableResult
+    private func commitConfiguration(_ candidate: WindowSwitcherConfiguration) -> Bool {
+        let previous = storage.data(forKey: Keys.configuration).flatMap { try? decoder.decode(WindowSwitcherConfiguration.self, from: $0) }
+        guard let data = try? encoder.encode(candidate), portableStore.commit([Keys.configuration: .data(data)]) else { return false }
+        configuration = candidate
+        if previous.map({ portableConfiguration($0) != portableConfiguration(candidate) }) ?? true { onPersistentPreferencesChange?() }
+        return true
     }
 
     var protectedCommandKeys: Set<String> {
@@ -324,13 +364,18 @@ final class WindowSwitcherStore: ObservableObject {
             updatedState.manual.removeValue(forKey: targetIdentity)
         }
 
+        let appIdentity = entries[targetIndex].appIdentifier
+        if Self.isPortableIdentity(appIdentity), updatedState.manual[appIdentity] != nil,
+           entries.filter({ $0.appIdentifier == appIdentity }).count == 1 {
+            updatedState.manual[appIdentity] = rawToken.flatMap(WindowSwitcherShortcutAssignment.normalizedManualToken)
+        }
         let updated = WindowSwitcherShortcutAssignment.assignShortcuts(
             to: entries,
             bindingState: updatedState
         )
         if updated.bindingState != shortcutBindings {
             shortcutBindings = updated.bindingState
-            persistShortcutBindings()
+            guard persistShortcutBindings() else { return .unavailable }
         }
         return .updated(updated.entries)
     }
@@ -387,12 +432,15 @@ final class WindowSwitcherStore: ObservableObject {
         return conflictsWithSavedManualBinding || conflictsWithRunningEntry
     }
 
-    private func persistShortcutBindings() {
-        guard let data = try? encoder.encode(shortcutBindings) else {
-            return
+    @discardableResult
+    private func persistShortcutBindings() -> Bool {
+        let previous = storage.data(forKey: Keys.shortcutBindings).flatMap { try? decoder.decode(WindowSwitcherShortcutBindingState.self, from: $0) } ?? .init()
+        guard let data = try? encoder.encode(shortcutBindings), portableStore.commit([Keys.shortcutBindings: .data(data)]) else {
+            shortcutBindings = previous
+            return false
         }
-
-        storage.set(data, forKey: Keys.shortcutBindings)
+        if portableBindings(previous) != portableBindings(shortcutBindings) { onPersistentPreferencesChange?() }
+        return true
     }
 
     private func removeExpiredWindowBindings(for entries: [WindowSwitcherAppEntry]) {
@@ -809,7 +857,7 @@ enum WindowSwitcherShortcutAssignment {
         for target in targets {
             guard let legacyIdentity = target.legacyIdentity,
                   state.manual[target.identity] == nil,
-                  let token = state.manual.removeValue(forKey: legacyIdentity)
+                  let token = state.manual[legacyIdentity]
             else {
                 continue
             }

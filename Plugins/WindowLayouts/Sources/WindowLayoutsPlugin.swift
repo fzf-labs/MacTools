@@ -29,7 +29,9 @@ final class WindowLayoutsPlugin: MacToolsPlugin, AccessibilityPermissionRefreshi
     PluginActionShortcutPresetApplying, PluginActionShortcutReplacementTransactionApplying,
     PluginActionShortcutAssignmentChangeHandling, ObservableObject,
     PluginFocusedWindowTargetConsuming, PluginInputGestureClaimProviding,
-    PluginInputGestureConflictConsuming
+    PluginInputGestureConflictConsuming, PluginPortablePreferencesProviding,
+    PluginPortablePreferencesRestorationReporting, PluginPersistentPreferencesChangeSignaling,
+    PluginPortablePreferencesActionReferencesProviding, PluginActionReferenceBackupProviding
 {
     private enum PermissionID { static let accessibility = "accessibility" }
     private enum SettingsID {
@@ -72,6 +74,12 @@ final class WindowLayoutsPlugin: MacToolsPlugin, AccessibilityPermissionRefreshi
     }
     var onStateChange: (() -> Void)?
     var onActionSafetyStateChange: (() -> Void)?
+    private let persistentPreferencesChanges = PluginPersistentPreferencesChangeEmitter()
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { persistentPreferencesChanges.onChange }
+        set { persistentPreferencesChanges.onChange = newValue }
+    }
+    private var isActive = false
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     var previewActionShortcutPreset: ((
@@ -187,9 +195,14 @@ final class WindowLayoutsPlugin: MacToolsPlugin, AccessibilityPermissionRefreshi
                 fullScreenWriter: frameAdapter
             )
         }
+        var lastPortableSnapshot = store.portableBackup()
         self.store.onMutation = { [weak self] in
+            let snapshot = store.portableBackup()
+            let portableChanged = snapshot != lastPortableSnapshot
+            lastPortableSnapshot = snapshot
             self?.customCommandSettingsRevision &+= 1
             self?.onStateChange?()
+            if portableChanged { self?.persistentPreferencesChanges.didPersist() }
         }
         self.store.onSafetyPolicyMutation = { [weak self] in
             self?.onActionSafetyStateChange?()
@@ -202,6 +215,37 @@ final class WindowLayoutsPlugin: MacToolsPlugin, AccessibilityPermissionRefreshi
               !modifierDragMonitorStartFailed
         else { return [] }
         return [modifierDragClaim]
+    }
+
+    func makePortablePreferencesBackup() -> Data? { store.portableBackup() }
+
+    func restorePortablePreferences(from data: Data) {
+        _ = restorePortablePreferencesReportingResult(from: data)
+    }
+
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard store.restorePortableBackup(data) else { return false }
+        isAccessibilityGranted = accessibilityTrusted()
+        if isActive { applyModifierDragConfiguration() }
+        return true
+    }
+
+    func actionReferences(inPortablePreferences data: Data) -> [ActionReference]? {
+        store.customActionIDs(inPortableBackup: data)?.map {
+            ActionReference(key: ActionKey(providerID: metadata.id, actionID: $0))
+        }
+    }
+
+    func backupDisposition(for reference: ActionReference) -> PluginActionReferenceBackupDisposition {
+        guard reference.key.providerID == metadata.id, reference.parameters.entries.isEmpty else { return .excluded }
+        if WindowLayoutOperation(rawValue: reference.key.actionID) != nil { return .selfContained }
+        let prefix = "custom."
+        if reference.key.actionID.hasPrefix(prefix),
+           let id = UUID(uuidString: String(reference.key.actionID.dropFirst(prefix.count))),
+           reference.key.actionID == prefix + id.uuidString.lowercased() {
+            return .requiresPluginPreferences
+        }
+        return .excluded
     }
 
     var permissionRequirements: [PluginPermissionRequirement] {
@@ -349,11 +393,13 @@ final class WindowLayoutsPlugin: MacToolsPlugin, AccessibilityPermissionRefreshi
     }
 
     func activate(context: PluginRuntimeContext) {
+        isActive = true
         refreshAccessibilityPermission()
         applyModifierDragConfiguration()
     }
 
     func deactivate(reason: PluginDeactivationReason) {
+        isActive = false
         stopModifierDragSession()
     }
 

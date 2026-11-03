@@ -825,3 +825,22 @@ final class MouseEnhancerPlugin:
         openURL(url)
     }
 }
+
+extension MouseEnhancerPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { store.onPersistentPreferencesChange }
+        set { store.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { store.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard store.restorePortableBackup(data) else { return false }
+        isAccessibilityGranted = accessibilityTrusted()
+        runtimeError = nil
+        applyCurrentConfiguration()
+        applyMiddleClickConfiguration()
+        onStateChange?()
+        return true
+    }
+}

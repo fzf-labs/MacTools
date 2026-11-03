@@ -63,6 +63,7 @@ final class DuoStatusPlugin: MacToolsPlugin, PluginSettingsPresenting,
     private let localization: PluginLocalization
     private let monitor: any DuoSystemStatusMonitoring
     private let menuBar: any DuoStatusMenuBarPresenting
+    var onPersistentPreferencesChange: (() -> Void)?
     private let optionsStore: DuoStatusIconOptionsStore
     private var options: DuoStatusIconOptions
     private var localizationSubscription: AnyCancellable?
@@ -490,8 +491,9 @@ final class DuoStatusPlugin: MacToolsPlugin, PluginSettingsPresenting,
 
     private func commit(_ updated: DuoStatusIconOptions) {
         guard updated != options else { return }
+        guard optionsStore.save(updated) else { return }
         options = updated
-        optionsStore.save(updated)
+        onPersistentPreferencesChange?()
         iconRevision &+= 1
         cachedIcon = nil
         // The refresh scope may have gained or lost audio, so re-apply it before
@@ -608,5 +610,24 @@ final class DuoStatusPlugin: MacToolsPlugin, PluginSettingsPresenting,
         cachedIcon = nil
         updateMenuBar(snapshot: snapshot)
         onMenuBarIconChange?(Self.iconID)
+    }
+}
+
+extension DuoStatusPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    func makePortablePreferencesBackup() -> Data? { optionsStore.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        let previous = options
+        guard optionsStore.restorePortableBackup(data) else { return false }
+        options = optionsStore.load()
+        if previous != options { onPersistentPreferencesChange?() }
+        iconRevision &+= 1
+        cachedIcon = nil
+        monitor.setRefreshScope(refreshScope)
+        updateMenuBar(snapshot: monitor.snapshot)
+        onMenuBarIconChange?(Self.iconID)
+        onStateChange?()
+        return true
     }
 }

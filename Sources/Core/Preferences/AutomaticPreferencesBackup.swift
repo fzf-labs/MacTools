@@ -300,7 +300,7 @@ final class AutomaticPreferencesBackupCoordinator {
     private var latestRelevantRevision: UInt64 = 0
     private var completedRelevantRevision: UInt64 = 0
 
-    var snapshotProvider: (() -> PreferencesBackup?)?
+    var snapshotProvider: (() throws -> PreferencesBackup?)?
     var failureHandler: ((Error) -> Void)?
     var summaryHandler: ((AutomaticPreferencesBackupSummary) -> Void)?
     private(set) var isEnabled: Bool
@@ -353,7 +353,7 @@ final class AutomaticPreferencesBackupCoordinator {
                 guard !Task.isCancelled else { return }
                 pendingTask = nil
                 let revision = latestRelevantRevision
-                guard let backup = snapshotProvider?() else {
+                guard let backup = try snapshotProvider?() else {
                     throw CocoaError(.fileNoSuchFile)
                 }
                 let attempt = try await performBackupNow(
@@ -388,7 +388,7 @@ final class AutomaticPreferencesBackupCoordinator {
         pendingTask = nil
         let revision = latestRelevantRevision
         do {
-            guard let backup = snapshotProvider?() else {
+            guard let backup = try snapshotProvider?() else {
                 throw CocoaError(.fileNoSuchFile)
             }
             let attempt = try await performBackupNow(
@@ -421,7 +421,7 @@ final class AutomaticPreferencesBackupCoordinator {
         backup providedBackup: PreferencesBackup? = nil,
         revision: UInt64
     ) async throws -> (result: AutomaticPreferencesBackupWriteResult, wasAccepted: Bool) {
-        guard let backup = providedBackup ?? snapshotProvider?() else {
+        guard let backup = try providedBackup ?? snapshotProvider?() else {
             throw CocoaError(.fileNoSuchFile)
         }
         let (outcome, summary) = try await Task.detached(priority: .utility) { [store] in
@@ -453,7 +453,7 @@ final class AutomaticPreferencesBackupCoordinator {
         pendingTask = nil
         let revision = latestRelevantRevision
         do {
-            guard let backup = snapshotProvider?() else {
+            guard let backup = try snapshotProvider?() else {
                 reconcilePendingBackup()
                 return
             }
@@ -482,8 +482,8 @@ final class AutomaticPreferencesBackupCoordinator {
         pendingTask?.cancel()
         pendingTask = nil
         let revision = latestRelevantRevision
-        guard let backup = snapshotProvider?() else { return }
         do {
+            guard let backup = try snapshotProvider?() else { return }
             let outcome = try store.writeIfCurrent(
                 backup,
                 relevantRevision: revision

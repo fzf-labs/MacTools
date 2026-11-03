@@ -106,6 +106,7 @@ final class TrackpadScaleModel: ObservableObject {
 
     init(storage: any PluginStorage, schedule: @escaping TrackpadScaleMailbox.Scheduler = TrackpadScaleMailbox.defaultScheduler) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.schedule = schedule
         autoCaptureEnabled = storage.object(forKey: StorageKey.autoCaptureEnabled) as? Bool ?? true
         calibrationFactors = (storage.object(forKey: "calibration-factors.v1") as? [String: Double] ?? [:])
@@ -185,10 +186,26 @@ final class TrackpadScaleModel: ObservableObject {
         start()
     }
 
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.autoCaptureEnabled: .boolean(true)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let before = autoCaptureEnabled
+        guard portableStore.restore(data) else { return false }
+        autoCaptureEnabled = storage.object(forKey: StorageKey.autoCaptureEnabled) as? Bool ?? true
+        measurement.resetCapture()
+        if autoCaptureEnabled != before { onPersistentPreferencesChange?() }
+        return true
+    }
+
     func setAutoCaptureEnabled(_ enabled: Bool) {
         guard enabled != autoCaptureEnabled else { return }
+        guard portableStore.commit([StorageKey.autoCaptureEnabled: .boolean(enabled)]) else { return }
         autoCaptureEnabled = enabled
-        storage.set(enabled, forKey: StorageKey.autoCaptureEnabled)
+        onPersistentPreferencesChange?()
         measurement.resetCapture()
     }
 

@@ -25,6 +25,7 @@ final class DeviceBatteryStore: ObservableObject {
 
     init(storage: any PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         layoutMode = DeviceBatteryLayoutMode(
             rawValue: storage.string(forKey: Key.layoutMode) ?? DeviceBatteryLayoutMode.grid.rawValue
         ) ?? .grid
@@ -44,13 +45,42 @@ final class DeviceBatteryStore: ObservableObject {
         )
     }
 
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Key.layoutMode: .choice("grid", allowed: DeviceBatteryLayoutMode.allCases.map(\.rawValue)),
+            Key.showInternalBattery: .boolean(true),
+            Key.showBluetoothDevices: .boolean(true),
+            Key.showAppleMobileDevices: .boolean(true),
+            Key.showVendorHIDDevices: .boolean(true),
+            Key.lowBatteryNotificationEnabled: .boolean(false),
+            Key.lowBatteryNotificationThreshold: .integer(DeviceBatteryLowBatteryThresholds.defaultValue, range: 1...99)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        layoutMode = storage.string(forKey: Key.layoutMode).flatMap(DeviceBatteryLayoutMode.init(rawValue:)) ?? .grid
+        showInternalBattery = storage.object(forKey: Key.showInternalBattery) as? Bool ?? true
+        showBluetoothDevices = storage.object(forKey: Key.showBluetoothDevices) as? Bool ?? true
+        showAppleMobileDevices = storage.object(forKey: Key.showAppleMobileDevices) as? Bool ?? true
+        showVendorHIDDevices = storage.object(forKey: Key.showVendorHIDDevices) as? Bool ?? true
+        lowBatteryNotificationEnabled = storage.object(forKey: Key.lowBatteryNotificationEnabled) as? Bool ?? false
+        lowBatteryNotificationThreshold = storage.object(forKey: Key.lowBatteryNotificationThreshold) as? Int ?? DeviceBatteryLowBatteryThresholds.defaultValue
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
+    }
+
     func setLayoutMode(_ mode: DeviceBatteryLayoutMode) {
         guard layoutMode != mode else {
             return
         }
 
+        guard portableStore.commit([Key.layoutMode: .string(mode.rawValue)]) else { return }
         layoutMode = mode
-        storage.set(mode.rawValue, forKey: Key.layoutMode)
+        onPersistentPreferencesChange?()
     }
 
     func setShowInternalBattery(_ isShown: Bool) {
@@ -58,8 +88,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.showInternalBattery: .boolean(isShown)]) else { return }
         showInternalBattery = isShown
-        storage.set(isShown, forKey: Key.showInternalBattery)
+        onPersistentPreferencesChange?()
     }
 
     func setShowBluetoothDevices(_ isShown: Bool) {
@@ -67,8 +98,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.showBluetoothDevices: .boolean(isShown)]) else { return }
         showBluetoothDevices = isShown
-        storage.set(isShown, forKey: Key.showBluetoothDevices)
+        onPersistentPreferencesChange?()
     }
 
     func setShowAppleMobileDevices(_ isShown: Bool) {
@@ -76,8 +108,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.showAppleMobileDevices: .boolean(isShown)]) else { return }
         showAppleMobileDevices = isShown
-        storage.set(isShown, forKey: Key.showAppleMobileDevices)
+        onPersistentPreferencesChange?()
     }
 
     func setShowVendorHIDDevices(_ isShown: Bool) {
@@ -85,8 +118,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.showVendorHIDDevices: .boolean(isShown)]) else { return }
         showVendorHIDDevices = isShown
-        storage.set(isShown, forKey: Key.showVendorHIDDevices)
+        onPersistentPreferencesChange?()
     }
 
     func setLowBatteryNotificationEnabled(_ isEnabled: Bool) {
@@ -94,8 +128,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.lowBatteryNotificationEnabled: .boolean(isEnabled)]) else { return }
         lowBatteryNotificationEnabled = isEnabled
-        storage.set(isEnabled, forKey: Key.lowBatteryNotificationEnabled)
+        onPersistentPreferencesChange?()
     }
 
     func setLowBatteryNotificationThreshold(_ threshold: Int) {
@@ -104,8 +139,9 @@ final class DeviceBatteryStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([Key.lowBatteryNotificationThreshold: .integer(normalizedThreshold)]) else { return }
         lowBatteryNotificationThreshold = normalizedThreshold
-        storage.set(normalizedThreshold, forKey: Key.lowBatteryNotificationThreshold)
+        onPersistentPreferencesChange?()
     }
 
     static func normalizedLowBatteryNotificationThreshold(_ threshold: Int) -> Int {

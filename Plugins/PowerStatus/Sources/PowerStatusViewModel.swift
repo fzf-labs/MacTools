@@ -11,6 +11,8 @@ final class PowerStatusViewModel: ObservableObject {
     @Published private(set) var isPanelVisible: Bool = false
     @Published private(set) var sensorSnapshot: PowerStatusSensorSnapshot = .empty
     @Published private(set) var isSensorsExpanded: Bool = false
+    @Published private(set) var isEnergyAppsExpanded: Bool = false
+    @Published private(set) var isEnergyAppsSampled: Bool = false
 
     var onSnapshotChange: (() -> Void)?
 
@@ -86,6 +88,26 @@ final class PowerStatusViewModel: ObservableObject {
         return nil
     }
 
+    // MARK: - App energy section
+
+    /// Expands or collapses the high energy apps list. Sampling only runs while
+    /// the panel and the section are both visible.
+    func setEnergyAppsExpanded(_ expanded: Bool) {
+        guard expanded != isEnergyAppsExpanded else { return }
+        isEnergyAppsExpanded = expanded
+        energySession += 1
+        energyTask?.cancel()
+        energyTask = nil
+        isEnergyAppsSampled = false
+
+        if expanded {
+            sampleEnergyAppsIfNeeded(timestamp: Date())
+        } else {
+            snapshot.topEnergyApps = []
+        }
+        onSnapshotChange?()
+    }
+
     // MARK: - Panel visibility
 
     func setPanelVisible(_ visible: Bool) {
@@ -111,6 +133,7 @@ final class PowerStatusViewModel: ObservableObject {
         energySession += 1
         energyTask?.cancel()
         energyTask = nil
+        isEnergyAppsSampled = false
         if !snapshot.topEnergyApps.isEmpty {
             snapshot.topEnergyApps = []
             onSnapshotChange?()
@@ -126,6 +149,9 @@ final class PowerStatusViewModel: ObservableObject {
         energySession += 1
         energyTask?.cancel()
         energyTask = nil
+        isEnergyAppsExpanded = false
+        isEnergyAppsSampled = false
+        snapshot.topEnergyApps = []
         sensorGeneration += 1
         sensorTask?.cancel()
         sensorTask = nil
@@ -183,40 +209,50 @@ final class PowerStatusViewModel: ObservableObject {
         newSnapshot.smoothedDischargePowerW = updateSmoothedDischargePower(from: newSnapshot)
         // Keep the last list visible while a new background sample is in
         // flight instead of clearing it every two seconds.
-        newSnapshot.topEnergyApps = newSnapshot.isDataAvailable ? snapshot.topEnergyApps : []
+        newSnapshot.topEnergyApps = newSnapshot.isDataAvailable && isEnergyAppsExpanded
+            ? snapshot.topEnergyApps
+            : []
         if newSnapshot != snapshot {
             snapshot = newSnapshot
             onSnapshotChange?()
         }
-        updateEnergyAppsIfNeeded(timestamp: newSnapshot.timestamp)
+        sampleEnergyAppsIfNeeded(timestamp: newSnapshot.timestamp)
         updateSensorsIfNeeded()
     }
 
     // MARK: - App energy
 
-    private func updateEnergyAppsIfNeeded(timestamp: Date) {
-        guard isPanelVisible, snapshot.isDataAvailable, energyTask == nil else { return }
+    private func sampleEnergyAppsIfNeeded(timestamp: Date) {
+        guard isPanelVisible,
+              isEnergyAppsExpanded,
+              snapshot.isDataAvailable,
+              energyTask == nil else { return }
 
         let session = energySession
         let identities = Self.runningAppIdentities()
         energyTask = Task { [weak self] in
             guard let self else { return }
-            let readings = await self.energyMonitor.sample(
+            let sample = await self.energyMonitor.sample(
                 identities: identities,
                 now: timestamp,
                 sessionID: session
             )
             guard self.energySession == session else { return }
             self.energyTask = nil
-            guard self.isPanelVisible, self.snapshot.isDataAvailable else { return }
+            guard self.isPanelVisible,
+                  self.isEnergyAppsExpanded,
+                  self.snapshot.isDataAvailable else { return }
 
-            self.snapshot.topEnergyApps = readings.map { reading in
+            self.snapshot.topEnergyApps = sample.readings.map { reading in
                 PowerStatusAppEnergy(
                     id: reading.id,
                     name: reading.name,
                     icon: self.appIcon(for: reading.id),
                     watts: reading.watts
                 )
+            }
+            if sample.hasMeasurements {
+                self.isEnergyAppsSampled = true
             }
             self.onSnapshotChange?()
         }

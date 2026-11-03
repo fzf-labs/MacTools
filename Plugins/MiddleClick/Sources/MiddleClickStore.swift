@@ -15,6 +15,7 @@ final class MiddleClickStore {
 
     init(storage: any PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
 
         storage.migrateValueIfNeeded(
             fromLegacyKey: StorageKey.isEnabled,
@@ -37,15 +38,34 @@ final class MiddleClickStore {
 
     func setEnabled(_ isEnabled: Bool) {
         guard self.isEnabled != isEnabled else { return }
+        guard portableStore.commit([StorageKey.isEnabled: .boolean(isEnabled)]) else { return }
         self.isEnabled = isEnabled
-        storage.set(isEnabled, forKey: StorageKey.isEnabled)
+        onPersistentPreferencesChange?()
     }
 
     func setRequiredFingerCount(_ count: Int) {
         let normalizedCount = Self.normalizedFingerCount(count)
         guard requiredFingerCount != normalizedCount else { return }
+        guard portableStore.commit([StorageKey.requiredFingerCount: .integer(normalizedCount)]) else { return }
         requiredFingerCount = normalizedCount
-        storage.set(normalizedCount, forKey: StorageKey.requiredFingerCount)
+        onPersistentPreferencesChange?()
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            StorageKey.isEnabled: .boolean(false), StorageKey.requiredFingerCount: .integer(3, range: 3...5)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        isEnabled = storage.object(forKey: StorageKey.isEnabled) as? Bool ?? false
+        requiredFingerCount = storage.object(forKey: StorageKey.requiredFingerCount) as? Int ?? 3
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
     }
 
     private static func normalizedFingerCount(_ count: Int) -> Int {

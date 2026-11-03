@@ -72,22 +72,52 @@ final class LaunchpadPreferences: ObservableObject {
     static let maxCompactScale = 90
 
     @Published var windowMode: WindowMode {
-        didSet { storage.set(windowMode.rawValue, forKey: Keys.windowMode) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard windowMode != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.windowMode: .string(windowMode.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                windowMode = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     @Published var columns: Int {
         didSet {
-            // Clamp on the single write path so no out-of-range value is ever persisted,
-            // even from a programmatic set (Codex P2). Re-entry settles after one pass.
-            let valid = Self.normalizedColumns(columns)
-            guard valid == columns else { columns = valid; return }
-            storage.set(columns, forKey: Keys.columns)
+            guard !isApplyingCommittedSnapshot else { return }
+            let normalized = Self.normalizedColumns(columns)
+            if normalized != columns {
+                isApplyingCommittedSnapshot = true
+                columns = normalized
+                isApplyingCommittedSnapshot = false
+            }
+            guard columns != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.columns: .integer(normalized)]) else {
+                isApplyingCommittedSnapshot = true
+                columns = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
         }
     }
 
     /// App ids (resolved absolute paths) the user has hidden from the grid.
     @Published private(set) var hiddenAppIDs: Set<String> {
-        didSet { storage.set(Array(hiddenAppIDs), forKey: Keys.hidden) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard hiddenAppIDs != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.hidden: .strings(hiddenAppIDs.sorted())]) else {
+                isApplyingCommittedSnapshot = true
+                hiddenAppIDs = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     func hide(_ id: String) { hiddenAppIDs.insert(id) }
@@ -95,7 +125,17 @@ final class LaunchpadPreferences: ObservableObject {
     func unhideAll() { hiddenAppIDs.removeAll() }
 
     @Published var hotCorner: HotCorner {
-        didSet { storage.set(hotCorner.rawValue, forKey: Keys.hotCorner) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard hotCorner != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.hotCorner: .string(hotCorner.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                hotCorner = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     // MARK: Appearance (design §3.1, features 7+8)
@@ -104,24 +144,58 @@ final class LaunchpadPreferences: ObservableObject {
     /// as `columns` — no out-of-range or off-step value is ever persisted.
     @Published var iconSize: Int {
         didSet {
-            let valid = Self.normalizedIconSize(iconSize)
-            guard valid == iconSize else { iconSize = valid; return }
-            storage.set(iconSize, forKey: Keys.iconSize)
+            guard !isApplyingCommittedSnapshot else { return }
+            let normalized = Self.normalizedIconSize(iconSize)
+            if normalized != iconSize {
+                isApplyingCommittedSnapshot = true
+                iconSize = normalized
+                isApplyingCommittedSnapshot = false
+            }
+            guard iconSize != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.iconSize: .integer(normalized)]) else {
+                isApplyingCommittedSnapshot = true
+                iconSize = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
         }
     }
 
     /// Negated key on purpose (design §3.1): `bool(forKey:)` returns false when unset,
     /// so an unset key means "names shown" — today's behaviour, zero migration.
     @Published var hidesAppNames: Bool {
-        didSet { storage.set(hidesAppNames, forKey: Keys.hidesAppNames) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard hidesAppNames != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.hidesAppNames: .boolean(hidesAppNames)]) else {
+                isApplyingCommittedSnapshot = true
+                hidesAppNames = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// Compact-panel scale in whole percent (PluginStorage has no double accessor).
     @Published var compactScalePercent: Int {
         didSet {
-            let valid = Self.normalizedCompactScale(compactScalePercent)
-            guard valid == compactScalePercent else { compactScalePercent = valid; return }
-            storage.set(compactScalePercent, forKey: Keys.compactScalePercent)
+            guard !isApplyingCommittedSnapshot else { return }
+            let normalized = Self.normalizedCompactScale(compactScalePercent)
+            if normalized != compactScalePercent {
+                isApplyingCommittedSnapshot = true
+                compactScalePercent = normalized
+                isApplyingCommittedSnapshot = false
+            }
+            guard compactScalePercent != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.compactScalePercent: .integer(normalized)]) else {
+                isApplyingCommittedSnapshot = true
+                compactScalePercent = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
         }
     }
 
@@ -131,18 +205,48 @@ final class LaunchpadPreferences: ObservableObject {
     /// historical implicit colour — zero migration. Persisted as the raw value (a String
     /// PluginStorage stores natively, no NSColor/Data encoding).
     @Published var labelColor: LaunchpadLabelColor {
-        didSet { storage.set(labelColor.rawValue, forKey: Keys.labelColor) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard labelColor != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.labelColor: .string(labelColor.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                labelColor = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// Label font-weight preset. Default `.regular` matches the historical system weight.
     @Published var labelWeight: LaunchpadLabelWeight {
-        didSet { storage.set(labelWeight.rawValue, forKey: Keys.labelWeight) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard labelWeight != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.labelWeight: .string(labelWeight.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                labelWeight = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// Label font-size tier. Default `.medium` derives 12pt at the 64pt icon — the byte-compat
     /// baseline; the other tiers scale with the icon side.
     @Published var labelSize: LaunchpadLabelSize {
-        didSet { storage.set(labelSize.rawValue, forKey: Keys.labelSize) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard labelSize != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.labelSize: .string(labelSize.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                labelSize = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// The single input to `LaunchpadGridMetrics.resolve(_:)` (and, later, the settings
@@ -162,22 +266,53 @@ final class LaunchpadPreferences: ObservableObject {
     // MARK: Glass background (design §5)
 
     @Published var backgroundStyle: LaunchpadBackgroundStyle {
-        didSet { storage.set(backgroundStyle.rawValue, forKey: Keys.backgroundStyle) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard backgroundStyle != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.backgroundStyle: .string(backgroundStyle.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                backgroundStyle = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// Only consulted while `backgroundStyle == .custom`; kept persisted across style
     /// switches so flipping back to custom restores the user's last tuning.
     @Published var backgroundMaterial: LaunchpadGlassMaterial {
-        didSet { storage.set(backgroundMaterial.rawValue, forKey: Keys.backgroundMaterial) }
+        didSet {
+            guard !isApplyingCommittedSnapshot else { return }
+            guard backgroundMaterial != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.backgroundMaterial: .string(backgroundMaterial.rawValue)]) else {
+                isApplyingCommittedSnapshot = true
+                backgroundMaterial = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
     }
 
     /// Custom-style dim layer, in whole percent (PluginStorage has no double accessor).
     @Published var backgroundDimPercent: Int {
         didSet {
-            // Same single-write-path clamp discipline as `columns`.
-            let valid = LaunchpadBackgroundDim.normalized(backgroundDimPercent)
-            guard valid == backgroundDimPercent else { backgroundDimPercent = valid; return }
-            storage.set(backgroundDimPercent, forKey: Keys.backgroundDimPercent)
+            guard !isApplyingCommittedSnapshot else { return }
+            let normalized = LaunchpadBackgroundDim.normalized(backgroundDimPercent)
+            if normalized != backgroundDimPercent {
+                isApplyingCommittedSnapshot = true
+                backgroundDimPercent = normalized
+                isApplyingCommittedSnapshot = false
+            }
+            guard backgroundDimPercent != oldValue else { return }
+            guard LaunchpadPortablePreferences.store(storage: storage).commit([Keys.backgroundDimPercent: .integer(normalized)]) else {
+                isApplyingCommittedSnapshot = true
+                backgroundDimPercent = oldValue
+                isApplyingCommittedSnapshot = false
+                return
+            }
+            onPersistentPreferencesChange?()
         }
     }
 
@@ -190,9 +325,30 @@ final class LaunchpadPreferences: ObservableObject {
         )
     }
 
+    private var isApplyingCommittedSnapshot = false
+    var onPersistentPreferencesChange: (() -> Void)?
+    func reloadCommittedSnapshot() {
+        let restored = LaunchpadPreferences(storage: storage)
+        isApplyingCommittedSnapshot = true
+        windowMode = restored.windowMode
+        columns = restored.columns
+        hiddenAppIDs = restored.hiddenAppIDs
+        hotCorner = restored.hotCorner
+        iconSize = restored.iconSize
+        hidesAppNames = restored.hidesAppNames
+        compactScalePercent = restored.compactScalePercent
+        labelColor = restored.labelColor
+        labelWeight = restored.labelWeight
+        labelSize = restored.labelSize
+        backgroundStyle = restored.backgroundStyle
+        backgroundMaterial = restored.backgroundMaterial
+        backgroundDimPercent = restored.backgroundDimPercent
+        isApplyingCommittedSnapshot = false
+    }
+
     private let storage: PluginStorage
 
-    private enum Keys {
+    enum Keys {
         static let windowMode = "windowMode"
         static let columns = "columns"
         static let hidden = "hiddenAppIDs"
@@ -230,6 +386,7 @@ final class LaunchpadPreferences: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = LaunchpadPortablePreferences.store(storage: storage).recover()
         self.windowMode = WindowMode(rawValue: storage.string(forKey: Keys.windowMode) ?? "")
             ?? .fullscreen
         // `integer(forKey:)` is 0 when unset → autoColumns, our default.

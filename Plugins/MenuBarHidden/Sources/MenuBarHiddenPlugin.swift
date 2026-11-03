@@ -374,3 +374,18 @@ final class MenuBarHiddenPlugin: MacToolsPlugin, PluginActionProviding, MenuBarH
         )
     }
 }
+
+extension MenuBarHiddenPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { controller.manager.onPersistentPreferencesChange }
+        set { controller.manager.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { controller.manager.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard controller.manager.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
+    }
+}

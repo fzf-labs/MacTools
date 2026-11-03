@@ -306,7 +306,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/action-grid/",
       "summary": "在指针附近打开用户配置的常用操作网格。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -746,7 +746,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/activity-bar/",
       "summary": "统计输入、前台应用使用时长和 AI 编程活动",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -1186,7 +1186,8 @@
             "ai-requests"
           ],
           "dataPersisted": [
-            "plugin-configuration"
+            "plugin-configuration",
+            "custom-prompt-text"
           ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
@@ -1260,7 +1261,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/ai-assistant/",
       "summary": "划词调用 AI 翻译、总结、润色等",
-      "version": "0.2.0"
+      "version": "0.3.0"
     },
     {
       "capabilities": {
@@ -1513,7 +1514,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/ai-usage/",
       "summary": "查看 Codex 与 Claude Code 订阅额度和重置时间",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -1608,7 +1609,7 @@
                     "installed",
                     "applications"
                   ],
-                  "localOnlyIdentity": true,
+                  "localOnlyIdentity": false,
                   "parameterSummary": {
                     "ar": "التطبيق",
                     "de": "App",
@@ -1628,7 +1629,7 @@
                       "id": "entryID",
                       "isRequired": true,
                       "kind": "string",
-                      "portability": "localOnly"
+                      "portability": "portable"
                     }
                   ],
                   "permissionIDs": [],
@@ -1641,7 +1642,8 @@
                     "automatic-rule",
                     "action-grid",
                     "trackpad-gesture",
-                    "manual"
+                    "manual",
+                    "app-intent"
                   ],
                   "title": {
                     "ar": "فتح التطبيق",
@@ -1834,7 +1836,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/app-hotkey/",
       "summary": "为常用应用绑定全局快捷键，快速打开或切换到前台",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -2238,7 +2240,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/app-volume/",
       "summary": "分别调节正在播放音频的应用音量",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -2633,7 +2635,8 @@
         "privacy": {
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
-            "system-appearance"
+            "system-appearance",
+            "requested-plugin-state"
           ],
           "dataPersisted": [],
           "diagnosticExportsContainUserData": false,
@@ -2685,7 +2688,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/appearance/",
       "summary": "切换系统亮色与深色外观",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -3046,7 +3049,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/apple-shortcuts/",
       "summary": "发现并运行现有的 Apple 快捷指令。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -3428,7 +3431,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/auto-hide-dock/",
       "summary": "自动隐藏程序坞，提供更干净的桌面环境",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -3905,7 +3908,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/auto-hide-menu-bar/",
       "summary": "自动隐藏菜单栏，提供更完整的屏幕显示空间",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -4418,7 +4421,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/auto-input/",
       "summary": "按应用记住并自动切换输入法",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -5027,7 +5030,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/battery-charge-limit/",
       "summary": "设置电池充电上限，达到上限后停止充电；不自动恢复，由用户决定何时继续充电",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -5306,7 +5309,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/calendar/",
       "summary": "查看日期、节假日和系统日程",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -6077,7 +6080,8 @@
           ],
           "dataPersisted": [
             "encrypted-clipboard-history",
-            "local-encryption-key"
+            "local-encryption-key",
+            "plugin-configuration"
           ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
@@ -6189,7 +6193,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/clipboard/",
       "summary": "搜索历史记录并管理可重复使用的片段和已存项目。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -6535,7 +6539,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/cloudflare-r2/",
       "summary": "上传文件到 Cloudflare R2",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -6815,14 +6819,14 @@
       "releaseNotesURL": null,
       "route": "/plugins/com.mactools.plugin.storage-explorer/",
       "summary": "以层级视图直观分析磁盘占用，找出大文件，在审阅确认后移至废纸篓",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
         "panelItems": [
           "widget"
         ],
-        "settings": "none"
+        "settings": "form"
       },
       "category": "monitoring",
       "displayName": "Apple Container状态",
@@ -7011,7 +7015,9 @@
           "dataObserved": [
             "container-service-state"
           ],
-          "dataPersisted": [],
+          "dataPersisted": [
+            "plugin-configuration"
+          ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
           "networkUse": "none",
@@ -7083,7 +7089,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/container-indicator/",
       "summary": "查看并控制 container 服务、容器与虚拟机",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "capabilities": {
@@ -7323,7 +7329,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/device-battery/",
       "summary": "查看 Mac、Apple 移动设备、蓝牙外设和雷柏/迈从鼠标电量",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -7678,7 +7684,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/disk-clean/",
       "summary": "清理缓存、安装包和项目产物，卸载应用并检查疑似残留",
-      "version": "3.1.0"
+      "version": "3.2.0"
     },
     {
       "capabilities": {
@@ -7966,6 +7972,70 @@
                     "zh-Hans": "恢复内建显示屏",
                     "zh-Hant": "恢復內建顯示螢幕"
                   }
+                },
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "ضبط سطوع الشاشة",
+                    "de": "Bildschirmhelligkeit einstellen",
+                    "en": "Set a selected display to an absolute brightness percentage.",
+                    "es": "Ajustar brillo de pantalla",
+                    "fr": "Régler la luminosité",
+                    "ja": "明るさを設定",
+                    "ko": "디스플레이 밝기 설정",
+                    "pt": "Definir brilho do monitor",
+                    "ru": "Задать яркость дисплея",
+                    "tr": "Seçilen ekranı mutlak bir parlaklık yüzdesine ayarlayın.",
+                    "zh-Hans": "将指定显示器调节到目标百分比",
+                    "zh-Hant": "將指定顯示器調整到目標百分比"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "set-brightness",
+                  "keywords": [
+                    "brightness",
+                    "display",
+                    "percent"
+                  ],
+                  "parameters": [
+                    {
+                      "id": "display-id",
+                      "isRequired": true,
+                      "kind": "string",
+                      "portability": "localOnly"
+                    },
+                    {
+                      "id": "generation",
+                      "isRequired": true,
+                      "kind": "string",
+                      "portability": "localOnly"
+                    },
+                    {
+                      "id": "percent",
+                      "isRequired": true,
+                      "kind": "double",
+                      "portability": "portable"
+                    }
+                  ],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "manual"
+                  ],
+                  "systemImage": "sun.max",
+                  "title": {
+                    "ar": "ضبط سطوع الشاشة",
+                    "de": "Bildschirmhelligkeit einstellen",
+                    "en": "Set Display Brightness",
+                    "es": "Ajustar brillo de pantalla",
+                    "fr": "Régler la luminosité",
+                    "ja": "明るさを設定",
+                    "ko": "디스플레이 밝기 설정",
+                    "pt": "Definir brilho do monitor",
+                    "ru": "Задать яркость дисплея",
+                    "tr": "Ekran parlaklığını ayarla",
+                    "zh-Hans": "设置显示器亮度",
+                    "zh-Hant": "設定顯示器亮度"
+                  }
                 }
               ]
             }
@@ -8172,7 +8242,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/display-brightness/",
       "summary": "快速调节每个显示器的亮度",
-      "version": "2.1.0"
+      "version": "2.1.1"
     },
     {
       "capabilities": {
@@ -8539,7 +8609,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/display-resolution/",
       "summary": "查看并切换每个显示器的分辨率",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -8835,7 +8905,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/display-sleep/",
       "summary": "一键让所有显示器立即进入休眠",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -9200,7 +9270,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/display-true-color/",
       "summary": "自动调节显示器颜色以适应环境光",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -9598,7 +9668,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/display-volume/",
       "summary": "快速调节每个显示器的音量",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -9858,7 +9928,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/dock-click-minimize/",
       "summary": "点击活跃 App 的程序坞图标即可将其隐藏（如 Windows）。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -10261,7 +10331,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/dock-lock/",
       "summary": "防止程序坞在多显示器之间意外移动",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -10532,7 +10602,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/duo-status/",
       "summary": "通过独立图标或应用主图标查看电量、网络与输出音量状态",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -10831,7 +10901,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/eject-disk/",
       "summary": "推出所有可移动磁盘",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -11116,7 +11186,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/empty-trash/",
       "summary": "清空废纸篓中的所有项目",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -11529,7 +11599,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/fan-control/",
       "summary": "管理风扇转速预设，支持自动、全速和自定义策略",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -11817,7 +11887,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/fix-damaged-app/",
       "summary": "移除隔离属性，解决「已损坏」或「不受信任」提示",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -12179,7 +12249,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/hide-notch/",
       "summary": "自动遮挡刘海屏顶部区域",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -12702,7 +12772,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/homebrew/",
       "summary": "管理 Homebrew 包、库仓库并执行系统诊断",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -13150,7 +13220,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/input-remapping/",
       "summary": "将输入映射为操作",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -13603,7 +13673,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/ip-overview/",
       "summary": "查看出口 IP、本地 IP、归属地与网络测速摘要",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -14040,7 +14110,8 @@
         "privacy": {
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
-            "system-state"
+            "system-state",
+            "requested-plugin-state"
           ],
           "dataPersisted": [
             "plugin-configuration"
@@ -14082,7 +14153,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/keep-awake/",
       "summary": "保持 Mac 唤醒；可选保持屏幕常亮或让屏幕工具继续工作。MacBook 合盖运行要求连接电源",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -14325,7 +14396,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/key-stats/",
       "summary": "统计每个按键与触控板的使用次数，保留近七天数据",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "capabilities": {
@@ -14780,7 +14851,8 @@
             "productivity-state"
           ],
           "dataPersisted": [
-            "plugin-configuration"
+            "plugin-configuration",
+            "user-notes"
           ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
@@ -14819,7 +14891,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/launch-control/",
       "summary": "查看和管理 launchctl 启动项",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -15153,7 +15225,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/launchpad/",
       "summary": "用全局热键或菜单栏打开应用网格，搜索并启动。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -15437,7 +15509,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/lock-screen/",
       "summary": "一键立即锁定屏幕，进入密码解锁界面",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -16295,7 +16367,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/mac-settings/",
       "summary": "搜索并集中调整当前 Mac 的常用设置",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -16665,7 +16737,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/menu-bar-hidden/",
       "summary": "菜单栏图标隐藏功能的设置与弹窗界面",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -17038,7 +17110,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/microphone-mute/",
       "summary": "快速静音或恢复默认麦克风输入",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -17395,7 +17467,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/middle-click/",
       "summary": "触控板轻点 → 模拟鼠标中键",
-      "version": "2.0.2"
+      "version": "2.1.0"
     },
     {
       "capabilities": {
@@ -17702,7 +17774,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/mouse-enhancer/",
       "summary": "分别调整鼠标与触控板的滚动方向",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -18022,7 +18094,8 @@
         "privacy": {
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
-            "display-state"
+            "display-state",
+            "requested-plugin-state"
           ],
           "dataPersisted": [],
           "diagnosticExportsContainUserData": false,
@@ -18062,7 +18135,231 @@
       "releaseNotesURL": null,
       "route": "/plugins/night-shift/",
       "summary": "降低蓝光，使屏幕颜色更暖",
-      "version": "2.1.0"
+      "version": "2.2.0"
+    },
+    {
+      "capabilities": {
+        "panelItems": [
+          "row"
+        ],
+        "settings": "form"
+      },
+      "category": "display",
+      "displayName": "灵动岛悬浮面板",
+      "id": "notch-hover-panel",
+      "localizedMetadata": {
+        "ar": {
+          "displayName": "لوحة تحويم Dynamic Island",
+          "summary": "أظهر لوحة MacTools عند تمرير المؤشر بجانب Dynamic Island أو التحرك لأعلى من أسفله."
+        },
+        "de": {
+          "displayName": "Dynamic-Island-Schwebepanel",
+          "summary": "MacTools-Bedienfeld einblenden, wenn der Zeiger neben der Dynamic Island schwebt oder von direkt darunter nach oben bewegt wird."
+        },
+        "en": {
+          "displayName": "Dynamic Island Hover Panel",
+          "summary": "Slide out the MacTools panel when the pointer hovers beside the Dynamic Island or moves up from directly below it."
+        },
+        "es": {
+          "displayName": "Panel al pasar por Dynamic Island",
+          "summary": "Muestra el panel de MacTools al pasar el puntero junto a Dynamic Island o moverlo hacia arriba desde justo debajo."
+        },
+        "fr": {
+          "displayName": "Panneau de survol de Dynamic Island",
+          "summary": "Affichez le panneau MacTools lorsque le pointeur survole le bord de Dynamic Island ou remonte depuis juste en dessous."
+        },
+        "ja": {
+          "displayName": "Dynamic Island ホバーパネル",
+          "summary": "ポインタを Dynamic Island の横に重ねるか、真下から上へ動かすと MacTools パネルを表示します。"
+        },
+        "ko": {
+          "displayName": "Dynamic Island 호버 패널",
+          "summary": "포인터를 Dynamic Island 옆에 올리거나 바로 아래에서 위로 이동하면 MacTools 패널을 표시합니다."
+        },
+        "pt": {
+          "displayName": "Painel ao passar no Dynamic Island",
+          "summary": "Mostre o painel do MacTools ao passar o ponteiro ao lado do Dynamic Island ou movê-lo para cima a partir de baixo dele."
+        },
+        "ru": {
+          "displayName": "Панель при наведении на Dynamic Island",
+          "summary": "Показывать панель MacTools при наведении курсора рядом с Dynamic Island или движении вверх из-под него."
+        },
+        "tr": {
+          "displayName": "Dynamic Island Üzerine Gelme Paneli",
+          "summary": "İmleci Dynamic Island'ın yanına getirdiğinizde veya hemen altından yukarı hareket ettirdiğinizde MacTools panelini gösterin."
+        },
+        "zh-Hans": {
+          "displayName": "灵动岛悬浮面板",
+          "summary": "鼠标悬停灵动岛两侧，或从灵动岛正下方往上移动时滑出 MacTools 面板"
+        },
+        "zh-Hant": {
+          "displayName": "靈動島懸浮面板",
+          "summary": "滑鼠懸停靈動島兩側，或從靈動島正下方往上移動時滑出 MacTools 面板"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/notch-hover-panel",
+      "product": {
+        "actions": null,
+        "discovery": {
+          "alternativePluginIDs": [],
+          "goalCategories": [
+            "display"
+          ],
+          "keywords": [
+            "dynamic island",
+            "hover",
+            "panel",
+            "menu bar",
+            "灵动岛",
+            "悬停",
+            "面板"
+          ],
+          "localizedSynonyms": {
+            "ar": [
+              "لوحة تحويم Dynamic Island"
+            ],
+            "de": [
+              "Dynamic-Island-Schwebepanel"
+            ],
+            "en": [
+              "Dynamic Island Hover Panel"
+            ],
+            "es": [
+              "Panel al pasar por Dynamic Island"
+            ],
+            "fr": [
+              "Panneau de survol de Dynamic Island"
+            ],
+            "ja": [
+              "Dynamic Island ホバーパネル"
+            ],
+            "ko": [
+              "Dynamic Island 호버 패널"
+            ],
+            "pt": [
+              "Painel ao passar no Dynamic Island"
+            ],
+            "ru": [
+              "Панель при наведении на Dynamic Island"
+            ],
+            "tr": [
+              "Dynamic Island Üzerine Gelme Paneli"
+            ],
+            "zh-Hans": [
+              "灵动岛悬浮面板"
+            ],
+            "zh-Hant": [
+              "靈動島懸浮面板"
+            ]
+          },
+          "relatedPluginIDs": [],
+          "useCases": [
+            {
+              "id": "primary-use",
+              "title": {
+                "ar": "لوحة تحويم Dynamic Island",
+                "de": "Dynamic-Island-Schwebepanel",
+                "en": "Dynamic Island Hover Panel",
+                "es": "Panel al pasar por Dynamic Island",
+                "fr": "Panneau de survol de Dynamic Island",
+                "ja": "Dynamic Island ホバーパネル",
+                "ko": "Dynamic Island 호버 패널",
+                "pt": "Painel ao passar no Dynamic Island",
+                "ru": "Панель при наведении на Dynamic Island",
+                "tr": "Dynamic Island Üzerine Gelme Paneli",
+                "zh-Hans": "灵动岛悬浮面板",
+                "zh-Hant": "靈動島懸浮面板"
+              }
+            }
+          ]
+        },
+        "presentation": {
+          "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
+          "examples": [
+            {
+              "id": "primary-use",
+              "text": {
+                "ar": "أظهر لوحة MacTools عند تمرير المؤشر بجانب Dynamic Island أو التحرك لأعلى من أسفله.",
+                "de": "MacTools-Bedienfeld einblenden, wenn der Zeiger neben der Dynamic Island schwebt oder von direkt darunter nach oben bewegt wird.",
+                "en": "Slide out the MacTools panel when the pointer hovers beside the Dynamic Island or moves up from directly below it.",
+                "es": "Muestra el panel de MacTools al pasar el puntero junto a Dynamic Island o moverlo hacia arriba desde justo debajo.",
+                "fr": "Affichez le panneau MacTools lorsque le pointeur survole le bord de Dynamic Island ou remonte depuis juste en dessous.",
+                "ja": "ポインタを Dynamic Island の横に重ねるか、真下から上へ動かすと MacTools パネルを表示します。",
+                "ko": "포인터를 Dynamic Island 옆에 올리거나 바로 아래에서 위로 이동하면 MacTools 패널을 표시합니다.",
+                "pt": "Mostre o painel do MacTools ao passar o ponteiro ao lado do Dynamic Island ou movê-lo para cima a partir de baixo dele.",
+                "ru": "Показывать панель MacTools при наведении курсора рядом с Dynamic Island или движении вверх из-под него.",
+                "tr": "İmleci Dynamic Island'ın yanına getirdiğinizde veya hemen altından yukarı hareket ettirdiğinizde MacTools panelini gösterin.",
+                "zh-Hans": "鼠标悬停灵动岛两侧，或从灵动岛正下方往上移动时滑出 MacTools 面板",
+                "zh-Hant": "滑鼠懸停靈動島兩側，或從靈動島正下方往上移動時滑出 MacTools 面板"
+              }
+            }
+          ],
+          "license": "GPL-3.0-only",
+          "longDescription": {
+            "ar": "أظهر لوحة MacTools عند تمرير المؤشر بجانب Dynamic Island أو التحرك لأعلى من أسفله.",
+            "de": "MacTools-Bedienfeld einblenden, wenn der Zeiger neben der Dynamic Island schwebt oder von direkt darunter nach oben bewegt wird.",
+            "en": "Slide out the MacTools panel when the pointer hovers beside the Dynamic Island or moves up from directly below it.",
+            "es": "Muestra el panel de MacTools al pasar el puntero junto a Dynamic Island o moverlo hacia arriba desde justo debajo.",
+            "fr": "Affichez le panneau MacTools lorsque le pointeur survole le bord de Dynamic Island ou remonte depuis juste en dessous.",
+            "ja": "ポインタを Dynamic Island の横に重ねるか、真下から上へ動かすと MacTools パネルを表示します。",
+            "ko": "포인터를 Dynamic Island 옆에 올리거나 바로 아래에서 위로 이동하면 MacTools 패널을 표시합니다.",
+            "pt": "Mostre o painel do MacTools ao passar o ponteiro ao lado do Dynamic Island ou movê-lo para cima a partir de baixo dele.",
+            "ru": "Показывать панель MacTools при наведении курсора рядом с Dynamic Island или движении вверх из-под него.",
+            "tr": "İmleci Dynamic Island'ın yanına getirdiğinizde veya hemen altından yukarı hareket ettirdiğinizde MacTools panelini gösterin.",
+            "zh-Hans": "鼠标悬停灵动岛两侧，或从灵动岛正下方往上移动时滑出 MacTools 面板",
+            "zh-Hant": "滑鼠懸停靈動島兩側，或從靈動島正下方往上移動時滑出 MacTools 面板"
+          },
+          "publisher": "MacTools",
+          "screenshots": [],
+          "supportURL": "https://github.com/ggbond268/MacTools/issues"
+        },
+        "privacy": {
+          "allowsUserConfiguredDomains": false,
+          "dataObserved": [
+            "pointer-events",
+            "display-state"
+          ],
+          "dataPersisted": [
+            "plugin-configuration"
+          ],
+          "diagnosticExportsContainUserData": false,
+          "networkDomains": [],
+          "networkUse": "none",
+          "processesSensitiveUserContent": false,
+          "retention": {
+            "policy": "user-controlled"
+          },
+          "telemetry": "none"
+        },
+        "relationships": {
+          "includedPackIDs": [],
+          "relatedPluginIDs": [],
+          "suggestedRecipeIDs": [],
+          "supersedesPluginIDs": []
+        },
+        "requirements": {
+          "applications": [],
+          "architectures": [
+            "arm64",
+            "x86_64"
+          ],
+          "executables": [],
+          "hardware": [],
+          "minimumMacOSVersion": "14.0",
+          "permissionIDs": [],
+          "requiresRelaunch": false,
+          "setupComplexity": "none"
+        },
+        "setup": {
+          "optionalSurfaces": [],
+          "steps": []
+        }
+      },
+      "releaseChannel": null,
+      "releaseNotesURL": null,
+      "route": "/plugins/notch-hover-panel/",
+      "summary": "鼠标悬停灵动岛两侧，或从灵动岛正下方往上移动时滑出 MacTools 面板",
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -18383,7 +18680,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/physical-clean-mode/",
       "summary": "屏幕全黑并临时禁用键盘输入",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -18608,7 +18905,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/power-status/",
       "summary": "实时查看系统功耗、电池状态和充电信息",
-      "version": "1.0.0"
+      "version": "1.0.1"
     },
     {
       "capabilities": {
@@ -18901,7 +19198,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/quit-apps/",
       "summary": "选择并退出正在运行的应用，或一键退出全部",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -19247,7 +19544,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/right-click/",
       "summary": "自定义 Finder 操作、模板、常用位置和文件工具。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -19565,7 +19862,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/saved-scripts/",
       "summary": "保存并运行 AppleScript 和 Shell 脚本。",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -20256,7 +20553,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/screenshot/",
       "summary": "区域和窗口截图、标注、文字与二维码识别、贴图、滚动截图和录屏。",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -20723,7 +21020,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/sidecar/",
       "summary": "连接附近可用的 Sidecar 显示器作为扩展显示器",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -21013,7 +21310,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/siri/",
       "summary": "从命令面板向 Siri 发送消息",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -21375,7 +21672,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/stage-manager/",
       "summary": "开启台前调度，集中显示当前窗口并把其他窗口收纳到侧边",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -21656,7 +21953,9 @@
             "filesystem-paths",
             "file-sizes"
           ],
-          "dataPersisted": [],
+          "dataPersisted": [
+            "plugin-configuration"
+          ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [],
           "networkUse": "none",
@@ -21697,7 +21996,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/system-data/",
       "summary": "分类汇总 macOS 系统数据的真实占用，在 Finder 中快速定位",
-      "version": "1.1.0"
+      "version": "1.2.0"
     },
     {
       "capabilities": {
@@ -22017,7 +22316,8 @@
         "privacy": {
           "allowsUserConfiguredDomains": false,
           "dataObserved": [
-            "audio-state"
+            "audio-state",
+            "requested-plugin-state"
           ],
           "dataPersisted": [],
           "diagnosticExportsContainUserData": false,
@@ -22057,7 +22357,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/system-mute/",
       "summary": "快速静音或恢复系统音频输出",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -22508,7 +22808,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/system-power/",
       "summary": "让 Mac 睡眠、退出登录、重新启动或关机",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -22834,7 +23134,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/system-soft-restart/",
       "summary": "重启 macOS 用户服务，尝试恢复常见运行时异常",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -23234,7 +23534,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/system-status/",
       "summary": "实时查看系统状态",
-      "version": "2.1.0"
+      "version": "2.1.1"
     },
     {
       "capabilities": {
@@ -23543,7 +23843,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/trackpad-gestures/",
       "summary": "将自定义触控板手势映射为 MacTools 操作、快捷键或中键点击",
-      "version": "2.0.2"
+      "version": "2.1.0"
     },
     {
       "capabilities": {
@@ -23798,7 +24098,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/trackpad-scale/",
       "summary": "用内置 Force Touch 触控板估算小物件重量（实验性）",
-      "version": "1.0.0"
+      "version": "1.1.0"
     },
     {
       "capabilities": {
@@ -24152,7 +24452,8 @@
             "translation-requests"
           ],
           "dataPersisted": [
-            "plugin-configuration"
+            "plugin-configuration",
+            "custom-prompt-text"
           ],
           "diagnosticExportsContainUserData": false,
           "networkDomains": [
@@ -24229,7 +24530,392 @@
       "releaseNotesURL": null,
       "route": "/plugins/translator/",
       "summary": "划词与截图快捷键翻译",
-      "version": "1.1.0"
+      "version": "1.2.0"
+    },
+    {
+      "capabilities": {
+        "panelItems": [
+          "row"
+        ],
+        "settings": "form"
+      },
+      "category": "productivity",
+      "displayName": "语音助手",
+      "id": "voice-control",
+      "localizedMetadata": {
+        "ar": {
+          "displayName": "المساعد الصوتي",
+          "summary": "تحكّم في ميزات MacTools المفعّلة بالمحادثة الصوتية"
+        },
+        "de": {
+          "displayName": "Sprachassistent",
+          "summary": "Aktivierte MacTools-Funktionen per Sprachgespräch steuern"
+        },
+        "en": {
+          "displayName": "Voice Assistant",
+          "summary": "Control enabled MacTools features through voice conversation"
+        },
+        "es": {
+          "displayName": "Asistente de voz",
+          "summary": "Controla las funciones activadas de MacTools con la voz"
+        },
+        "fr": {
+          "displayName": "Assistant vocal",
+          "summary": "Contrôlez les fonctions MacTools activées par la voix"
+        },
+        "ja": {
+          "displayName": "音声アシスタント",
+          "summary": "音声会話で有効なMacTools機能を操作"
+        },
+        "ko": {
+          "displayName": "음성 도우미",
+          "summary": "음성 대화로 활성화된 MacTools 기능 제어"
+        },
+        "pt": {
+          "displayName": "Assistente de voz",
+          "summary": "Controle as funções ativas do MacTools por voz"
+        },
+        "ru": {
+          "displayName": "Голосовой помощник",
+          "summary": "Управляйте включёнными функциями MacTools голосом"
+        },
+        "tr": {
+          "displayName": "Sesli Asistan",
+          "summary": "Etkin MacTools özelliklerini sesli sohbetle kontrol edin"
+        },
+        "zh-Hans": {
+          "displayName": "语音助手",
+          "summary": "通过语音对话控制已启用的 MacTools 功能"
+        },
+        "zh-Hant": {
+          "displayName": "語音助手",
+          "summary": "透過語音對話控制已啟用的 MacTools 功能"
+        }
+      },
+      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/voice-control",
+      "product": {
+        "actions": {
+          "providers": [
+            {
+              "dynamicTemplates": [],
+              "id": "voice-control",
+              "kind": "static",
+              "staticActions": [
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "ستتوفر المكونات الإضافية الجديدة تلقائيًا في المحادثات اللاحقة. تحتفظ المكونات المحظورة وهذه المحادثة بإعدادات الوصول الحالية.",
+                    "de": "Neue Plugins werden in künftigen Gesprächen automatisch verfügbar. Gesperrte Plugins und dieses Gespräch behalten ihre bisherigen Zugriffsrechte.",
+                    "en": "New plugins will be available automatically in future conversations. Blocked plugins and this conversation keep their current access.",
+                    "es": "Los nuevos plugins estarán disponibles automáticamente en futuras conversaciones. Los plugins bloqueados y esta conversación conservarán su acceso actual.",
+                    "fr": "Les nouveaux modules seront disponibles automatiquement lors des prochaines conversations. Les modules bloqués et cette conversation conservent leurs accès actuels.",
+                    "ja": "新しいプラグインは今後の会話で自動的に利用可能になります。拒否したプラグインと現在の会話のアクセス権は変わりません。",
+                    "ko": "이후 대화에서 새 플러그인이 자동으로 허용됩니다. 차단된 플러그인과 현재 대화의 접근 권한은 유지됩니다.",
+                    "pt": "Novos plugins ficarão disponíveis automaticamente nas próximas conversas. Os plugins bloqueados e esta conversa mantêm o acesso atual.",
+                    "ru": "Новые плагины будут доступны автоматически в будущих разговорах. Доступ заблокированных плагинов и текущего разговора не изменится.",
+                    "tr": "Yeni eklentiler sonraki konuşmalarda otomatik olarak kullanılabilir. Engellenen eklentilerin ve bu konuşmanın erişimi değişmez.",
+                    "zh-Hans": "新插件将在后续对话中自动可用，已禁止的插件和当前对话不受影响。",
+                    "zh-Hant": "新外掛將在後續對話中自動可用，已禁止的外掛與目前對話不受影響。"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "automatic-plugin-access-on",
+                  "keywords": [
+                    "new plugins",
+                    "automatic access",
+                    "automatically allow",
+                    "future plugin permissions"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "confirmationRequired",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "action-grid",
+                    "manual"
+                  ],
+                  "systemImage": "checkmark.shield",
+                  "title": {
+                    "ar": "السماح تلقائيًا بالمكونات الإضافية المثبّتة حديثًا",
+                    "de": "Neu installierte Plugins automatisch zulassen",
+                    "en": "Automatically allow newly installed plugins",
+                    "es": "Permitir automáticamente los plugins recién instalados",
+                    "fr": "Autoriser automatiquement les nouveaux modules installés",
+                    "ja": "新しくインストールしたプラグインを自動的に許可",
+                    "ko": "새로 설치한 플러그인 자동 허용",
+                    "pt": "Permitir automaticamente os plugins recém-instalados",
+                    "ru": "Автоматически разрешать новые плагины",
+                    "tr": "Yeni yüklenen eklentilere otomatik izin ver",
+                    "zh-Hans": "自动允许新安装的插件",
+                    "zh-Hant": "自動允許新安裝的外掛"
+                  }
+                },
+                {
+                  "automaticEligible": false,
+                  "description": {
+                    "ar": "تتطلب المكونات الإضافية الجديدة موافقة يدوية. تحتفظ الاختيارات الحالية والمحادثة الجارية بإعدادات الوصول.",
+                    "de": "Neue Plugins müssen manuell zugelassen werden. Die aktuelle Auswahl und das laufende Gespräch behalten ihre Zugriffsrechte.",
+                    "en": "New plugins require manual approval. Current selections and the ongoing conversation keep their access.",
+                    "es": "Los nuevos plugins requieren aprobación manual. Las selecciones actuales y la conversación en curso conservan su acceso.",
+                    "fr": "Les nouveaux modules doivent être autorisés manuellement. La sélection actuelle et la conversation en cours conservent leurs accès.",
+                    "ja": "新しいプラグインは手動で許可してください。現在の選択と進行中の会話のアクセス権は変わりません。",
+                    "ko": "새 플러그인은 수동으로 허용해야 합니다. 현재 선택과 진행 중인 대화의 접근 권한은 유지됩니다.",
+                    "pt": "Novos plugins exigem aprovação manual. As seleções atuais e a conversa em curso mantêm o acesso.",
+                    "ru": "Новые плагины нужно разрешать вручную. Доступ текущего выбора и текущего разговора не изменится.",
+                    "tr": "Yeni eklentiler için elle onay gerekir. Mevcut seçimlerin ve devam eden konuşmanın erişimi değişmez.",
+                    "zh-Hans": "新插件需手动允许，当前选择和正在进行的对话不受影响。",
+                    "zh-Hant": "新外掛需手動允許，目前選擇與正在進行的對話不受影響。"
+                  },
+                  "externalInvocation": "unavailable",
+                  "id": "automatic-plugin-access-off",
+                  "keywords": [
+                    "new plugins",
+                    "automatic access",
+                    "automatically allow",
+                    "future plugin permissions"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "safe",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "action-grid",
+                    "manual"
+                  ],
+                  "systemImage": "checkmark.shield",
+                  "title": {
+                    "ar": "إيقاف السماح التلقائي بالمكونات الإضافية الجديدة",
+                    "de": "Neue Plugins nicht mehr automatisch zulassen",
+                    "en": "Stop automatically allowing new plugins",
+                    "es": "Dejar de permitir automáticamente los nuevos plugins",
+                    "fr": "Ne plus autoriser automatiquement les nouveaux modules",
+                    "ja": "新しいプラグインの自動許可を停止",
+                    "ko": "새 플러그인 자동 허용 중지",
+                    "pt": "Deixar de permitir novos plugins automaticamente",
+                    "ru": "Не разрешать новые плагины автоматически",
+                    "tr": "Yeni eklentilere otomatik izin vermeyi durdur",
+                    "zh-Hans": "停止自动允许新安装的插件",
+                    "zh-Hant": "停止自動允許新安裝的外掛"
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "discovery": {
+          "alternativePluginIDs": [],
+          "goalCategories": [
+            "productivity"
+          ],
+          "keywords": [
+            "voice",
+            "brightness",
+            "OpenAI",
+            "assistant",
+            "voice assistant"
+          ],
+          "localizedSynonyms": {
+            "ar": [
+              "المساعد الصوتي",
+              "التحكم الصوتي"
+            ],
+            "de": [
+              "Sprachassistent",
+              "Sprachsteuerung"
+            ],
+            "en": [
+              "Voice Assistant",
+              "Voice Control"
+            ],
+            "es": [
+              "Asistente de voz",
+              "Control por voz"
+            ],
+            "fr": [
+              "Assistant vocal",
+              "Commande vocale"
+            ],
+            "ja": [
+              "音声アシスタント",
+              "音声コントロール"
+            ],
+            "ko": [
+              "음성 도우미",
+              "음성 제어"
+            ],
+            "pt": [
+              "Assistente de voz",
+              "Controle por voz"
+            ],
+            "ru": [
+              "Голосовой помощник",
+              "Голосовое управление"
+            ],
+            "tr": [
+              "Sesli Asistan",
+              "Sesle kontrol"
+            ],
+            "zh-Hans": [
+              "语音助手",
+              "语音控制"
+            ],
+            "zh-Hant": [
+              "語音助手",
+              "語音控制"
+            ]
+          },
+          "relatedPluginIDs": [
+            "display-brightness"
+          ],
+          "useCases": [
+            {
+              "id": "primary-use",
+              "title": {
+                "ar": "المساعد الصوتي",
+                "de": "Sprachassistent",
+                "en": "Voice Assistant",
+                "es": "Asistente de voz",
+                "fr": "Assistant vocal",
+                "ja": "音声アシスタント",
+                "ko": "음성 도우미",
+                "pt": "Assistente de voz",
+                "ru": "Голосовой помощник",
+                "tr": "Sesli Asistan",
+                "zh-Hans": "语音助手",
+                "zh-Hant": "語音助手"
+              }
+            }
+          ]
+        },
+        "presentation": {
+          "documentationURL": "https://github.com/mactools-app/MacTools/blob/main/docs/plugins/voice-control.md",
+          "examples": [
+            {
+              "id": "primary-use",
+              "text": {
+                "ar": "تحكّم في ميزات MacTools المفعّلة بالمحادثة الصوتية",
+                "de": "Aktivierte MacTools-Funktionen per Sprachgespräch steuern",
+                "en": "Control enabled MacTools features through voice conversation",
+                "es": "Controla las funciones activadas de MacTools con la voz",
+                "fr": "Contrôlez les fonctions MacTools activées par la voix",
+                "ja": "音声会話で有効なMacTools機能を操作",
+                "ko": "음성 대화로 활성화된 MacTools 기능 제어",
+                "pt": "Controle as funções ativas do MacTools por voz",
+                "ru": "Управляйте включёнными функциями MacTools голосом",
+                "tr": "Etkin MacTools özelliklerini sesli sohbetle kontrol edin",
+                "zh-Hans": "通过语音对话控制已启用的 MacTools 功能",
+                "zh-Hant": "透過語音對話控制已啟用的 MacTools 功能"
+              }
+            }
+          ],
+          "license": "GPL-3.0-only",
+          "longDescription": {
+            "ar": "تحكّم في ميزات MacTools المفعّلة بالمحادثة الصوتية",
+            "de": "Aktivierte MacTools-Funktionen per Sprachgespräch steuern",
+            "en": "Control enabled MacTools features through voice conversation",
+            "es": "Controla las funciones activadas de MacTools con la voz",
+            "fr": "Contrôlez les fonctions MacTools activées par la voix",
+            "ja": "音声会話で有効なMacTools機能を操作",
+            "ko": "음성 대화로 활성화된 MacTools 기능 제어",
+            "pt": "Controle as funções ativas do MacTools por voz",
+            "ru": "Управляйте включёнными функциями MacTools голосом",
+            "tr": "Etkin MacTools özelliklerini sesli sohbetle kontrol edin",
+            "zh-Hans": "通过语音对话控制已启用的 MacTools 功能",
+            "zh-Hant": "透過語音對話控制已啟用的 MacTools 功能"
+          },
+          "publisher": "MacTools",
+          "screenshots": [],
+          "supportURL": "https://github.com/mactools-app/MacTools/issues"
+        },
+        "privacy": {
+          "allowsUserConfiguredDomains": false,
+          "dataObserved": [
+            "microphone-audio",
+            "conversation-transcript",
+            "plugin-command-metadata",
+            "requested-plugin-state"
+          ],
+          "dataPersisted": [
+            "api-key-in-local-keychain",
+            "excluded-plugin-ids"
+          ],
+          "diagnosticExportsContainUserData": false,
+          "networkDomains": [
+            "api.openai.com"
+          ],
+          "networkUse": "required",
+          "processesSensitiveUserContent": true,
+          "retention": {
+            "policy": "user-controlled"
+          },
+          "telemetry": "none"
+        },
+        "relationships": {
+          "includedPackIDs": [],
+          "relatedPluginIDs": [
+            "display-brightness"
+          ],
+          "suggestedRecipeIDs": [],
+          "supersedesPluginIDs": []
+        },
+        "requirements": {
+          "applications": [],
+          "architectures": [
+            "arm64",
+            "x86_64"
+          ],
+          "executables": [],
+          "hardware": [],
+          "minimumMacOSVersion": "14.0",
+          "permissionIDs": [
+            "microphone"
+          ],
+          "requiresRelaunch": false,
+          "setupComplexity": "simple"
+        },
+        "setup": {
+          "optionalSurfaces": [],
+          "steps": [
+            {
+              "description": {
+                "ar": "تُحاسب المكالمات على حساب OpenAI الخاص بك. تُحفظ المفاتيح في سلسلة مفاتيح هذا الـMac فقط، ولا تُضمّن في التطبيق أو الشفرة المصدرية.",
+                "de": "Abrechnung über dein OpenAI-Konto. Schlüssel bleiben im Schlüsselbund dieses Macs und werden weder mit der App noch dem Quellcode verteilt.",
+                "en": "Usage is billed to your own OpenAI account. Keys saved here stay in this Mac’s Keychain and are not included in the app or source code.",
+                "es": "El uso se factura a tu cuenta de OpenAI. Las claves solo se guardan en el Llavero de este Mac y no se incluyen en la app ni en el código.",
+                "fr": "L’utilisation est facturée à votre compte OpenAI. Les clés restent dans le trousseau de ce Mac et ne sont incluses ni dans l’app ni dans le code source.",
+                "ja": "料金は自分のOpenAIアカウントに請求されます。キーはこのMacのキーチェーンにのみ保存され、アプリやソースコードには含まれません。",
+                "ko": "사용 요금은 본인의 OpenAI 계정에 청구됩니다. 키는 이 Mac의 키체인에만 저장되며 앱이나 소스 코드에 포함되지 않습니다.",
+                "pt": "A utilização é cobrada à sua conta OpenAI. As chaves ficam apenas nas Chaves deste Mac e não são incluídas na aplicação nem no código-fonte.",
+                "ru": "Использование оплачивается с вашего аккаунта OpenAI. Ключи хранятся только в Связке ключей этого Mac и не входят в приложение или исходный код.",
+                "tr": "Kullanım kendi OpenAI hesabınıza faturalandırılır. Anahtarlar yalnızca bu Mac’in Anahtar Zinciri’nde saklanır; uygulamaya veya kaynak koda eklenmez.",
+                "zh-Hans": "使用你自己的 OpenAI 账户计费。在这里保存的密钥仅存于本机钥匙串，不会包含在 App 或开源代码中。",
+                "zh-Hant": "使用你自己的 OpenAI 帳號計費。在這裡儲存的金鑰僅存於本機鑰匙圈，不會包含在 App 或開放原始碼中。"
+              },
+              "id": "configure-credentials",
+              "title": {
+                "ar": "مفتاح OpenAI API الخاص بك",
+                "de": "Dein OpenAI-API-Schlüssel",
+                "en": "Your OpenAI API key",
+                "es": "Tu clave de API de OpenAI",
+                "fr": "Votre clé API OpenAI",
+                "ja": "自分のOpenAI APIキー",
+                "ko": "내 OpenAI API 키",
+                "pt": "A sua chave API OpenAI",
+                "ru": "Ваш ключ API OpenAI",
+                "tr": "OpenAI API anahtarınız",
+                "zh-Hans": "你的 OpenAI API 密钥",
+                "zh-Hant": "你的 OpenAI API 金鑰"
+              }
+            }
+          ]
+        }
+      },
+      "releaseChannel": null,
+      "releaseNotesURL": null,
+      "route": "/plugins/voice-control/",
+      "summary": "通过语音对话控制已启用的 MacTools 功能",
+      "version": "0.1.0"
     },
     {
       "capabilities": {
@@ -27474,7 +28160,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/window-layouts/",
       "summary": "移动聚焦窗口并调整其大小",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -27935,7 +28621,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/window-switcher/",
       "summary": "用可配置快捷键快速切换正在运行的窗口",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -28248,7 +28934,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/xcode-clean/",
       "summary": "分类清理 Xcode DerivedData、设备支持、归档与缓存",
-      "version": "2.1.0"
+      "version": "2.2.0"
     },
     {
       "capabilities": {
@@ -28527,7 +29213,7 @@
       "releaseNotesURL": null,
       "route": "/plugins/zsh-config/",
       "summary": "快速编辑 ~/.zshrc 等 zsh 配置文件，支持内联编辑和常用片段快速插入",
-      "version": "2.1.0"
+      "version": "2.2.0"
     }
   ]
 }

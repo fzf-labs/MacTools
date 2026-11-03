@@ -30,6 +30,10 @@ Custom SwiftUI sheets must explicitly forward their presenter's `locale` and `la
 
 Independent AppKit hosting views and controllers must observe the runtime locale and forward both environments to their SwiftUI roots. Refresh localized native window labels and cached previews without recreating editing or selection state. Keep physical grids, pointer coordinates, and menu-bar item ordering stable; apply the language direction to their semantic text and controls.
 
+## Preferences Backup
+
+Follow the [backup contract](preferences-backup.md) when persisting configuration. Keep the source manifest’s coverage/privacy declarations consistent with actual payloads and local exclusions. Regenerate the [inventory](preferences-backup-inventory.md), preserve custom identities and excluded private records, and verify failure/permission behavior without operating on real user data.
+
 ## Widgets
 
 A widget is a reusable presentation of plugin data. It can have no placements, one placement, or multiple independent copies.
@@ -123,6 +127,8 @@ See [presentation subscriptions](presentation-performance.md) for implementation
 - Event taps must declare the required permission, keep callbacks bounded, stop on deactivation, and recover when macOS disables the tap. Shared external events belong in Core abstractions when multiple plugins need them.
 
 Follow [LICENSING.md](../../LICENSING.md), retain third-party notices, and declare required system access accurately before installation.
+
+Translator accepts HTTP for its existing loopback hosts and literal private IP addresses: IPv4 `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, and IPv6 `fc00::/7`. Other endpoints require HTTPS; DNS names are not resolved to infer a private-network exception. HTTP sends translation text and credentials without encryption. Redirects must retain the configured scheme, host, and effective port. Private-IP HTTP packages require host 2.2.0, which declares matching ATS address-range exceptions; do not replace these with a global arbitrary-load exception. Backup restores retain endpoint settings without granting access to destination credentials.
 
 Shared raw trackpad input uses the host-injected `TrackpadInputService` capability (host 2.1.0). Do not create a separate native multitouch driver in a plugin. See [Trackpad Scale](trackpad-scale.md) for pressure limitations, subscription ownership, and hardware validation.
 

@@ -80,6 +80,7 @@ final class FixDamagedAppPlugin: MacToolsPlugin, DropZoneAnchorProviding, Plugin
 
     // MARK: Drag Detection State
 
+    var onPersistentPreferencesChange: (() -> Void)?
     private let storage: PluginStorage
     private var mouseDownMonitor: Any?
     private var dragMonitor: Any?
@@ -151,6 +152,7 @@ final class FixDamagedAppPlugin: MacToolsPlugin, DropZoneAnchorProviding, Plugin
             try await runQuarantineRemoval(appPath: appPath, localization: localization)
         }
         self.storage = context.storage
+        _ = Self.portableStore(storage: context.storage).recover()
         self.rowDescriptor = PluginPanelRowDescriptor(
             controlStyle: .button,
             menuActionBehavior: .dismissBeforeHandling,
@@ -206,7 +208,9 @@ final class FixDamagedAppPlugin: MacToolsPlugin, DropZoneAnchorProviding, Plugin
     }
 
     func setDragDetectionEnabled(_ enabled: Bool) {
-        storage.set(enabled, forKey: StorageKey.isDragDetectionEnabled)
+        guard enabled != isDragDetectionEnabled,
+              portableStore.commit([StorageKey.isDragDetectionEnabled: .boolean(enabled)]) else { return }
+        onPersistentPreferencesChange?()
         updateDragMonitoring()
         onStateChange?()
     }
@@ -716,5 +720,23 @@ private func withFixDamagedCStringArray<Result>(
     var mutablePointers = pointers + [nil]
     return mutablePointers.withUnsafeMutableBufferPointer { buffer in
         body(buffer.baseAddress!)
+    }
+}
+
+extension FixDamagedAppPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.isDragDetectionEnabled: .boolean(false)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func makePortablePreferencesBackup() -> Data? { portableStore.backup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        let before = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        updateDragMonitoring()
+        if before != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        onStateChange?()
+        return true
     }
 }

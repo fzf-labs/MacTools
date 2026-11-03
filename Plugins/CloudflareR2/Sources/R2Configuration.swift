@@ -44,6 +44,7 @@ final class R2ConfigurationStore: ObservableObject {
         localization: PluginLocalization = PluginLocalization(bundle: .main)
     ) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.secrets = secrets
         self.localization = localization
         accountID = storage.string(forKey: Key.accountID) ?? ""
@@ -90,11 +91,13 @@ final class R2ConfigurationStore: ObservableObject {
     }
 
     func save() {
+        let previous = portableStore.currentValues()
+        guard portableStore.commit([
+            Key.bucket: .string(bucket.trimmed), Key.publicBaseURL: .string(publicBaseURL.trimmed), Key.objectPrefix: .string(objectPrefix.trimmed)
+        ]) else { errorMessage = PluginKitLocalization.actionInvalidParameters; return }
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
         storage.set(accountID.trimmed, forKey: Key.accountID)
-        storage.set(bucket.trimmed, forKey: Key.bucket)
         storage.set(accessKeyID.trimmed, forKey: Key.accessKeyID)
-        storage.set(publicBaseURL.trimmed, forKey: Key.publicBaseURL)
-        storage.set(objectPrefix.trimmed, forKey: Key.objectPrefix)
         do {
             if !secretAccessKey.trimmed.isEmpty {
                 try secrets.saveSecret(secretAccessKey)
@@ -105,6 +108,38 @@ final class R2ConfigurationStore: ObservableObject {
         } catch {
             errorMessage = localizedMessage(for: error)
         }
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Key.bucket: PortablePreferenceField(fallback: .string("")) {
+                if case let .string(value) = $0 {
+                    value.isEmpty || (value.utf8.count <= 63 && value.utf8.count >= 3
+                        && value.unicodeScalars.allSatisfy { CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyz0123456789-.").contains($0) })
+                } else { false }
+            },
+            Key.publicBaseURL: PortablePreferenceField(fallback: .string("")) {
+                guard case let .string(value) = $0, value.utf8.count <= 2_048 else { return false }
+                if value.isEmpty { return true }
+                guard let parts = URLComponents(string: value), parts.user == nil, parts.password == nil else { return false }
+                return R2PublicURLValidator.baseURL(from: value) != nil
+            },
+            Key.objectPrefix: PortablePreferenceField(fallback: .string("")) {
+                if case let .string(value) = $0 { value.utf8.count <= 1_024 && R2ObjectPrefixValidator.isValid(value) } else { false }
+            }
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        bucket = storage.string(forKey: Key.bucket) ?? ""
+        publicBaseURL = storage.string(forKey: Key.publicBaseURL) ?? ""
+        objectPrefix = storage.string(forKey: Key.objectPrefix) ?? ""
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
     }
 
     func loadSecret() throws -> String {

@@ -49,7 +49,7 @@ class PluginSourceManifestTests(unittest.TestCase):
     def test_all_repository_manifests_publish_complete_product_metadata(self) -> None:
         known_ids = load_known_plugin_ids(PLUGINS_ROOT)
         required_sections = {
-            "presentation", "discovery", "requirements", "privacy", "setup", "relationships"
+            "presentation", "discovery", "requirements", "privacy", "setup", "relationships", "preferencesBackup"
         }
         for path in sorted(PLUGINS_ROOT.glob("*/plugin.json")):
             manifest = json.loads(path.read_text(encoding="utf-8"))
@@ -61,6 +61,34 @@ class PluginSourceManifestTests(unittest.TestCase):
                     set(projected["presentation"]["longDescription"]),
                     SUPPORTED_LOCALES,
                 )
+
+    def test_backup_coverage_rejects_unknown_or_contradictory_declarations(self) -> None:
+        path = PLUGINS_ROOT / "WindowLayouts" / "plugin.json"
+        original = json.loads(path.read_text(encoding="utf-8"))
+        invalid = [
+            {"status": "complete", "exclusions": []},
+            {"status": [], "exclusions": []},
+            {"status": "partial", "exclusions": []},
+            {"status": "portable", "exclusions": ["credentials"]},
+            {"status": "partial", "exclusions": ["unknown"]},
+            {"status": "partial", "exclusions": ["credentials", "credentials"]},
+        ]
+        for coverage in invalid:
+            manifest = copy.deepcopy(original)
+            manifest["preferencesBackup"] = coverage
+            with self.subTest(coverage=coverage), self.assertRaises(ManifestValidationError):
+                validate_and_project_manifest(manifest, path, load_known_plugin_ids(PLUGINS_ROOT))
+        # Legacy packages remain valid without a declaration.
+        original.pop("preferencesBackup")
+        validate_and_project_manifest(original, path, load_known_plugin_ids(PLUGINS_ROOT))
+
+    def test_backup_declaration_matches_source_provider_conformance(self) -> None:
+        for path in sorted(PLUGINS_ROOT.glob("*/plugin.json")):
+            manifest = json.loads(path.read_text())
+            expects = manifest["preferencesBackup"]["status"] in {"portable", "partial"}
+            sources = "\n".join(p.read_text() for p in (path.parent / "Sources").rglob("*.swift"))
+            with self.subTest(plugin=manifest["id"]):
+                self.assertEqual(expects, bool(re.search(r"\bPluginPortablePreferencesProviding\b", sources)))
 
     def test_source_localization_references_expand_before_projection(self) -> None:
         path = PLUGINS_ROOT / "ActivityBar" / "plugin.json"

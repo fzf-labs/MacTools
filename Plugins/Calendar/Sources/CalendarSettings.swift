@@ -94,6 +94,7 @@ final class CalendarSettingsStore: ObservableObject {
 
     init(storage: PluginStorage, languageIdentifier: String? = nil) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         let legacySelection: CalendarAlternateCalendar?
         switch storage.string(forKey: StorageKey.legacyLunarDisplay) {
         case "shown": legacySelection = .chinese
@@ -123,13 +124,40 @@ final class CalendarSettingsStore: ObservableObject {
         )
     }
 
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            StorageKey.weekStartDay: .choice("sunday", allowed: CalendarWeekStartDay.allCases.map(\.rawValue)),
+            StorageKey.showsRecentAgenda: .boolean(true),
+            StorageKey.agendaDayCount: .integer(3, range: 1...7),
+            StorageKey.agendaDirection: .choice("future", allowed: CalendarAgendaDirection.allCases.map(\.rawValue)),
+            StorageKey.alternateCalendar: .choice("none", allowed: CalendarAlternateCalendar.allCases.map(\.rawValue)),
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        weekStartDay = storage.string(forKey: StorageKey.weekStartDay).flatMap(CalendarWeekStartDay.init(rawValue:)) ?? .sunday
+        showsRecentAgenda = storage.object(forKey: StorageKey.showsRecentAgenda) as? Bool ?? true
+        agendaRange = CalendarAgendaRange(
+            dayCount: storage.object(forKey: StorageKey.agendaDayCount) as? Int ?? 3,
+            direction: storage.string(forKey: StorageKey.agendaDirection).flatMap(CalendarAgendaDirection.init(rawValue:)) ?? .future
+        )
+        alternateCalendar = storage.string(forKey: StorageKey.alternateCalendar).flatMap(CalendarAlternateCalendar.init(rawValue:)) ?? .none
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
+    }
+
     func setWeekStartDay(_ day: CalendarWeekStartDay) {
         guard weekStartDay != day else {
             return
         }
 
+        guard portableStore.commit([StorageKey.weekStartDay: .string(day.rawValue)]) else { return }
         weekStartDay = day
-        storage.set(day.rawValue, forKey: StorageKey.weekStartDay)
+        onPersistentPreferencesChange?()
     }
 
     func setShowsRecentAgenda(_ value: Bool) {
@@ -137,20 +165,25 @@ final class CalendarSettingsStore: ObservableObject {
             return
         }
 
+        guard portableStore.commit([StorageKey.showsRecentAgenda: .boolean(value)]) else { return }
         showsRecentAgenda = value
-        storage.set(value, forKey: StorageKey.showsRecentAgenda)
+        onPersistentPreferencesChange?()
     }
 
     func setAgendaRange(_ range: CalendarAgendaRange) {
         guard agendaRange != range else { return }
+        guard portableStore.commit([
+            StorageKey.agendaDayCount: .integer(range.dayCount),
+            StorageKey.agendaDirection: .string(range.direction.rawValue)
+        ]) else { return }
         agendaRange = range
-        storage.set(range.dayCount, forKey: StorageKey.agendaDayCount)
-        storage.set(range.direction.rawValue, forKey: StorageKey.agendaDirection)
+        onPersistentPreferencesChange?()
     }
 
     func setAlternateCalendar(_ calendar: CalendarAlternateCalendar) {
         guard alternateCalendar != calendar else { return }
+        guard portableStore.commit([StorageKey.alternateCalendar: .string(calendar.rawValue)]) else { return }
         alternateCalendar = calendar
-        storage.set(calendar.rawValue, forKey: StorageKey.alternateCalendar)
+        onPersistentPreferencesChange?()
     }
 }

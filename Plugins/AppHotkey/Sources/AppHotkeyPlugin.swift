@@ -203,8 +203,8 @@ final class AppHotkeyPlugin:
     func handleAction(_ action: PluginPanelAction) {
         switch action {
         case let .setSwitch(value):
+            guard store.setEnabled(value) else { return }
             isEnabled = value
-            storage.set(value, forKey: "isEnabled")
             onStateChange?()
         default:
             break
@@ -243,7 +243,7 @@ final class AppHotkeyPlugin:
                     id: "entryID",
                     title: localization.string("action.launch.app", defaultValue: "应用"),
                     kind: .string,
-                    portability: .localOnly
+                    portability: .portable
                 ),
             ],
             externalInvocationPolicy: .allowed,
@@ -338,4 +338,32 @@ final class AppHotkeyPlugin:
         return store.entries.first { $0.id == id }
     }
 
+}
+
+extension AppHotkeyPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling, PluginPortablePreferencesActionReferencesProviding, PluginActionReferenceBackupProviding {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { store.onPersistentPreferencesChange }
+        set { store.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { store.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard store.restorePortableBackup(data) else { return false }
+        isEnabled = store.isEnabled
+        onStateChange?()
+        return true
+    }
+    func actionReferences(inPortablePreferences data: Data) -> [ActionReference]? {
+        store.actionEntryIDs(inPortableBackup: data)?.compactMap { id in
+            guard let parameters = try? ActionParameterSet(["entryID": .string(id.uuidString.lowercased())]) else { return nil }
+            return ActionReference(key: ActionKey(providerID: metadata.id, actionID: "launch"), parameters: parameters)
+        }
+    }
+    func backupDisposition(for reference: ActionReference) -> PluginActionReferenceBackupDisposition {
+        guard reference.key == launchDefinition.key, reference.parameters.entries.count == 1,
+              case let .string(raw)? = reference.parameters["entryID"], let id = UUID(uuidString: raw),
+              raw == id.uuidString.lowercased() else { return .excluded }
+        return .requiresPluginPreferences
+    }
 }

@@ -43,6 +43,21 @@ private final class ScaleTestService: TrackpadInputService {
 
 @MainActor
 final class TrackpadScaleModelTests: XCTestCase {
+    func testPortablePreferenceDoesNotStartCaptureOrReplaceCalibration() throws {
+        let source = TrackpadScaleModel(storage: ScaleTestStorage())
+        source.setAutoCaptureEnabled(false)
+        let storage = ScaleTestStorage()
+        storage.set(["1": 2.0], forKey: "calibration-factors.v1")
+        let destination = TrackpadScaleModel(storage: storage)
+        let service = ScaleTestService()
+        destination.setService(service)
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertFalse(destination.autoCaptureEnabled)
+        XCTAssertFalse(destination.isRunning)
+        XCTAssertTrue(service.handlers.isEmpty)
+        XCTAssertEqual(storage.object(forKey: "calibration-factors.v1") as? [String: Double], ["1": 2.0])
+    }
+
     private func frame(_ pressure: Double, time: Double, contactID: Int = 1, deviceID: UInt64 = 1) -> TrackpadSensorFrame {
         TrackpadSensorFrame(deviceID: deviceID, timestamp: time,
             contacts: [TrackpadSensorContact(identifier: contactID, x: 0.5, y: 0.5, pressure: pressure)])

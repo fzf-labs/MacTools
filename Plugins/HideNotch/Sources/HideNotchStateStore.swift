@@ -28,12 +28,29 @@ final class HideNotchStateStore: HideNotchStateStoring {
             fromLegacyKey: StorageKey.desiredEnabled,
             to: StorageKey.desiredEnabled
         )
+        _ = portableStore.recover()
         removeObsoleteStateIfNeeded()
     }
 
     var desiredEnabled: Bool {
         get { storage.bool(forKey: StorageKey.desiredEnabled) }
-        set { storage.set(newValue, forKey: StorageKey.desiredEnabled) }
+        set {
+            guard desiredEnabled != newValue,
+                  portableStore.commit([StorageKey.desiredEnabled: .boolean(newValue)]) else { return }
+            onPersistentPreferencesChange?()
+        }
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private var portableStore: PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.desiredEnabled: .boolean(false)])
+    }
+    func portableBackup() -> Data? { portableStore.backup() }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        let previous = desiredEnabled
+        guard portableStore.restore(data) else { return false }
+        if desiredEnabled != previous { onPersistentPreferencesChange?() }
+        return true
     }
 
     private func removeObsoleteStateIfNeeded() {

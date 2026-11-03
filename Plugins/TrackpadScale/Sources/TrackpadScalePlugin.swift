@@ -77,3 +77,21 @@ final class TrackpadScalePlugin: MacToolsPlugin, PluginSettingsPresenting,
     }
     func deactivate(reason: PluginDeactivationReason) { model.stop() }
 }
+
+// MARK: - Portable preferences
+
+extension TrackpadScalePlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { model.onPersistentPreferencesChange }
+        set { model.onPersistentPreferencesChange = newValue }
+    }
+
+    func makePortablePreferencesBackup() -> Data? { model.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard model.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
+    }
+}

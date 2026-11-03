@@ -336,6 +336,7 @@ final class LaunchControlFavoritesStore {
     }
 
     private let storage: PluginStorage
+    var onMutation: (() -> Void)?
 
     init(
         context: PluginRuntimeContext = PluginRuntimeContext(pluginID: "launch-control"),
@@ -345,6 +346,7 @@ final class LaunchControlFavoritesStore {
             UserDefaultsPluginStorage(pluginID: context.pluginID, userDefaults: $0)
         } ?? context.storage
         storage.migrateValueIfNeeded(fromLegacyKey: StorageKey.storage, to: StorageKey.storage)
+        _ = LaunchControlPortablePreferences.store(storage).recover()
     }
 
     func favoriteItemIDs() -> Set<String> {
@@ -355,14 +357,18 @@ final class LaunchControlFavoritesStore {
         favoriteItemIDs().contains(itemID)
     }
 
-    func setFavorite(_ isFavorite: Bool, for itemID: String) {
+    @discardableResult
+    func setFavorite(_ isFavorite: Bool, for itemID: String) -> Bool {
         var favorites = favoriteItemIDs()
         if isFavorite {
             favorites.insert(itemID)
         } else {
             favorites.remove(itemID)
         }
-        storage.set(favorites.sorted(), forKey: StorageKey.storage)
+        guard favorites != favoriteItemIDs() else { return true }
+        guard LaunchControlPortablePreferences.store(storage).commit([StorageKey.storage: .strings(favorites.sorted())]) else { return false }
+        onMutation?()
+        return true
     }
 }
 
@@ -375,6 +381,7 @@ final class LaunchControlNotesStore {
     }
 
     private let storage: PluginStorage
+    var onMutation: (() -> Void)?
 
     init(
         context: PluginRuntimeContext = PluginRuntimeContext(pluginID: "launch-control"),
@@ -399,7 +406,8 @@ final class LaunchControlNotesStore {
         allNotes()[itemID] ?? ""
     }
 
-    func setNote(_ note: String, for itemID: String) {
+    @discardableResult
+    func setNote(_ note: String, for itemID: String) -> Bool {
         var notes = allNotes()
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
@@ -407,8 +415,13 @@ final class LaunchControlNotesStore {
         } else {
             notes[itemID] = trimmed
         }
-        guard let data = try? JSONEncoder().encode(notes) else { return }
-        storage.set(data, forKey: StorageKey.storage)
+        guard notes != allNotes() else { return true }
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(notes),
+              LaunchControlPortablePreferences.store(storage).commit([StorageKey.storage: .data(data)]) else { return false }
+        onMutation?()
+        return true
     }
 }
 

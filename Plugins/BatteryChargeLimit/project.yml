@@ -4,6 +4,7 @@ settings:
 
 core:
   sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift
     - path: SMCHelper/Sources/BatteryForceDischargePolicy.swift
 
 targets:

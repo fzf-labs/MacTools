@@ -86,6 +86,8 @@ final class LaunchpadPlugin:
 
     private let preferences: LaunchpadPreferences
     private let layoutStore: LaunchpadLayoutStore
+    private var isActive = false
+    private let portablePreferences: LaunchpadPortablePreferences
     private let overlay: LaunchpadOverlayController
     private let localization: PluginLocalization
     private let hotCornerMonitor = LaunchpadHotCornerMonitor()
@@ -107,24 +109,44 @@ final class LaunchpadPlugin:
         let layoutStore = LaunchpadLayoutStore(storage: context.storage)
         self.preferences = preferences
         self.layoutStore = layoutStore
-        self.overlay = LaunchpadOverlayController(
+        let overlay = LaunchpadOverlayController(
             preferences: preferences,
             layoutStore: layoutStore,
             localization: localization
         )
+        self.overlay = overlay
+        self.portablePreferences = LaunchpadPortablePreferences(storage: context.storage, preferences: preferences, layoutStore: layoutStore,
+            beforePublishing: { [weak overlay] in overlay?.close(restoringFocus: false, discardingEdits: true) })
+        overlay.onDidClose = { [weak self] in
+            guard let self, !self.portablePreferences.isRestoring else { return }
+            self.portablePreferences.rebindAvailableApplications()
+        }
+        overlay.onAppsDidReload = { [weak self] in
+            guard let self, !self.overlay.isVisible else { return }
+            self.portablePreferences.rebindAvailableApplications()
+        }
 
         hotCornerMonitor.onTrigger = { [weak self] in self?.openLaunchpad() }
         // Apply the saved corner now and whenever the user changes it in settings.
         preferences.$hotCorner
-            .sink { [weak hotCornerMonitor] corner in hotCornerMonitor?.update(corner: corner) }
+            .sink { [weak self] corner in
+                guard let self, self.isActive, !self.portablePreferences.isRestoring else { return }
+                self.hotCornerMonitor.update(corner: corner)
+            }
             .store(in: &cancellables)
         layoutStore.$layout
             .dropFirst()
-            .sink { [weak self] _ in self?.onStateChange?() }
+            .sink { [weak self] _ in
+                guard let self, !self.portablePreferences.isRestoring else { return }
+                self.onStateChange?()
+            }
             .store(in: &cancellables)
         preferences.$hiddenAppIDs
             .dropFirst()
-            .sink { [weak self] _ in self?.onStateChange?() }
+            .sink { [weak self] _ in
+                guard let self, !self.portablePreferences.isRestoring else { return }
+                self.onStateChange?()
+            }
             .store(in: &cancellables)
     }
 
@@ -207,7 +229,7 @@ final class LaunchpadPlugin:
                     preferences: preferences,
                     layoutStore: layoutStore,
                     localization: localization,
-                    sectionKind: .hiddenApps
+                    sectionKind: .hiddenApps, retainedApplicationName: { self.portablePreferences.applicationName(for: $0) }
                 )
             }
         ])
@@ -297,10 +319,12 @@ final class LaunchpadPlugin:
     }
 
     private func openLaunchpad() {
+        if !overlay.isVisible { portablePreferences.rebindAvailableApplications() }
         overlay.toggle()
     }
 
     func activate(context: PluginRuntimeContext) {
+        isActive = true
         // Resume after a pause, such as re-enabling the plugin after hiding or disabling it:
         // `deactivate` stopped the cursor poll but
         // the corner preference kept its value, so the `$hotCorner` sink (fires on CHANGE) never
@@ -312,9 +336,26 @@ final class LaunchpadPlugin:
     }
 
     func deactivate(reason: PluginDeactivationReason) {
+        isActive = false
         if reason.requiresStateCleanup {
             hotCornerMonitor.stop()      // stop the cursor poll; no runaway timer
             overlay.close()
         }
+    }
+}
+
+extension LaunchpadPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { portablePreferences.onPersistentPreferencesChange }
+        set { portablePreferences.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { portablePreferences.backup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard portablePreferences.restore(data) else { return false }
+        if isActive { hotCornerMonitor.update(corner: preferences.hotCorner) }
+        onStateChange?()
+        return true
     }
 }

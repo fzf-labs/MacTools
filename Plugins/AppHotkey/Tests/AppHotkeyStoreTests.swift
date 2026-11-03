@@ -44,6 +44,21 @@ final class AppHotkeyStoreTests: XCTestCase {
         XCTAssertTrue(AppHotkeyStore(storage: storage).entries.isEmpty)
     }
 
+    func testPortableEntriesKeepUUIDAndUnresolvedIdentityWithoutLegacyShortcut() throws {
+        let source = AppHotkeyStore(storage: InMemoryPluginStorage())
+        let entry = AppShortcutEntry(bundleURL: URL(fileURLWithPath: "/missing/Example.app"), displayName: "Example", shortcut: .init(keyCode: 0, modifiers: [.command, .option]))
+        source.addEntry(entry)
+        let data = try XCTUnwrap(source.portableBackup())
+        XCTAssertFalse(String(decoding: data, as: UTF8.self).contains("/missing/"))
+        let storage = InMemoryPluginStorage()
+        let destination = AppHotkeyStore(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(data))
+        XCTAssertEqual(destination.entries.first?.id, entry.id)
+        XCTAssertNil(destination.entries.first?.bundleURL)
+        XCTAssertNil(destination.entries.first?.shortcut)
+        XCTAssertEqual(AppHotkeyStore(storage: storage).portableBackup(), data)
+    }
+
     func testConflictDetectionIgnoresExcludedEntry() {
         let store = AppHotkeyStore(storage: InMemoryPluginStorage())
         let binding = ShortcutBinding(keyCode: 0, modifiers: [.command, .control])

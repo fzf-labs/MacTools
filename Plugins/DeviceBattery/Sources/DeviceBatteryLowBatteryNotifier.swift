@@ -10,11 +10,16 @@ struct DeviceBatteryLowBatteryNotification: Equatable {
 
 @MainActor
 protocol DeviceBatteryLowBatteryNotifying {
+    func requestAuthorization(completion: @escaping @MainActor (_ newlyGranted: Bool) -> Void)
     func notifyLowBatteryDevices(
         _ items: [DeviceBatteryItem],
         threshold: Int,
         localization: PluginLocalization
     )
+}
+
+extension DeviceBatteryLowBatteryNotifying {
+    func requestAuthorization(completion: @escaping @MainActor (Bool) -> Void) { completion(false) }
 }
 
 @MainActor
@@ -27,9 +32,21 @@ final class DeviceBatteryLowBatteryNotificationController {
 
     private let notifier: any DeviceBatteryLowBatteryNotifying
     private var notifiedDeviceKeyGroups: [Set<String>] = []
+    private var isRequestingAuthorization = false
 
     init(notifier: any DeviceBatteryLowBatteryNotifying) {
         self.notifier = notifier
+    }
+
+    func requestAuthorization(reevaluate: @escaping @MainActor () -> Void = {}) {
+        guard !isRequestingAuthorization else { return }
+        isRequestingAuthorization = true
+        notifier.requestAuthorization { [weak self] newlyGranted in
+            guard let self else { return }
+            self.isRequestingAuthorization = false
+            if newlyGranted { self.notifiedDeviceKeyGroups.removeAll() }
+            reevaluate()
+        }
     }
 
     func evaluate(
@@ -43,6 +60,7 @@ final class DeviceBatteryLowBatteryNotificationController {
             notifiedDeviceKeyGroups.removeAll()
             return
         }
+        guard !isRequestingAuthorization else { return }
 
         let lowBatteryItems = snapshot.lowBatteryItems(threshold: normalizedThreshold)
         for recoveredItem in snapshot.visibleItems
@@ -146,17 +164,24 @@ final class DeviceBatteryUserNotificationCenterNotifier: DeviceBatteryLowBattery
             switch settings.authorizationStatus {
             case .authorized, .provisional, .ephemeral:
                 Self.addNotification(title: title, body: body, identifier: identifier)
-            case .notDetermined:
-                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
-                    guard granted else {
-                        return
-                    }
-                    Self.addNotification(title: title, body: body, identifier: identifier)
-                }
-            case .denied:
+            case .notDetermined, .denied:
                 break
             @unknown default:
                 break
+            }
+        }
+    }
+
+    func requestAuthorization(completion: @escaping @MainActor (Bool) -> Void) {
+        let center = notificationCenter
+        center.getNotificationSettings { settings in
+            let wasAuthorized: Bool
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral: wasAuthorized = true
+            default: wasAuthorized = false
+            }
+            center.requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                Task { @MainActor in completion(granted && !wasAuthorized) }
             }
         }
     }

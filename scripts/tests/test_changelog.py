@@ -37,10 +37,15 @@ class ChangelogValidationCommandTests(unittest.TestCase):
             # Give this minimal checkout a valid empty plugin projection.
             plugin_scripts = root / "scripts" / "plugins"
             plugin_scripts.mkdir()
-            for name in ["generate_website_plugin_data.py", "plugin_source_manifest.py"]:
+            for name in ["generate_website_plugin_data.py", "plugin_source_manifest.py", "generate-preferences-backup-inventory.py"]:
                 shutil.copy2(SCRIPT_PATH.parent / "plugins" / name, plugin_scripts / name)
             subprocess.run(
                 [sys.executable, str(plugin_scripts / "generate_website_plugin_data.py")],
+                cwd=root, capture_output=True, text=True, check=True,
+            )
+            (root / "docs" / "plugins").mkdir(parents=True)
+            subprocess.run(
+                [sys.executable, str(plugin_scripts / "generate-preferences-backup-inventory.py")],
                 cwd=root, capture_output=True, text=True, check=True,
             )
             fragment = root / "changes" / "unreleased" / "example.md"

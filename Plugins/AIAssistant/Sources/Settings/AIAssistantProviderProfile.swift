@@ -152,6 +152,12 @@ struct AIAssistantProviderProfileStore {
     func saveProfiles(_ profiles: [AIAssistantProviderProfile]) throws {
         let normalizedProfiles = profiles.map { $0.normalized() }
         let data = try JSONEncoder().encode(normalizedProfiles)
+        let previous = storage.object(forKey: AIAssistantConstants.StorageKey.providerProfiles)
         storage.set(data, forKey: AIAssistantConstants.StorageKey.providerProfiles)
+        guard storage.data(forKey: AIAssistantConstants.StorageKey.providerProfiles) == data else {
+            if let previous { storage.set(previous, forKey: AIAssistantConstants.StorageKey.providerProfiles) }
+            else { storage.removeObject(forKey: AIAssistantConstants.StorageKey.providerProfiles) }
+            throw CocoaError(.fileWriteUnknown)
+        }
     }
 }

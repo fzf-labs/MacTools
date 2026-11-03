@@ -12,6 +12,7 @@ struct TranslatorSettingsView: View {
     @State private var messageIsError = false
 
     private let localization: PluginLocalization
+    private let languagePair: TranslatorLanguagePair
     private let onSave: ([TranslatorProviderProfile], [String: String], TranslatorLanguagePair) -> String?
     private let onMakeNewProfile: ([TranslatorProviderProfile]) -> TranslatorProviderProfile
 
@@ -30,6 +31,7 @@ struct TranslatorSettingsView: View {
         _savedLanguagePair = State(initialValue: languagePair)
         _selectedProfileID = State(initialValue: profiles.first?.id ?? TranslatorProviderProfile.defaultID)
         self.localization = localization
+        self.languagePair = languagePair
         self.onSave = onSave
         self.onMakeNewProfile = onMakeNewProfile
     }
@@ -40,6 +42,13 @@ struct TranslatorSettingsView: View {
             providerListSection
             providerDetailSection
             actions
+        }
+        .onChange(of: languagePair) { _, pair in
+            firstLanguage = pair.first
+            secondLanguage = pair.second
+            savedLanguagePair = pair
+            message = nil
+            messageIsError = false
         }
     }
 

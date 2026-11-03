@@ -46,6 +46,7 @@ final class AutoInputStore: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         Self.migrateAutoSwitchPreferenceIfNeeded(storage: storage)
         self.isAutoSwitchEnabled = storage.object(forKey: Keys.isAutoSwitchEnabled) == nil
             ? true
@@ -88,6 +89,80 @@ final class AutoInputStore: ObservableObject {
         self.websiteRules = websites.filter { $0.isValid && websiteIDs.insert($0.id).inserted }
         let decodedMemories = Self.decode([String: String].self, from: storage.data(forKey: Keys.memories)) ?? [:]
         self.memories = decodedMemories.filter { !$0.key.isEmpty && !$0.value.isEmpty }
+    }
+
+    var onPersistentPreferencesChange: (() -> Void)?
+    private static func validIdentifier(_ value: String) -> Bool {
+        !value.isEmpty && value.utf8.count <= 512
+            && value.unicodeScalars.allSatisfy { !CharacterSet.whitespacesAndNewlines.union(.controlCharacters).union(CharacterSet(charactersIn: "/\\")).contains($0) }
+    }
+    private static func validRules(_ data: Data) -> Bool {
+        guard let rules = try? JSONDecoder().decode([AutoInputRule].self, from: data), rules.count <= 256,
+              Set(rules.map(\.bundleIdentifier)).count == rules.count else { return false }
+        return rules.allSatisfy { validIdentifier($0.bundleIdentifier) && validIdentifier($0.inputSourceID)
+            && $0.displayName.utf8.count <= 256 && !$0.displayName.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) }
+    }
+    private static func validMemories(_ data: Data) -> Bool {
+        guard let values = try? JSONDecoder().decode([String: String].self, from: data), values.count <= 1_024 else { return false }
+        return values.allSatisfy { validIdentifier($0.key) && validIdentifier($0.value) }
+    }
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Keys.isAutoSwitchEnabled: .boolean(true),
+            Keys.isInputHUDEnabled: .boolean(false),
+            Keys.reducesFrequentHUDPresentations: .boolean(false),
+            Keys.isInteractiveHUDEnabled: .boolean(false),
+            Keys.remembersLastInputSource: .boolean(true),
+            Keys.inputHUDReminderIntervalSeconds: .integer(60, range: 5...300),
+            Keys.inputHUDAppSwitchReminderCount: .integer(3, range: 1...10),
+            Keys.inputHUDSize: .choice("standard", allowed: AutoInputHUDSize.allCases.map(\.rawValue)),
+            Keys.inputHUDPosition: .choice("automatic", allowed: AutoInputHUDPosition.allCases.map(\.rawValue)),
+            Keys.rules: .data(Data("[]".utf8), maximumBytes: 1_024 * 1_024, validate: validRules),
+            Keys.memories: .data(Data("{}".utf8), maximumBytes: 1_024 * 1_024, validate: validMemories)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func portableBackup() -> Data? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let portableRules = rules.map { rule in
+            var copy = rule
+            copy.bundleURLString = nil
+            return copy
+        }
+        guard let data = try? encoder.encode(portableRules) else { return nil }
+        return portableStore.backup(overriding: [Keys.rules: .data(data)])
+    }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard var incoming = portableStore.validatedValues(from: data) else { return false }
+        if case let .data(ruleData) = incoming[Keys.rules] {
+            guard let restored = try? JSONDecoder().decode([AutoInputRule].self, from: ruleData),
+                  restored.allSatisfy({ $0.bundleURLString == nil }) else { return false }
+            let rebound = restored.map { rule in
+                var copy = rule
+                copy.bundleURLString = rules.first { $0.bundleIdentifier == rule.bundleIdentifier }?.bundleURLString
+                return copy
+            }
+            guard let persisted = try? encoder.encode(rebound) else { return false }
+            incoming[Keys.rules] = .data(persisted)
+        }
+        let previous = portableStore.currentValues()
+        guard portableStore.commit(incoming) else { return false }
+        let reloaded = AutoInputStore(storage: storage)
+        isAutoSwitchEnabled = reloaded.isAutoSwitchEnabled
+        isInputHUDEnabled = reloaded.isInputHUDEnabled
+        reducesFrequentHUDPresentations = reloaded.reducesFrequentHUDPresentations
+        isInteractiveHUDEnabled = reloaded.isInteractiveHUDEnabled
+        remembersLastInputSource = reloaded.remembersLastInputSource
+        inputHUDReminderIntervalSeconds = reloaded.inputHUDReminderIntervalSeconds
+        inputHUDAppSwitchReminderCount = reloaded.inputHUDAppSwitchReminderCount
+        inputHUDSize = reloaded.inputHUDSize
+        inputHUDPosition = reloaded.inputHUDPosition
+        rules = reloaded.rules
+        memories = reloaded.memories
+        persistenceFailure = nil
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        return true
     }
 
     @discardableResult
@@ -293,6 +368,7 @@ final class AutoInputStore: ObservableObject {
             restore(previous, forKey: key)
             return .rejected(rollbackSucceeded: rawValue(storage.object(forKey: key), equals: previous))
         }
+        onPersistentPreferencesChange?()
         return .committed
     }
 
@@ -303,6 +379,7 @@ final class AutoInputStore: ObservableObject {
             restore(previous, forKey: key)
             return .rejected(rollbackSucceeded: rawValue(storage.object(forKey: key), equals: previous))
         }
+        onPersistentPreferencesChange?()
         return .committed
     }
 
@@ -314,6 +391,7 @@ final class AutoInputStore: ObservableObject {
             restore(previous, forKey: key)
             return .rejected(rollbackSucceeded: rawValue(storage.object(forKey: key), equals: previous))
         }
+        onPersistentPreferencesChange?()
         return .committed
     }
 
@@ -332,6 +410,7 @@ final class AutoInputStore: ObservableObject {
                 rollbackSucceeded: rawValue(storage.object(forKey: key), equals: previous)
             )
         }
+        onPersistentPreferencesChange?()
         return .committed
     }
 

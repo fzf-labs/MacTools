@@ -16,12 +16,35 @@ final class WindowLayoutsStore {
         static let shortcutPreset = "shortcut-preset"
         static let library = "library.v1"
         static let quarantinedLibrary = "library.v1.quarantined"
+        static let portableRestore = "portable-restore.v1"
     }
 
     private struct LibraryEnvelope: Codable {
         let formatVersion: Int
         let customCommands: [WindowCustomCommand]
     }
+
+    private struct PortablePreferences: Codable, Equatable {
+        let formatVersion: Int
+        let gap: Double
+        let cyclesHalves: Bool
+        let respectsStageManager: Bool
+        let showsCommandFeedback: Bool
+        let centeredGuidesEnabled: Bool
+        let modifierDragEnabled: Bool
+        let modifierDragModifiers: ShortcutModifiers
+        let modifierDragShowsIndicator: Bool
+        let shortcutPreset: WindowShortcutPreset
+        let customCommands: [WindowCustomCommand]
+    }
+
+    private static let portableKeys = [
+        StorageKey.gap, StorageKey.cyclesHalves, StorageKey.respectsStageManager,
+        StorageKey.showsCommandFeedback, StorageKey.centeredGuidesEnabled,
+        StorageKey.modifierDragEnabled, StorageKey.modifierDragModifiers,
+        StorageKey.modifierDragShowsIndicator, StorageKey.shortcutPreset, StorageKey.library,
+    ]
+    private static let maximumPortableBytes = 2 * 1_024 * 1_024
 
     static let gapRange: ClosedRange<Double> = 0...40
     static let defaultGap: Double = 0
@@ -48,6 +71,7 @@ final class WindowLayoutsStore {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = Self.recoverPortableRestore(storage: storage)
         let storedGap = (storage.object(forKey: StorageKey.gap) as? NSNumber)?.doubleValue
             ?? Self.defaultGap
         self.gap = Self.clampedGap(storedGap)
@@ -76,80 +100,202 @@ final class WindowLayoutsStore {
 
     static let defaultModifierDragModifiers: ShortcutModifiers = [.control, .option]
 
+    func portableBackup() -> Data? {
+        guard storage.object(forKey: StorageKey.portableRestore) == nil else { return nil }
+        let payload = portablePreferences
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard isValid(payload), let data = try? encoder.encode(payload),
+              data.count <= Self.maximumPortableBytes else { return nil }
+        return data
+    }
+
+    func customActionIDs(inPortableBackup data: Data) -> [String]? {
+        decodedPortablePreferences(data)?.customCommands.map(\.actionID)
+    }
+
+    @discardableResult
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard let payload = decodedPortablePreferences(data),
+              Self.recoverPortableRestore(storage: storage) else { return false }
+        guard payload != portablePreferences else { return true }
+        guard let library = try? JSONEncoder().encode(LibraryEnvelope(
+            formatVersion: 1, customCommands: payload.customCommands
+        )) else { return false }
+        let candidate: [String: Any] = [
+            StorageKey.gap: payload.gap,
+            StorageKey.cyclesHalves: payload.cyclesHalves,
+            StorageKey.respectsStageManager: payload.respectsStageManager,
+            StorageKey.showsCommandFeedback: payload.showsCommandFeedback,
+            StorageKey.centeredGuidesEnabled: payload.centeredGuidesEnabled,
+            StorageKey.modifierDragEnabled: payload.modifierDragEnabled,
+            StorageKey.modifierDragModifiers: payload.modifierDragModifiers.rawValue,
+            StorageKey.modifierDragShowsIndicator: payload.modifierDragShowsIndicator,
+            StorageKey.shortcutPreset: payload.shortcutPreset.rawValue,
+            StorageKey.library: library,
+        ]
+        guard persistValues(candidate) else { return false }
+        gap = payload.gap
+        cyclesHalves = payload.cyclesHalves
+        respectsStageManager = payload.respectsStageManager
+        showsCommandFeedback = payload.showsCommandFeedback
+        centeredGuidesEnabled = payload.centeredGuidesEnabled
+        modifierDragEnabled = payload.modifierDragEnabled
+        modifierDragModifiers = payload.modifierDragModifiers
+        modifierDragShowsIndicator = payload.modifierDragShowsIndicator
+        shortcutPreset = payload.shortcutPreset
+        customCommands = payload.customCommands
+        recordMutation()
+        onSafetyPolicyMutation?()
+        return true
+    }
+
+    private var portablePreferences: PortablePreferences {
+        PortablePreferences(
+            formatVersion: 1, gap: gap, cyclesHalves: cyclesHalves,
+            respectsStageManager: respectsStageManager, showsCommandFeedback: showsCommandFeedback,
+            centeredGuidesEnabled: centeredGuidesEnabled, modifierDragEnabled: modifierDragEnabled,
+            modifierDragModifiers: modifierDragModifiers, modifierDragShowsIndicator: modifierDragShowsIndicator,
+            shortcutPreset: shortcutPreset, customCommands: customCommands.map { command in
+                var copy = command
+                copy.allowExternalInvocation = false
+                return copy
+            }
+        )
+    }
+
+    private func decodedPortablePreferences(_ data: Data) -> PortablePreferences? {
+        guard data.count <= Self.maximumPortableBytes,
+              let payload = try? JSONDecoder().decode(PortablePreferences.self, from: data),
+              isValid(payload) else { return nil }
+        return payload
+    }
+
+    private func isValid(_ payload: PortablePreferences) -> Bool {
+        payload.formatVersion == 1 && payload.gap.isFinite && Self.gapRange.contains(payload.gap)
+            && !payload.modifierDragModifiers.isEmpty && payload.modifierDragModifiers.containsOnlySupportedValues
+            && payload.customCommands.count <= Self.maximumCustomCommandCount
+            && normalizedCommands(payload.customCommands) == payload.customCommands
+            && payload.customCommands.allSatisfy { !$0.allowExternalInvocation }
+    }
+
+    private static func matches(_ values: [String: Any], storage: PluginStorage) -> Bool {
+        portableKeys.allSatisfy { key in
+            switch (values[key] as? NSObject, storage.object(forKey: key) as? NSObject) {
+            case (nil, nil): true
+            case let (expected?, actual?): expected.isEqual(actual)
+            default: false
+            }
+        }
+    }
+
+    private static func recoverPortableRestore(storage: PluginStorage) -> Bool {
+        guard let rawJournal = storage.object(forKey: StorageKey.portableRestore) else { return true }
+        guard let data = rawJournal as? Data, data.count <= maximumPortableBytes,
+              let previous = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
+              Set(previous.keys).isSubset(of: Set(portableKeys)) else { return false }
+        for key in portableKeys {
+            if let value = previous[key] { storage.set(value, forKey: key) }
+            else { storage.removeObject(forKey: key) }
+        }
+        guard matches(previous, storage: storage) else { return false }
+        storage.removeObject(forKey: StorageKey.portableRestore)
+        return storage.object(forKey: StorageKey.portableRestore) == nil
+    }
+
     func setGap(_ gap: Double) {
         let gap = Self.clampedGap(gap)
+        guard self.gap != gap, persistValues([StorageKey.gap: gap]) else { return }
         self.gap = gap
-        storage.set(gap, forKey: StorageKey.gap)
         recordMutation()
     }
 
     func setCyclesHalves(_ enabled: Bool) {
+        guard cyclesHalves != enabled, persistValues([StorageKey.cyclesHalves: enabled]) else { return }
         cyclesHalves = enabled
-        storage.set(enabled, forKey: StorageKey.cyclesHalves)
         recordMutation()
     }
 
     func setRespectsStageManager(_ enabled: Bool) {
+        guard respectsStageManager != enabled, persistValues([StorageKey.respectsStageManager: enabled]) else { return }
         respectsStageManager = enabled
-        storage.set(enabled, forKey: StorageKey.respectsStageManager)
         recordMutation()
     }
 
     func setShowsCommandFeedback(_ enabled: Bool) {
+        guard showsCommandFeedback != enabled, persistValues([StorageKey.showsCommandFeedback: enabled]) else { return }
         showsCommandFeedback = enabled
-        storage.set(enabled, forKey: StorageKey.showsCommandFeedback)
         recordMutation()
     }
 
     func setCenteredGuidesEnabled(_ enabled: Bool) {
+        guard centeredGuidesEnabled != enabled, persistValues([StorageKey.centeredGuidesEnabled: enabled]) else { return }
         centeredGuidesEnabled = enabled
-        storage.set(enabled, forKey: StorageKey.centeredGuidesEnabled)
         recordMutation()
     }
 
     func setModifierDragEnabled(_ enabled: Bool) {
+        guard modifierDragEnabled != enabled, persistValues([StorageKey.modifierDragEnabled: enabled]) else { return }
         modifierDragEnabled = enabled
-        storage.set(enabled, forKey: StorageKey.modifierDragEnabled)
         recordMutation()
     }
 
     func setModifierDragModifiers(_ modifiers: ShortcutModifiers) {
         guard !modifiers.isEmpty, modifiers.containsOnlySupportedValues else { return }
+        guard modifierDragModifiers != modifiers, persistValues([StorageKey.modifierDragModifiers: modifiers.rawValue]) else { return }
         modifierDragModifiers = modifiers
-        storage.set(modifiers.rawValue, forKey: StorageKey.modifierDragModifiers)
         recordMutation()
     }
 
     func setModifierDragShowsIndicator(_ enabled: Bool) {
+        guard modifierDragShowsIndicator != enabled, persistValues([StorageKey.modifierDragShowsIndicator: enabled]) else { return }
         modifierDragShowsIndicator = enabled
-        storage.set(enabled, forKey: StorageKey.modifierDragShowsIndicator)
         recordMutation()
     }
 
     func setShortcutPreset(_ preset: WindowShortcutPreset) {
+        guard shortcutPreset != preset, persistValues([StorageKey.shortcutPreset: preset.rawValue]) else { return }
         shortcutPreset = preset
-        storage.set(preset.rawValue, forKey: StorageKey.shortcutPreset)
         recordMutation()
     }
 
     func reset() {
+        let keys = Set(Self.portableKeys).subtracting([StorageKey.shortcutPreset, StorageKey.library])
+        guard persistValues([:], removing: keys) else { return }
         gap = Self.defaultGap
         cyclesHalves = false
         respectsStageManager = true
         showsCommandFeedback = false
         centeredGuidesEnabled = false
-        storage.removeObject(forKey: StorageKey.centeredGuidesEnabled)
         modifierDragEnabled = false
         modifierDragModifiers = Self.defaultModifierDragModifiers
         modifierDragShowsIndicator = true
-        storage.removeObject(forKey: StorageKey.gap)
-        storage.removeObject(forKey: StorageKey.cyclesHalves)
-        storage.removeObject(forKey: StorageKey.respectsStageManager)
-        storage.removeObject(forKey: StorageKey.showsCommandFeedback)
-        storage.removeObject(forKey: StorageKey.modifierDragEnabled)
-        storage.removeObject(forKey: StorageKey.modifierDragModifiers)
-        storage.removeObject(forKey: StorageKey.modifierDragShowsIndicator)
         recordMutation()
+    }
+
+    private func persistValues(_ candidate: [String: Any], removing: Set<String> = []) -> Bool {
+        guard Self.recoverPortableRestore(storage: storage) else { return false }
+        var previous: [String: Any] = [:]
+        for key in Self.portableKeys { previous[key] = storage.object(forKey: key) }
+        guard let journal = try? PropertyListSerialization.data(
+            fromPropertyList: previous, format: .binary, options: 0
+        ), journal.count <= Self.maximumPortableBytes else { return false }
+        storage.set(journal, forKey: StorageKey.portableRestore)
+        guard storage.data(forKey: StorageKey.portableRestore) == journal else { return false }
+        for (key, value) in candidate { storage.set(value, forKey: key) }
+        for key in removing { storage.removeObject(forKey: key) }
+        let expected = previous.merging(candidate, uniquingKeysWith: { _, incoming in incoming })
+            .filter { !removing.contains($0.key) }
+        guard Self.matches(expected, storage: storage) else {
+            _ = Self.recoverPortableRestore(storage: storage)
+            return false
+        }
+        storage.removeObject(forKey: StorageKey.portableRestore)
+        guard storage.object(forKey: StorageKey.portableRestore) == nil else {
+            _ = Self.recoverPortableRestore(storage: storage)
+            return false
+        }
+        return true
     }
 
     @discardableResult
@@ -252,8 +398,7 @@ final class WindowLayoutsStore {
         )), data.count <= 2 * 1_024 * 1_024 else {
             return false
         }
-        storage.set(data, forKey: StorageKey.library)
-        return storage.data(forKey: StorageKey.library) == data
+        return persistValues([StorageKey.library: data])
     }
 
     private func normalizedCommands(

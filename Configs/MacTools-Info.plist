@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>UTExportedTypeDeclarations</key>
-    <array>
-        <dict>
-            <key>UTTypeIdentifier</key>
-            <string>com.mactools.panel-layout-item</string>
-            <key>UTTypeDescription</key>
-            <string>MacTools Panel Layout Item</string>
-            <key>UTTypeConformsTo</key>
-            <array>
-                <string>public.data</string>
-            </array>
-        </dict>
-    </array>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>com.mactools.panel-layout-item</string>
+			<key>UTTypeDescription</key>
+			<string>MacTools Panel Layout Item</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -64,16 +64,40 @@
 	<string>$(RIGHT_CLICK_CONFIGURATION_HOME_RELATIVE_PATH)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>用于在系统日历中打开日期、读取 Apple“快捷指令”的图标、颜色和运行状态，显示 macOS 退出登录、重新启动和关机确认，并在 iTerm2 中打开所选文件夹。</string>
-	<key>MTScreenshotAudioRecordingSupported</key>
-	<true/>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>仅在开启麦克风录制时收录讲解，并保存到录像。</string>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>10.0.0.0/8</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>172.16.0.0/12</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>192.168.0.0/16</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+			<key>fc00::/7</key>
+			<dict>
+				<key>NSExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
 	<key>NSAudioCaptureUsageDescription</key>
-	<string>用于在本机调节应用音量；开启录屏系统声音时，会将声音保存到录像，不会上传。</string>
+	<string>仅在调节应用独立音量时于本机实时处理系统音频，不会录制、保存或上传声音。</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>读取蓝牙外设电量，用于在设备电量组件中显示鼠标、键盘和耳机状态。</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>读取系统日历事件，用于在右键日历组件中显示当天日程。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>MacTools uses your microphone for screen recordings you enable and voice conversations you start.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>读取系统日历事件，用于在右键日历组件中显示当天日程。</string>
 	<key>SUAllowsAutomaticUpdates</key>
@@ -106,5 +130,7 @@
 			</dict>
 		</dict>
 	</array>
+	<key>MTScreenshotAudioRecordingSupported</key>
+	<true/>
 </dict>
 </plist>

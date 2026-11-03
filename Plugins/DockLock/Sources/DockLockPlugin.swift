@@ -309,6 +309,7 @@ final class DockLockPlugin:
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
 
+    var onPersistentPreferencesChange: (() -> Void)?
     private let storage: any PluginStorage
     private let monitor: any DockLockMonitoring
     private let localization: PluginLocalization
@@ -353,6 +354,7 @@ final class DockLockPlugin:
         requestAccessibilityTrust: @escaping @MainActor (Bool) -> Bool = DockLockPlugin.requestAccessibilityTrust
     ) {
         self.storage = context.storage
+        _ = Self.portableStore(storage: context.storage).recover()
         self.monitor = monitor ?? DockLockMonitor()
         self.localization = localization
         self.accessibilityTrusted = accessibilityTrusted
@@ -621,14 +623,17 @@ final class DockLockPlugin:
 
     @discardableResult
     private func setEnabled(_ enabled: Bool, promptForPermission: Bool) -> Bool {
-        isEnabled = enabled
-        storage.set(enabled, forKey: StorageKey.isEnabled)
+        if isEnabled != enabled {
+            guard portableStore.commit([StorageKey.isEnabled: .boolean(enabled)]) else { return false }
+            isEnabled = enabled
+            onPersistentPreferencesChange?()
+        }
         applyLockState(promptForPermission: promptForPermission)
         onStateChange?()
         return !enabled || (isAccessibilityGranted && lastErrorMessage == nil)
     }
 
-    private func applyLockState(promptForPermission: Bool) {
+    private func applyLockState(promptForPermission: Bool, showsGuidance: Bool = true) {
         guard isEnabled else {
             monitor.stop()
             runtimeError = nil
@@ -642,7 +647,7 @@ final class DockLockPlugin:
         guard isAccessibilityGranted else {
             monitor.stop()
             runtimeError = .accessibilityRequired
-            requestPermissionGuidance?(PermissionID.accessibility)
+            if showsGuidance { requestPermissionGuidance?(PermissionID.accessibility) }
             return
         }
 
@@ -662,5 +667,24 @@ final class DockLockPlugin:
             return AXIsProcessTrusted()
         }
         return AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+    }
+}
+
+extension DockLockPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [StorageKey.isEnabled: .boolean(false)])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func makePortablePreferencesBackup() -> Data? { portableStore.backup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        let before = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        isEnabled = storage.object(forKey: StorageKey.isEnabled) as? Bool ?? false
+        applyLockState(promptForPermission: false, showsGuidance: false)
+        if before != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        onStateChange?()
+        return true
     }
 }

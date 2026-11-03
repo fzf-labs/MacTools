@@ -5,6 +5,56 @@ import MacToolsPluginKit
 @MainActor
 final class WindowLayoutsStoreTests: XCTestCase {
 
+    func testPortablePreferencesRoundTripPreservesCommandsAndBehavior() throws {
+        let source = WindowLayoutsStore(storage: StoreMemoryStorage())
+        source.setGap(12)
+        source.setCyclesHalves(true)
+        source.setCenteredGuidesEnabled(true)
+        source.setModifierDragEnabled(true)
+        source.setModifierDragModifiers([.control, .option, .command])
+        source.setModifierDragShowsIndicator(false)
+        source.setShowsCommandFeedback(true)
+        let command = try XCTUnwrap(source.addCustomCommand(name: "Reading"))
+        let data = try XCTUnwrap(source.portableBackup())
+        let storage = StoreMemoryStorage()
+        let target = WindowLayoutsStore(storage: storage)
+
+        XCTAssertTrue(target.restorePortableBackup(data))
+        XCTAssertEqual(target.gap, 12)
+        XCTAssertTrue(target.cyclesHalves)
+        XCTAssertTrue(target.centeredGuidesEnabled)
+        XCTAssertTrue(target.modifierDragEnabled)
+        XCTAssertEqual(target.modifierDragModifiers, [.control, .option, .command])
+        XCTAssertFalse(target.modifierDragShowsIndicator)
+        XCTAssertTrue(target.showsCommandFeedback)
+        XCTAssertEqual(target.customCommands.first?.id, command.id)
+        XCTAssertFalse(try XCTUnwrap(target.customCommands.first).allowExternalInvocation)
+        XCTAssertEqual(WindowLayoutsStore(storage: storage).portableBackup(), target.portableBackup())
+    }
+
+    func testPortableRestoreRejectsInvalidGeometryAndRollsBackFailedPersistence() throws {
+        let source = WindowLayoutsStore(storage: StoreMemoryStorage())
+        source.setGap(15)
+        _ = source.addCustomCommand(name: "Reading")
+        let data = try XCTUnwrap(source.portableBackup())
+        let storage = StoreMemoryStorage()
+        let target = WindowLayoutsStore(storage: storage)
+        target.setGap(3)
+        let previous = target.portableBackup()
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object["gap"] = 100
+        XCTAssertFalse(target.restorePortableBackup(try JSONSerialization.data(withJSONObject: object)))
+        XCTAssertEqual(target.portableBackup(), previous)
+
+        storage.rejectedWriteKey = "library.v1"
+        XCTAssertFalse(target.restorePortableBackup(data))
+        XCTAssertEqual(target.gap, 3)
+        XCTAssertTrue(target.customCommands.isEmpty)
+        XCTAssertEqual(WindowLayoutsStore(storage: storage).gap, 3)
+        XCTAssertNil(storage.object(forKey: "modifier-drag.enabled"))
+        XCTAssertNil(storage.object(forKey: "portable-restore.v1"))
+    }
+
     func testPersistsCustomCommandsWithStableActionIDs() throws {
         let storage = StoreMemoryStorage()
         let store = WindowLayoutsStore(storage: storage)
@@ -111,13 +161,17 @@ private struct StoreLibraryEnvelope: Codable {
 @MainActor
 private final class StoreMemoryStorage: PluginStorage {
     private var values: [String: Any] = [:]
+    var rejectedWriteKey: String?
     func object(forKey key: String) -> Any? { values[key] }
     func data(forKey key: String) -> Data? { values[key] as? Data }
     func string(forKey key: String) -> String? { values[key] as? String }
     func stringArray(forKey key: String) -> [String]? { values[key] as? [String] }
     func integer(forKey key: String) -> Int { values[key] as? Int ?? 0 }
     func bool(forKey key: String) -> Bool { values[key] as? Bool ?? false }
-    func set(_ value: Any?, forKey key: String) { values[key] = value }
+    func set(_ value: Any?, forKey key: String) {
+        guard key != rejectedWriteKey else { return }
+        values[key] = value
+    }
     func removeObject(forKey key: String) { values.removeValue(forKey: key) }
     func migrateValueIfNeeded(fromLegacyKey legacyKey: String, to key: String) {
         guard values[key] == nil, let value = values[legacyKey] else { return }

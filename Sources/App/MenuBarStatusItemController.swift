@@ -156,14 +156,41 @@ final class MenuBarStatusItemController: NSObject {
         pluginHost.statusItemButtonFrameProvider = { [weak self] in
             self?.statusItemButtonScreenRect()
         }
+        pluginHost.appMenuBarIconVisibilityHandler = { [weak self] isVisible in
+            self?.applyAppMenuBarIconVisibility(isVisible)
+        }
         windowRouter.setProgrammaticSettingsPresentationAction { [weak self] in
             self?.requestPanelClose()
         }
         // This controller is the sole production owner of app-level presentation routing.
         pluginHost.menuBarPanelPresentationHandler = { [weak self] id, toggle in
-            guard let self, let button = self.statusItem.button else { return }
-            self.panelPresenter.showPanel(id: id, toggle: toggle, relativeTo: button)
+            guard let self else { return }
+            if self.usesFallbackPanelAnchor, let anchorRect = self.fallbackPanelAnchorRect {
+                self.panelPresenter.showPanel(id: id, toggle: toggle, anchorRect: anchorRect)
+            } else if let button = self.statusItem.button {
+                self.panelPresenter.showPanel(id: id, toggle: toggle, relativeTo: button)
+            } else {
+                return
+            }
             self.handlePresentationResult()
+        }
+        pluginHost.anchoredMenuBarPanelPresentationHandler = { [weak self] request in
+            guard let self else { return false }
+            let presented = self.panelPresenter.presentPanelBelowAnchor(
+                panelID: request.panelID,
+                anchorRect: request.anchorRect
+            )
+            if presented { self.handlePresentationResult() }
+            return presented
+        }
+        pluginHost.anchoredMenuBarPanelDismissalHandler = { [weak self] animated in
+            self?.panelPresenter.dismissPanelBelowAnchor(animated: animated) ?? false
+        }
+        pluginHost.anchoredMenuBarPanelFrameProvider = { [weak self] in
+            self?.panelPresenter.presentedPanelScreenFrame
+        }
+        pluginHost.anchoredMenuBarPanelVisibilityProvider = { [weak self] in
+            self?.panelPresenter.isAnyPanelShown ?? false
         }
         pluginHost.appPresentationHandler = { [weak self, weak windowRouter] request in
             switch MenuBarStatusItemPresentationAction(request: request) {
@@ -226,6 +253,12 @@ final class MenuBarStatusItemController: NSObject {
     }
 
     func showDashboard() {
+        if usesFallbackPanelAnchor, let anchorRect = fallbackPanelAnchorRect {
+            panelPresenter.showDashboard(anchorRect: anchorRect)
+            handlePresentationResult()
+            return
+        }
+
         guard let button = statusItem.button else {
             AppLog.pluginHost.error("Cannot show Dashboard because the status item button is unavailable")
             return
@@ -236,6 +269,12 @@ final class MenuBarStatusItemController: NSObject {
     }
 
     func showFeaturePanel() {
+        if usesFallbackPanelAnchor, let anchorRect = fallbackPanelAnchorRect {
+            panelPresenter.showFeaturePanel(anchorRect: anchorRect)
+            handlePresentationResult()
+            return
+        }
+
         guard let button = statusItem.button else {
             AppLog.pluginHost.error("Cannot show Feature Panel because the status item button is unavailable")
             return
@@ -246,6 +285,12 @@ final class MenuBarStatusItemController: NSObject {
     }
 
     func toggleDashboard() {
+        if usesFallbackPanelAnchor, let anchorRect = fallbackPanelAnchorRect {
+            panelPresenter.toggleComponentPanel(anchorRect: anchorRect)
+            handlePresentationResult()
+            return
+        }
+
         guard let button = statusItem.button else {
             AppLog.pluginHost.error("Cannot toggle Dashboard because the status item button is unavailable")
             return
@@ -255,12 +300,39 @@ final class MenuBarStatusItemController: NSObject {
     }
 
     func toggleFeaturePanel() {
+        if usesFallbackPanelAnchor, let anchorRect = fallbackPanelAnchorRect {
+            panelPresenter.toggleFeaturePanel(anchorRect: anchorRect)
+            handlePresentationResult()
+            return
+        }
+
         guard let button = statusItem.button else {
             AppLog.pluginHost.error("Cannot toggle Feature Panel because the status item button is unavailable")
             return
         }
 
         toggleFeaturePanel(relativeTo: button)
+    }
+
+    private var usesFallbackPanelAnchor: Bool {
+        !statusItem.isVisible
+    }
+
+    /// Approximate anchor at the menu-bar end for surfaces that normally point
+    /// at the status item, used while the main icon is hidden by a plugin.
+    private var fallbackPanelAnchorRect: NSRect? {
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return nil }
+        let menuBarHeight = max(24, screen.frame.maxY - screen.visibleFrame.maxY)
+        return NSRect(
+            x: screen.frame.maxX - 160,
+            y: screen.frame.maxY - menuBarHeight,
+            width: 160,
+            height: menuBarHeight
+        )
+    }
+
+    private func applyAppMenuBarIconVisibility(_ isVisible: Bool) {
+        statusItem.isVisible = isVisible
     }
 
     private func requestPanelClose() {
@@ -525,6 +597,7 @@ final class MenuBarStatusItemController: NSObject {
         PluginPresentationSafety.prepareForWindowOrdering()
         let newItem = NSStatusBar.system.statusItem(withLength: 0)
         newItem.autosaveName = MenuBarControlItemDefaults.visibleAutosaveName
+        newItem.isVisible = pluginHost.isAppMenuBarIconVisible
         statusItem = newItem
 
         configureStatusItem()

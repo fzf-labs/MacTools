@@ -98,6 +98,7 @@ final class SystemSoftRestartPlugin:
     private let localization: PluginLocalization
     private let applicationURLProvider: () -> [URL]
     private var isExecuting = false
+    var onPersistentPreferencesChange: (() -> Void)?
     private var currentPhase: SystemSoftRestartPhase?
     private var lastErrorMessage: String?
     private var executionTask: Task<Void, Never>?
@@ -110,6 +111,7 @@ final class SystemSoftRestartPlugin:
         applicationURLProvider: (() -> [URL])? = nil
     ) {
         self.storage = storage
+        _ = Self.portableStore(storage: storage).recover()
         self.runner = runner
         self.presenter = presenter
         self.localization = localization
@@ -289,9 +291,11 @@ final class SystemSoftRestartPlugin:
 
         switch controlID {
         case ControlID.reopensApplications:
-            storage.set(value, forKey: StorageKey.reopensApplications)
+            guard portableStore.commit([StorageKey.reopensApplications: .boolean(value)]) else { return }
+            onPersistentPreferencesChange?()
         case ControlID.preservesDockLayout:
-            storage.set(value, forKey: StorageKey.preservesDockLayout)
+            guard portableStore.commit([StorageKey.preservesDockLayout: .boolean(value)]) else { return }
+            onPersistentPreferencesChange?()
         default:
             return
         }
@@ -422,5 +426,25 @@ final class SystemSoftRestartPlugin:
         case .completed:
             return localization.string("progress.completed", defaultValue: "系统软重启已完成。")
         }
+    }
+}
+
+extension SystemSoftRestartPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            StorageKey.reopensApplications: .boolean(true), StorageKey.preservesDockLayout: .boolean(true)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func makePortablePreferencesBackup() -> Data? { portableStore.backup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard !isExecuting else { return false }
+        let previous = portableStore.currentValues()
+        guard portableStore.restore(data) else { return false }
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        onStateChange?()
+        return true
     }
 }

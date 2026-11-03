@@ -6,6 +6,21 @@ import MacToolsPluginKit
 
 @MainActor
 final class ActivityBarPluginTests: XCTestCase {
+    func testPortablePresentationDoesNotImportTrackingOrHistory() throws {
+        let source = ActivityBarPresentationPreferences(storage: ActivityBarMemoryStorage())
+        source.statsExpanded = false
+        source.chartRange = .thirtyDays
+        let storage = ActivityBarMemoryStorage()
+        storage.set(false, forKey: "tracking.enabled")
+        storage.set(Data("private".utf8), forKey: "statistics")
+        let destination = ActivityBarPresentationPreferences(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertFalse(destination.statsExpanded)
+        XCTAssertEqual(destination.chartRange, .thirtyDays)
+        XCTAssertEqual(storage.object(forKey: "tracking.enabled") as? Bool, false)
+        XCTAssertEqual(storage.data(forKey: "statistics"), Data("private".utf8))
+    }
+
 
     func testSwitchStartsAndStopsRuntime() {
         let harness = makeHarness()

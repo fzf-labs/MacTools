@@ -61,8 +61,8 @@
     "action.set-enabled.description": "@standardAction.set-enabled.description",
     "action.set-enabled.parameter-summary": "@standardAction.set-enabled.description"
   },
-  "version": "2.1.0",
-  "minHostVersion": "2.1.0",
+  "version": "2.2.0",
+  "minHostVersion": "2.2.0",
   "pluginKitVersion": 7,
   "bundleRelativePath": "NightShift.bundle",
   "factoryClass": "NightShiftPlugin.NightShiftPluginFactory",
@@ -164,7 +164,8 @@
   },
   "privacy": {
     "dataObserved": [
-      "display-state"
+      "display-state",
+      "requested-plugin-state"
     ],
     "dataPersisted": [],
     "retention": {
@@ -264,5 +265,9 @@
         "dynamicTemplates": []
       }
     ]
+  },
+  "preferencesBackup": {
+    "status": "none",
+    "exclusions": []
   }
 }

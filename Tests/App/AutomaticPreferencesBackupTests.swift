@@ -4,6 +4,21 @@ import MacToolsPluginKit
 
 @MainActor
 final class AutomaticPreferencesBackupTests: XCTestCase {
+    func testExportFailurePreservesLastGoodBackupAndPreventsSafetySnapshot() async throws {
+        let directory = makeTemporaryDirectoryURL()
+        let store = AutomaticPreferencesBackupStore(directoryURL: directory)
+        let good = makeBackup(marker: "last-good")
+        _ = try store.write(good)
+        let files = try backupFiles(in: directory)
+        let bytes = try Data(contentsOf: XCTUnwrap(files.first))
+        let coordinator = AutomaticPreferencesBackupCoordinator(userDefaults: makeDefaults(), store: store)
+        coordinator.snapshotProvider = { throw PreferencesBackupExportError(pluginIDs: ["failed"]) }
+        do { _ = try await coordinator.createBackupNow(); XCTFail("An incomplete export must fail") } catch {}
+        XCTAssertThrowsError(try coordinator.createSafetySnapshotBeforeImport())
+        XCTAssertEqual(try backupFiles(in: directory), files)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(files.first)), bytes)
+    }
+
     private var temporaryURLs: [URL] = []
     private var defaultsSuiteNames: [String] = []
 

@@ -36,7 +36,37 @@ final class DisplayVolumeShortcutPreferences: ObservableObject {
     }
 
     @Published var targetMode: TargetMode {
-        didSet { storage.set(targetMode.rawValue, forKey: Keys.targetMode) }
+        didSet {
+            guard !isRestoring, targetMode != oldValue else { return }
+            guard portableStore.commit([Keys.targetMode: .string(targetMode.rawValue)]) else {
+                isRestoring = true
+                targetMode = oldValue
+                isRestoring = false
+                return
+            }
+            onPersistentPreferencesChange?()
+        }
+    }
+
+    private var isRestoring = false
+    var onPersistentPreferencesChange: (() -> Void)?
+
+    private var portableStore: PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            Keys.targetMode: .choice("followsMouse", allowed: ["followsMouse", "allDisplays"])
+        ])
+    }
+
+    func portableBackup() -> Data? { portableStore.backup() }
+
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard portableStore.restore(data) else { return false }
+        let oldValue = targetMode
+        isRestoring = true
+        targetMode = TargetMode(rawValue: storage.string(forKey: Keys.targetMode) ?? "") ?? .followsMouse
+        isRestoring = false
+        if targetMode != oldValue { onPersistentPreferencesChange?() }
+        return true
     }
 
     private let storage: PluginStorage
@@ -47,6 +77,7 @@ final class DisplayVolumeShortcutPreferences: ObservableObject {
 
     init(storage: PluginStorage) {
         self.storage = storage
+        _ = PortablePreferencesStore(storage: storage, fields: [Keys.targetMode: .choice("followsMouse", allowed: ["followsMouse", "allDisplays"])]).recover()
         self.targetMode = TargetMode(rawValue: storage.string(forKey: Keys.targetMode) ?? "")
             ?? .followsMouse
     }

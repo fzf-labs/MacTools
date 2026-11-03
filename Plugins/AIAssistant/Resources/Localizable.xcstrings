@@ -11627,6 +11627,234 @@
           }
         }
       }
+    },
+    "settings.backup.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preferences Backup"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "偏好设置备份"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "偏好設定備份"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia de ajustes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde des réglages"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Резервная копия настроек"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup dos ajustes"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungssicherung"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定のバックアップ"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 백업"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "نسخ الإعدادات احتياطيًا"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayar Yedekleme"
+          }
+        }
+      }
+    },
+    "settings.backup.includePromptText": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Include custom prompt text in backups"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将自定义提示词包含在备份中"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將自訂提示詞包含在備份中"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluir textos de instrucciones personalizados"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inclure les instructions personnalisées"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включать текст собственных инструкций"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incluir textos de instruções personalizados"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eigene Prompt-Texte einschließen"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カスタムプロンプトをバックアップに含める"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자 지정 프롬프트 포함"
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تضمين نصوص التعليمات المخصصة"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel istem metnini yedeklere dahil et"
+          }
+        }
+      }
+    },
+    "settings.backup.scope": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to manual backups, automatic backups, and cloud sync. API keys stay on this Mac. Imported services need local key setup."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同时用于手动备份、自动备份和云同步。API 密钥保留在本机，导入的服务需在本机配置密钥。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "適用於手動備份、自動備份和雲端同步。API 金鑰保留在本機，匯入的服務須在本機設定金鑰。"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se aplica a copias manuales, automáticas y a la sincronización. Las claves API siguen en este Mac; configura las de los servicios importados."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’applique aux sauvegardes manuelles, automatiques et à la synchronisation. Les clés API restent sur ce Mac ; configurez celles des services importés."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Для ручных и автоматических копий и облачной синхронизации. Ключи API остаются на Mac; для импортированных служб настройте ключ локально."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplica-se a backups manuais, automáticos e à sincronização. As chaves API ficam neste Mac; configure as dos serviços importados."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gilt für manuelle und automatische Sicherungen sowie Cloud-Synchronisierung. API-Schlüssel bleiben lokal; importierte Dienste benötigen eine lokale Schlüsseleinrichtung."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手動・自動バックアップとクラウド同期に適用します。APIキーはこのMacに保持されます。読み込んだサービスはキーの設定が必要です。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "수동·자동 백업과 클라우드 동기화에 적용됩니다. API 키는 이 Mac에 유지되며 가져온 서비스는 로컬 키 설정이 필요합니다."
+          }
+        },
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ينطبق على النسخ اليدوي والتلقائي والمزامنة. تبقى مفاتيح API على هذا الـ Mac؛ تحتاج الخدمات المستوردة إلى إعداد مفتاح محلي."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuel ve otomatik yedekler ile bulut eşzamanlama için geçerlidir. API anahtarları bu Mac’te kalır; içe aktarılan hizmetlerde yerel anahtar kurulumu gerekir."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

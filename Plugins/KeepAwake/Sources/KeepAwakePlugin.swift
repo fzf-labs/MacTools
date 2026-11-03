@@ -168,6 +168,7 @@ final class KeepAwakePlugin:
     )
 
     var onStateChange: (() -> Void)?
+    var onPersistentPreferencesChange: (() -> Void)?
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
 
@@ -214,6 +215,7 @@ final class KeepAwakePlugin:
         let resolvedPowerSourceMonitor = powerSourceMonitor ?? KeepAwakePowerSourceMonitor()
         self.localization = localization
         self.storage = context.storage
+        _ = Self.portableStore(storage: context.storage).recover()
         self.sessionFactory = sessionFactory
         self.powerSourceMonitor = resolvedPowerSourceMonitor
         self.displayProvider = displayProvider
@@ -457,6 +459,7 @@ final class KeepAwakePlugin:
 
     func activate(context: PluginRuntimeContext) {
         storage = context.storage
+        _ = portableStore.recover()
         powerSourceMonitor.start()
         powerSourceState = powerSourceMonitor.currentState
         hasActiveExternalDisplay = Self.detectActiveExternalDisplay(using: displayProvider)
@@ -1333,7 +1336,15 @@ final class KeepAwakePlugin:
         guard !preservesFuturePreferencePayload else {
             return
         }
-        Self.persist(preferences, to: storage)
+        let previous = portableStore.currentValues()
+        guard portableStore.commit([
+            StorageKey.behavior: .string(preferences.behavior.rawValue),
+            StorageKey.preferenceVersion: .integer(PreferenceVersion.current)
+        ]) else {
+            lastErrorMessage = PluginKitLocalization.actionUnavailable
+            return
+        }
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
     }
 
     private static func loadPreferences(from storage: PluginStorage) -> PreferenceLoadResult {
@@ -1632,5 +1643,59 @@ enum KeepAwakeStopScheduleFormatting {
         let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: referenceDate)
         formatter.setLocalizedDateFormatFromTemplate(sameYear ? "MMMd" : "yMMMd")
         return formatter.string(from: date)
+    }
+}
+
+extension KeepAwakePlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    private struct PortableBehavior: Codable {
+        let formatVersion: Int
+        let behavior: String
+    }
+    private static func portableStore(storage: any PluginStorage) -> PortablePreferencesStore {
+        PortablePreferencesStore(storage: storage, fields: [
+            StorageKey.behavior: .choice(KeepAwakeBehavior.allowDisplayToTurnOff.rawValue, allowed: KeepAwakeBehavior.allCases.map(\.rawValue)),
+            StorageKey.preferenceVersion: .integer(PreferenceVersion.current, range: PreferenceVersion.current...PreferenceVersion.current)
+        ])
+    }
+    private var portableStore: PortablePreferencesStore { Self.portableStore(storage: storage) }
+    func makePortablePreferencesBackup() -> Data? {
+        guard !preservesFuturePreferencePayload, portableStore.backup() != nil,
+              case let .string(behavior) = portableStore.currentValues()?[StorageKey.behavior] else { return nil }
+        return try? JSONEncoder().encode(PortableBehavior(formatVersion: 1, behavior: behavior))
+    }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        // Imported future choices must not alter an existing assertion, lid policy or virtual display.
+        guard session == nil, virtualDisplayStartTask == nil, !virtualDisplayManager.isActive,
+              pendingAutomaticFallback == nil, pendingUserActivityCleanupError == nil,
+              !preservesFuturePreferencePayload, data.count <= 16_384,
+              let payload = try? JSONDecoder().decode(PortableBehavior.self, from: data), payload.formatVersion == 1,
+              let behavior = KeepAwakeBehavior(rawValue: payload.behavior) else { return false }
+        let previous = portableStore.currentValues()
+        guard portableStore.commit([
+            StorageKey.behavior: .string(behavior.rawValue), StorageKey.preferenceVersion: .integer(PreferenceVersion.current)
+        ]) else { return false }
+        preferences = KeepAwakePreferences(behavior: behavior)
+        if previous != portableStore.currentValues() { onPersistentPreferencesChange?() }
+        notifyChange()
+        return true
+    }
+}
+
+
+@MainActor
+extension KeepAwakePlugin: PluginVoiceQueryProviding {
+    var voiceQueries: [PluginVoiceQuery] {
+        [.init(id: "keep-awake-state", title: metadata.title, description: "Current Keep Awake session, scheduled end, remaining seconds and actual display sleep prevention.")]
+    }
+    func readVoiceQuery(id: String) async throws -> String {
+        guard id == "keep-awake-state" else { throw CocoaError(.featureUnsupported) }
+        let now = Date.now
+        let value: [String: Any] = ["sampledAt": now.ISO8601Format(), "enabled": session != nil,
+            "scheduledEnd": scheduledEndDate.map { $0.ISO8601Format() } as Any? ?? NSNull(),
+            "secondsRemaining": scheduledEndDate.map { max(0, $0.timeIntervalSince(now)) } as Any? ?? NSNull(),
+            "preventsDisplaySleep": session?.isPreventingDisplaySleep ?? false]
+        return String(decoding: try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]), as: UTF8.self)
     }
 }

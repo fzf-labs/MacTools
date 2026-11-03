@@ -586,6 +586,7 @@ struct InputRemappingEventProcessor {
 @MainActor
 final class InputRemappingStore: ObservableObject {
     @Published private(set) var rules: [InputRemappingRule]
+    @Published private(set) var portableRestoreRevision: UInt64 = 0
     private static let storageKey = "input-remapping.rules.v1"
     private let storage: any PluginStorage
     private let logger: Logger
@@ -635,14 +636,72 @@ final class InputRemappingStore: ObservableObject {
         update(rules.map { $0.id == rule.id ? rule : $0 })
     }
 
-    private func update(_ rules: [InputRemappingRule]) {
-        let normalizedRules = rules.map { $0.normalized() }
-        do {
-            storage.set(try JSONEncoder().encode(normalizedRules), forKey: Self.storageKey)
-            self.rules = normalizedRules
-            onRulesChange?()
-        } catch {
-            logger.error("Failed to encode input remapping rules: \(String(describing: error), privacy: .public)")
+    private struct PortableRule: Codable {
+        let id: UUID
+        let isEnabled: Bool
+        let trigger: InputRemappingTrigger
+        let action: InputRemappingRule.Action
+        let isInputConfigured: Bool
+        let outputConfigurationState: InputRemappingOutputConfigurationState
+
+        init(_ rule: InputRemappingRule) {
+            id = rule.id; isEnabled = rule.isEnabled; trigger = rule.trigger; action = rule.action
+            isInputConfigured = rule.isInputConfigured; outputConfigurationState = rule.outputConfigurationState
         }
+        var restoredRule: InputRemappingRule {
+            InputRemappingRule(id: id, isEnabled: isEnabled, trigger: trigger, action: action,
+                isInputConfigured: isInputConfigured, outputConfigurationState: outputConfigurationState,
+                isUnsafeTriggerConfirmed: false)
+        }
+        var isValid: Bool {
+            if case let .keyboard(code, modifiers) = trigger {
+                guard code <= KeyboardKeyTap.maximumSupportedKeyCode, modifiers.containsOnlySupportedValues else { return false }
+            }
+            switch action {
+            case let .shortcut(binding): return binding.keyCode <= KeyboardKeyTap.maximumSupportedKeyCode && binding.modifiers.containsOnlySupportedValues
+            case let .keyTap(key): return key == nil || key?.isSupported == true
+            default: return true
+            }
+        }
+    }
+    private struct PortablePreferences: Codable {
+        let formatVersion: Int
+        let rules: [PortableRule]
+    }
+    var onPersistentPreferencesChange: (() -> Void)?
+    func portableBackup() -> Data? {
+        let candidate = rules.map(PortableRule.init)
+        guard candidate.count <= 256, candidate.allSatisfy(\.isValid), Set(candidate.map(\.id)).count == candidate.count,
+              let data = try? JSONEncoder().encode(PortablePreferences(formatVersion: 1, rules: candidate)),
+              data.count <= 1_024 * 1_024 else { return nil }
+        return data
+    }
+    func restorePortableBackup(_ data: Data) -> Bool {
+        guard data.count <= 1_024 * 1_024,
+              let payload = try? JSONDecoder().decode(PortablePreferences.self, from: data), payload.formatVersion == 1,
+              payload.rules.count <= 256, Set(payload.rules.map(\.id)).count == payload.rules.count,
+              payload.rules.allSatisfy(\.isValid) else { return false }
+        let previous = rules
+        guard update(payload.rules.map(\.restoredRule)) else { return false }
+        if rules != previous { portableRestoreRevision &+= 1 }
+        return true
+    }
+
+    @discardableResult
+    private func update(_ rules: [InputRemappingRule]) -> Bool {
+        let normalizedRules = rules.map { $0.normalized() }
+        guard normalizedRules != self.rules else { return true }
+        guard normalizedRules.count <= 256, let data = try? JSONEncoder().encode(normalizedRules), data.count <= 1_024 * 1_024 else { return false }
+        let previous = storage.object(forKey: Self.storageKey)
+        storage.set(data, forKey: Self.storageKey)
+        guard storage.data(forKey: Self.storageKey) == data else {
+            if let previous { storage.set(previous, forKey: Self.storageKey) }
+            else { storage.removeObject(forKey: Self.storageKey) }
+            return false
+        }
+        self.rules = normalizedRules
+        onRulesChange?()
+        onPersistentPreferencesChange?()
+        return true
     }
 }

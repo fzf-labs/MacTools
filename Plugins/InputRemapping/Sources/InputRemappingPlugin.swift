@@ -234,6 +234,7 @@ final class InputRemappingPlugin: MacToolsPlugin, AccessibilityPermissionRefresh
     var onTrackpadGestureClaimsChange: (() -> Void)?
     var requestTrackpadGestureOwnership: ((TrackpadGesture) -> Void)?
 
+    private var isRestoringPortablePreferences = false
     let store: InputRemappingStore
 
     private let localization: PluginLocalization
@@ -324,8 +325,14 @@ final class InputRemappingPlugin: MacToolsPlugin, AccessibilityPermissionRefresh
 
         self.tap.update(rules: store.rules)
         store.onRulesChange = { [weak self] in
-            self?.applyConfiguration()
-            self?.onTrackpadGestureClaimsChange?()
+            guard let self else { return }
+            if self.isRestoringPortablePreferences {
+                self.buttonCapture.cancel()
+                self.tap.stop()
+                self.refreshPermissionState()
+            }
+            applyConfiguration()
+            onTrackpadGestureClaimsChange?()
         }
         self.tap.emergencyStopHandler = { [weak self] in
             Task { @MainActor in
@@ -690,6 +697,7 @@ private struct InputRemappingSettingsView: View {
                         isTrackpadGestureOwned: isTrackpadGestureOwned
                     )
                 }
+                .id(store.portableRestoreRevision)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1566,5 +1574,20 @@ private struct DualClickIconButton: NSViewRepresentable {
 private final class DualClickButton: NSButton {
     override func rightMouseDown(with event: NSEvent) {
         sendAction(action, to: target)
+    }
+}
+
+extension InputRemappingPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { store.onPersistentPreferencesChange }
+        set { store.onPersistentPreferencesChange = newValue }
+    }
+    func makePortablePreferencesBackup() -> Data? { store.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        isRestoringPortablePreferences = true
+        defer { isRestoringPortablePreferences = false }
+        return store.restorePortableBackup(data)
     }
 }

@@ -1,3 +1,7 @@
 settings:
   base:
     OTHER_LDFLAGS: -framework ScreenCaptureKit -framework Vision -framework CoreImage -framework UniformTypeIdentifiers -framework QuartzCore -framework VideoToolbox
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

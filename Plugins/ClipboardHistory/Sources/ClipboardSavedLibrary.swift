@@ -369,14 +369,16 @@ struct ClipboardSnippetDraft: Equatable, Sendable {
     var keyword: String?
     var isNew = false
 
-    static let empty = Self(
-        id: UUID(),
-        title: "",
-        content: "",
-        tags: [],
-        keyword: nil,
-        isNew: true
-    )
+    static var empty: Self {
+        Self(
+            id: UUID(),
+            title: "",
+            content: "",
+            tags: [],
+            keyword: nil,
+            isNew: true
+        )
+    }
 }
 
 struct ClipboardSavedMetadataDraft: Identifiable, Equatable, Sendable {

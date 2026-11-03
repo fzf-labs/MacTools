@@ -7,6 +7,51 @@ import MacToolsPluginKit
 
 @MainActor
 final class PreferencesBackupTests: XCTestCase {
+    func testSelectedExporterFailureIsVisibleAndUnselectedFailureDoesNotBlock() throws {
+        let good = BackupTestPlugin(id: "good", order: 0, shortcutID: "good", portablePreferences: Data("good".utf8))
+        let failed = BackupTestPlugin(id: "failed", order: 1, shortcutID: "failed")
+        let host = makeHost(plugins: [good, failed], defaults: makeDefaults())
+        XCTAssertEqual(host.preferencesBackupCandidateIDs, ["good", "failed"])
+        let result = host.makePreferencesBackupExport()
+        XCTAssertThrowsError(try result.requiringSuccessfulSelection())
+        XCTAssertEqual(result.backup.effectiveSelection.pluginPreferenceIDs, ["good"])
+        XCTAssertEqual(result.pluginOutcomes.first { $0.pluginID == "failed" }?.status, "failed")
+        XCTAssertThrowsError(try host.makePreferencesBackupExport().requiringSuccessfulSelection())
+        let selected = PreferencesBackupSelection.all(pluginPreferenceIDs: ["good"])
+        let partial = host.makePreferencesBackupExport(selection: selected)
+        XCTAssertNoThrow(try partial.requiringSuccessfulSelection())
+        XCTAssertEqual(partial.pluginOutcomes.first { $0.pluginID == "failed" }?.status, "notSelected")
+    }
+
+    func testDiagnosticsDoNotChangeMeaningOrRejectOtherwiseValidFormatSevenBackup() throws {
+        let host = makeHost(plugins: [], defaults: makeDefaults())
+        let original = host.makePreferencesBackup()
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: original.encodedJSON()) as? [String: Any])
+        json["pluginDiagnostics"] = [["pluginID": "future-plugin", "status": "futureStatus", "exclusions": ["future-code"]]]
+        let future = try PreferencesBackup.decodeJSON(JSONSerialization.data(withJSONObject: json))
+        XCTAssertTrue(original.hasSameMeaningfulContent(as: future))
+        XCTAssertEqual(future.pluginDiagnostics?.first?.status, "futureStatus")
+        json["pluginDiagnostics"] = "malformed display metadata"
+        let malformed = try PreferencesBackup.decodeJSON(JSONSerialization.data(withJSONObject: json))
+        XCTAssertNil(malformed.pluginDiagnostics)
+        XCTAssertTrue(original.hasSameMeaningfulContent(as: malformed))
+    }
+
+    func testCoveragePreservesPackageIdentitiesWithoutPreferencePayloads() throws {
+        let host = makeHost(plugins: [], defaults: makeDefaults())
+        let diagnostics: [PreferencesPluginBackupDiagnostic] = [
+            .init(pluginID: "com.mactools.plugin.storage-explorer", status: "none", exclusions: []),
+            .init(pluginID: "Example.Custom_plugin", status: "localOnly", exclusions: ["local-policy"])
+        ]
+        let backup = PreferencesBackup(application: validApplicationPreferences,
+            pluginDisplay: .init(orderedPluginIDs: [], hiddenPluginIDs: []), shortcutCustomizations: [:],
+            pluginPreferences: [:], pluginDiagnostics: diagnostics)
+        let decoded = try PreferencesBackup.decodeJSON(backup.encodedJSON())
+        XCTAssertEqual(decoded.pluginDiagnostics, diagnostics)
+        let preview = try host.preferencesImportPreview(for: decoded)
+        XCTAssertEqual(preview.pluginDiagnostics, diagnostics.sorted { $0.pluginID < $1.pluginID })
+    }
+
     private let suiteName = "PreferencesBackupTests"
 
     override func tearDown() {
@@ -388,6 +433,70 @@ final class PreferencesBackupTests: XCTestCase {
         )
     }
 
+    func testPreviousFormat7ReleaseDecoderIgnoresNewCoverageMetadata() throws {
+        let backup = PreferencesBackup(application: validApplicationPreferences,
+            pluginDisplay: .init(orderedPluginIDs: [], hiddenPluginIDs: []), shortcutCustomizations: [:],
+            pluginPreferences: ["window-layouts": Data("synthetic settings".utf8)],
+            pluginDiagnostics: [.init(pluginID: "window-layouts", status: "included", exclusions: ["permissions"])])
+        let previous = try JSONDecoder().decode(LegacyFormat7PreferencesBackup.self, from: JSONEncoder().encode(backup))
+        XCTAssertEqual(previous.formatVersion, 7)
+        XCTAssertEqual(previous.pluginPreferences, backup.pluginPreferences)
+        XCTAssertEqual(previous.selection, backup.selection)
+    }
+
+    func testIsolatedExporterRemainsARequiredCandidateOnNextAttempt() {
+        let plugin = BackupTestPlugin(id: "broken", order: 0, shortcutID: "a", portablePreferences: Data("value".utf8))
+        let host = makeHost(plugins: [plugin], defaults: makeDefaults())
+        plugin.raisesExportException = true
+        let first = host.makePreferencesBackupExport()
+        XCTAssertThrowsError(try first.requiringSuccessfulSelection())
+        XCTAssertEqual(first.pluginOutcomes.first { $0.pluginID == "broken" }?.status, "failed")
+        XCTAssertTrue(host.preferencesBackupCandidateIDs.contains("broken"))
+        let second = host.makePreferencesBackupExport()
+        XCTAssertThrowsError(try second.requiringSuccessfulSelection())
+        XCTAssertEqual(second.pluginOutcomes.first { $0.pluginID == "broken" }?.status, "unavailable")
+    }
+
+    func testExportDropsReferencesWhoseDefinitionWasOmittedFromSuccessfulPayload() throws {
+        let provider = BackupPreferenceDefinedActionPlugin()
+        provider.restorePortablePreferences(from: Data("enabled".utf8))
+        let surface = BackupActionSurfacePlugin()
+        surface.references = [provider.reference]
+        let host = makeHost(plugins: [surface, provider], defaults: makeDefaults())
+        let workflow = WorkflowDefinition(name: "Omitted definition", steps: [WorkflowStep(reference: provider.reference)])
+        let backup = PreferencesBackup(application: validApplicationPreferences,
+            pluginDisplay: .init(orderedPluginIDs: [], hiddenPluginIDs: []), shortcutCustomizations: [:],
+            actionShortcutAssignments: [.init(reference: provider.reference, binding: .init(keyCode: 45, modifiers: [.command, .control]))],
+            pluginPreferences: [provider.metadata.id: Data("enabled".utf8)],
+            actionInvocationPresets: [.init(reference: provider.reference)], workflows: [workflow])
+        _ = try host.importPreferences(backup)
+        surface.references = [provider.reference]
+        provider.omitsDefinitionFromBackup = true
+        let exported = try host.makePreferencesBackupExport().requiringSuccessfulSelection()
+        XCTAssertNotNil(exported.pluginPreferences[provider.metadata.id])
+        XCTAssertTrue(exported.actionShortcutAssignments.isEmpty)
+        XCTAssertTrue(exported.actionInvocationPresets?.isEmpty ?? true)
+        XCTAssertTrue(exported.workflows?.isEmpty ?? true)
+        let surfaceData = try XCTUnwrap(exported.pluginPreferences[surface.metadata.id])
+        XCTAssertTrue(try JSONDecoder().decode([ActionReference].self, from: surfaceData).isEmpty)
+    }
+
+    func testPreviewDoesNotTrustSourceIncludedClaimsOverPayloadAndSelection() throws {
+        let plugin = BackupTestPlugin(id: "available", order: 0, shortcutID: "a", portablePreferences: Data("a".utf8))
+        let host = makeHost(plugins: [plugin], defaults: makeDefaults())
+        let backup = PreferencesBackup(application: validApplicationPreferences,
+            pluginDisplay: .init(orderedPluginIDs: [], hiddenPluginIDs: []), shortcutCustomizations: [:],
+            pluginPreferences: ["available": Data("a".utf8), "missing": Data("b".utf8)],
+            pluginDiagnostics: [.init(pluginID: "available", status: "included", exclusions: []),
+                                .init(pluginID: "claimed", status: "included", exclusions: [])])
+        var selection = backup.effectiveSelection
+        selection.pluginPreferenceIDs.remove("available")
+        let preview = try host.preferencesImportPreview(for: backup, selection: selection)
+        XCTAssertEqual(preview.pluginDiagnostics.first { $0.pluginID == "available" }?.status, "notSelected")
+        XCTAssertEqual(preview.pluginDiagnostics.first { $0.pluginID == "missing" }?.status, "unavailable")
+        XCTAssertEqual(preview.pluginDiagnostics.first { $0.pluginID == "claimed" }?.status, "notSelected")
+    }
+
     func testFailedProviderRestoreDropsAllDependentImportedReferences() throws {
         let provider = BackupPreferenceDefinedActionPlugin()
         provider.shouldFailRestore = true
@@ -644,6 +753,25 @@ final class PreferencesBackupTests: XCTestCase {
         XCTAssertEqual(targetHost.panelEntries(in: "features").map(\.pluginID), ["second", "first"])
         XCTAssertTrue(targetHost.menuBarPanelStore.configuration.initializedItems.contains(.init(pluginID: "third", itemID: "control")))
         XCTAssertEqual(targetHost.panelItems.map(\.pluginID), ["second", "first"])
+    }
+
+    func testManualShortcutImportReplacesOmittedBindingsOnlyWhenSelected() throws {
+        let defaults = makeDefaults()
+        let store = ShortcutStore(userDefaults: defaults)
+        let host = makeHost(plugins: [BackupTestPlugin(id: "local-item", order: 1, shortcutID: "paste")], defaults: defaults)
+        defer { host.deactivateAllPlugins() }
+        let id = "local-item.shortcut.paste"
+        let binding = ShortcutBinding(keyCode: 12, modifiers: [.command, .option])
+        host.setShortcutBinding(binding, for: id)
+        let backup = PreferencesBackup(application: validApplicationPreferences,
+            pluginDisplay: .init(orderedPluginIDs: [], hiddenPluginIDs: []), shortcutCustomizations: [:])
+        var selection = backup.effectiveSelection
+        selection.includesShortcuts = false
+        XCTAssertTrue(try host.importPreferences(backup, selection: selection).shortcutErrors.isEmpty)
+        XCTAssertEqual(store.customization(for: id), .custom(binding))
+        selection.includesShortcuts = true
+        XCTAssertTrue(try host.importPreferences(backup, selection: selection).shortcutErrors.isEmpty)
+        XCTAssertEqual(store.customization(for: id), .inheritDefault)
     }
 
     func testInvalidShortcutImportLeavesAllShortcutCustomizationsUntouched() throws {
@@ -993,6 +1121,7 @@ private final class BackupTestPlugin: MacToolsPlugin, PluginPortablePreferencesP
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     private let portablePreferences: Data?
+    var raisesExportException = false
     private(set) var restoredPortablePreferences: Data?
 
     init(id: String, order: Int, shortcutID: String, portablePreferences: Data? = nil) {
@@ -1023,7 +1152,8 @@ private final class BackupTestPlugin: MacToolsPlugin, PluginPortablePreferencesP
     }
 
     func makePortablePreferencesBackup() -> Data? {
-        portablePreferences
+        if raisesExportException { raiseTestPluginException(reason: "Synthetic exporter failure") }
+        return portablePreferences
     }
 
     func restorePortablePreferences(from data: Data) {
@@ -1235,6 +1365,7 @@ private final class BackupPreferenceDefinedActionPlugin: MacToolsPlugin, PluginA
     var requestPermissionGuidance: ((String) -> Void)?
     var shortcutBindingResolver: ((String) -> ShortcutBinding?)?
     var shouldFailRestore = false
+    var omitsDefinitionFromBackup = false
     private var preferencesRestored = false
 
     var reference: ActionReference {
@@ -1278,6 +1409,7 @@ private final class BackupPreferenceDefinedActionPlugin: MacToolsPlugin, PluginA
 
     func actionReferences(inPortablePreferences data: Data) -> [ActionReference]? {
         guard let actionID = decodedActionID(from: data) else { return nil }
+        if omitsDefinitionFromBackup { return [] }
         return [ActionReference(
             key: ActionKey(providerID: metadata.id, actionID: actionID)
         )]

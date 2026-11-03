@@ -1,0 +1,4 @@
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

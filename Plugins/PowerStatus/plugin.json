@@ -56,8 +56,8 @@
     "display-name": "@displayName",
     "summary": "@summary"
   },
-  "version": "1.0.0",
-  "minHostVersion": "2.0.1",
+  "version": "1.0.1",
+  "minHostVersion": "2.2.0",
   "pluginKitVersion": 7,
   "bundleRelativePath": "PowerStatus.bundle",
   "factoryClass": "PowerStatusPlugin.PowerStatusPluginFactory",
@@ -188,5 +188,9 @@
     "includedPackIDs": [],
     "suggestedRecipeIDs": [],
     "supersedesPluginIDs": []
+  },
+  "preferencesBackup": {
+    "status": "none",
+    "exclusions": []
   }
 }

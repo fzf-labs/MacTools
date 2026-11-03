@@ -6,7 +6,74 @@ import XCTest
 
 @MainActor
 final class AIUsageViewModelTests: XCTestCase {
+    func testPortableSettingsKeepConsentLocalAndDoNotFetchDuringRestore() async throws {
+        let source = makeModel(AIUsageTestClient())
+        source.updatePreferences { $0.codexEnabled = false; $0.refreshInterval = 900; $0.showsMenuBar = true; $0.allowsCredentialAccess = true }
+        let client = AIUsageTestClient()
+        let destination = makeModel(client)
+        destination.start()
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertFalse(destination.preferences.codexEnabled)
+        XCTAssertEqual(destination.preferences.refreshInterval, 900)
+        XCTAssertTrue(destination.preferences.showsMenuBar)
+        XCTAssertFalse(destination.preferences.allowsCredentialAccess)
+        XCTAssertFalse(destination.preferences.allowsClaudeKeychain)
+        let count = await client.count
+        XCTAssertEqual(count, 0)
+        destination.stop()
+    }
+
     private var date = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testImportedIntervalReschedulesSuccessfulSnapshotWithoutImmediateFetch() async throws {
+        for (oldInterval, newInterval) in [(1800, 120), (120, 1800)] {
+            let client = AIUsageTestClient()
+            let fetchedAt = date
+            await client.setResult(.success(AIUsageSnapshot(windows: [], plan: nil, fetchedAt: fetchedAt)))
+            let model = makeModel(client)
+            model.updatePreferences { $0.refreshInterval = oldInterval }
+            enable(model)
+            await settle(model)
+            let source = makeModel(AIUsageTestClient())
+            source.updatePreferences { $0.refreshInterval = newInterval; $0.claudeEnabled = false }
+
+            XCTAssertTrue(model.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+            XCTAssertEqual(model.states[.codex]?.nextRefresh, fetchedAt.addingTimeInterval(Double(newInterval)))
+            var count = await client.count
+            XCTAssertEqual(count, 1)
+            date = fetchedAt.addingTimeInterval(121)
+            model.refresh()
+            await settle(model)
+            count = await client.count
+            XCTAssertEqual(count, newInterval == 120 ? 2 : 1)
+            model.stop()
+        }
+    }
+
+    func testImportedIntervalPreservesFailureAndRateLimitBackoff() async throws {
+        for failure in [AIUsageFailure.network, .rateLimited(retryAfter: 900)] {
+            let client = AIUsageTestClient()
+            let model = makeModel(client)
+            model.updatePreferences { $0.refreshInterval = 1800 }
+            enable(model)
+            await settle(model)
+            await client.setResult(.failure(failure))
+            date.addTimeInterval(61)
+            model.refresh(manual: true)
+            await settle(model)
+            let deadline = model.states[.codex]?.nextRefresh
+            let count = await client.count
+            let source = makeModel(AIUsageTestClient())
+            source.updatePreferences { $0.refreshInterval = 120; $0.claudeEnabled = false }
+
+            XCTAssertTrue(model.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+            XCTAssertEqual(model.states[.codex]?.nextRefresh, deadline)
+            XCTAssertEqual(model.states[.codex]?.failure, failure)
+            let after = await client.count
+            XCTAssertEqual(after, count)
+            model.stop()
+        }
+    }
 
     func testConsentGatePreventsCredentialAndNetworkWork() async {
         let client = AIUsageTestClient()

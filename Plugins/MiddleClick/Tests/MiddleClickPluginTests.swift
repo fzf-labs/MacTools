@@ -45,6 +45,18 @@ private final class MockMiddleClickSession: MiddleClickSessionManaging {
 
 @MainActor
 final class MiddleClickPluginTests: XCTestCase {
+    func testPortableStorePreservesRequestedConfiguration() throws {
+        let source = MiddleClickStore(storage: MiddleClickMemoryStorage())
+        source.setEnabled(true)
+        source.setRequiredFingerCount(5)
+        let storage = MiddleClickMemoryStorage()
+        let destination = MiddleClickStore(storage: storage)
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertTrue(destination.isEnabled)
+        XCTAssertEqual(destination.requiredFingerCount, 5)
+        XCTAssertEqual(MiddleClickStore(storage: storage).requiredFingerCount, 5)
+    }
+
     func testThreeFingerTapRecognizesAfterAllContactsRelease() {
         var recognizer = MiddleClickTapRecognizer(fingerCount: 3)
 

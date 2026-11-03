@@ -96,7 +96,10 @@ validate-generated-plugin-data:
 validate-localization:
 	@$(PYTHON3) scripts/audit-localization.py --require-complete
 
-script-tests: validate-changelog validate-generated-plugin-data validate-localization
+validate-backup-inventory:
+	@$(PYTHON3) scripts/plugins/generate-preferences-backup-inventory.py --check
+
+script-tests: validate-changelog validate-generated-plugin-data validate-localization validate-backup-inventory
 	@$(PYTHON3) -m unittest discover -s scripts/tests -p 'test_*.py'
 
 test: generate

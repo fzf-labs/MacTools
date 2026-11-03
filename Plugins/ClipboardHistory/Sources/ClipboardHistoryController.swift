@@ -818,7 +818,7 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
     private var pendingDeletedItemIDs = Set<UUID>()
     private var storageGeneration: UInt64 = 0
     private var isSuspendedForBackup = false
-    private var preservesRestoredHistory = false
+    private var preservesRestoredHistory: Bool { settings.isRetentionDeferred }
     private var reloadAfterStop = false
     private var needsSettingsReconciliation = false
     private var lastSeenChangeCount: Int
@@ -956,7 +956,12 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
 
     func start(preservingRestoredItems: Bool = false) {
         guard !isSuspendedForBackup else { return }
-        preservesRestoredHistory = preservingRestoredItems
+        guard !preservingRestoredItems || settings.setRetentionDeferred(true) else {
+            errorMessage = errorMessageProvider(CocoaError(.fileWriteUnknown))
+            notifyChanged(reschedulesRetention: false)
+            return
+        }
+        let preservesExistingItems = preservesRestoredHistory
         copyEventMonitor?.start { [weak self] in self?.scheduleEventAssistedCapture() }
         if reloadAfterStop {
             reloadAfterStop = false
@@ -983,19 +988,23 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
                     settings: initialSettings,
                     protectedItemIDs: initialProtectedItemIDs,
                     shortcutRetainedItemIDs: initialShortcutRetainedItemIDs,
-                    preservingRestoredItems: preservingRestoredItems
+                    preservingRestoredItems: preservesExistingItems
                 )
                 guard !Task.isCancelled, let self else { return }
                 var retainedItems = outcome.retainedItems
                 var appliedPolicyRevision = initialPolicyRevision
                 while appliedPolicyRevision != self.capturePolicyRevision {
                     appliedPolicyRevision = self.capturePolicyRevision
-                    retainedItems = await worker.prune(
-                        outcome.loadedItems,
-                        settings: self.settings.snapshot,
-                        protectedItemIDs: self.effectiveRetentionProtectedItemIDs,
-                        shortcutRetainedItemIDs: self.shortcutRetainedItemIDs
-                    )
+                    if self.preservesRestoredHistory {
+                        retainedItems = outcome.loadedItems
+                    } else {
+                        retainedItems = await worker.prune(
+                            outcome.loadedItems,
+                            settings: self.settings.snapshot,
+                            protectedItemIDs: self.effectiveRetentionProtectedItemIDs,
+                            shortcutRetainedItemIDs: self.shortcutRetainedItemIDs
+                        )
+                    }
                     guard !Task.isCancelled else { return }
                 }
                 self.finishLoading(outcome.loadedItems, retainedItems: retainedItems)
@@ -1051,9 +1060,23 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
         }
     }
 
+    var canRestorePortablePreferences: Bool {
+        !isSuspendedForBackup && loadTask == nil && !isMutatingItems && !hasPendingDurableItemIDs
+            && durableMutationTask == nil && !needsSettingsReconciliation
+    }
+
+    func portablePreferencesDidRestore() {
+        capturePolicyRevision &+= 1
+        retentionTimer?.invalidate()
+        retentionTimer = nil
+        cancelPendingCaptureProcessing()
+        cancelPendingPasteboardPayloadRead()
+        refreshProtectedCapacityState()
+        notifyChanged()
+    }
+
     func settingsDidChange() {
         guard !isSuspendedForBackup else { return }
-        preservesRestoredHistory = false
         capturePolicyRevision &+= 1
         if hasPendingDurableItemIDs { needsSettingsReconciliation = true }
         if settings.isPaused {
@@ -1077,6 +1100,11 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
         guard !isMutatingItems else {
             needsSettingsReconciliation = true
             notifyChanged()
+            return
+        }
+        guard !preservesRestoredHistory else {
+            refreshProtectedCapacityState()
+            notifyChanged(reschedulesRetention: false)
             return
         }
         let pruned = ClipboardRetentionPolicy.prune(
@@ -1138,7 +1166,6 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
         currentHistoryItemPasteboardState = nil
         // Internal writes advance `lastSeenChangeCount` at their source. A delta that reaches the
         // monitor is therefore external and must end an implicit queue before retention runs.
-        preservesRestoredHistory = false
         onExternalPasteboardChange?()
 
         // Consume suppression before asking for types, source context, or text. Private copies must
@@ -1516,6 +1543,11 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
             return
         }
         guard updated != items else {
+            return
+        }
+        guard settings.setRetentionDeferred(false) else {
+            errorMessage = errorMessageProvider(CocoaError(.fileWriteUnknown))
+            notifyChanged(reschedulesRetention: false)
             return
         }
         // A capture with no eviction changes exactly one identity, even when it

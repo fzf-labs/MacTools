@@ -9,6 +9,7 @@ import MacToolsPluginKit
 /// assert that a no-op mutation does not touch storage (design risk R8).
 @MainActor
 final class FakePluginStorage: PluginStorage {
+    var rejectedKeys = Set<String>()
     var values: [String: Any] = [:]
     private(set) var writeCount = 0
 
@@ -20,11 +21,13 @@ final class FakePluginStorage: PluginStorage {
     func bool(forKey key: String) -> Bool { values[key] as? Bool ?? false }
 
     func set(_ value: Any?, forKey key: String) {
+        guard !rejectedKeys.contains(key) else { return }
         values[key] = value
         writeCount += 1
     }
 
     func removeObject(forKey key: String) {
+        guard !rejectedKeys.contains(key) else { return }
         values[key] = nil
         writeCount += 1
     }

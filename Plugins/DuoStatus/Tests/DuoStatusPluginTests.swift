@@ -5,6 +5,20 @@ import XCTest
 
 @MainActor
 final class DuoStatusPluginTests: XCTestCase {
+    func testPortableOptionsRestoreWithoutStartingMonitor() throws {
+        let source = Fixture()
+        let sourceStore = DuoStatusIconOptionsStore(storage: source.storage)
+        var options = DuoStatusIconOptions.default
+        options.iconSize = .large
+        options.batteryCriticalThreshold = 35
+        options.showsBluetoothAudioGlyph = true
+        XCTAssertTrue(sourceStore.save(options))
+        let destination = Fixture()
+        XCTAssertTrue(destination.plugin.restorePortablePreferencesReportingResult(from: try XCTUnwrap(sourceStore.portableBackup())))
+        XCTAssertEqual(DuoStatusIconOptionsStore(storage: destination.storage).load(), options)
+        XCTAssertEqual(destination.monitor.startCount, 0)
+    }
+
     func testSettingsOnlyPluginStartsOnlyOnActivationAndRoutesClickToSettings() throws {
         let fixture = Fixture()
         let plugin = fixture.plugin

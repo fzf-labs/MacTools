@@ -493,3 +493,21 @@ private struct ScreenshotSaveFolderView: View {
         .fixedSize()
     }
 }
+
+// MARK: - Portable preferences
+
+extension ScreenshotPlugin: PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting,
+    PluginPersistentPreferencesChangeSignaling {
+    var onPersistentPreferencesChange: (() -> Void)? {
+        get { environment.onPersistentPreferencesChange }
+        set { environment.onPersistentPreferencesChange = newValue }
+    }
+
+    func makePortablePreferencesBackup() -> Data? { environment.portableBackup() }
+    func restorePortablePreferences(from data: Data) { _ = restorePortablePreferencesReportingResult(from: data) }
+    func restorePortablePreferencesReportingResult(from data: Data) -> Bool {
+        guard environment.restorePortableBackup(data) else { return false }
+        onStateChange?()
+        return true
+    }
+}

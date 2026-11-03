@@ -18,3 +18,7 @@ targets:
         CODE_SIGN_STYLE: Automatic
         DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
         OTHER_LDFLAGS: -framework AppKit
+
+core:
+  sources:
+    - ../../Sources/PluginSupport/PortablePreferencesStore.swift

@@ -20,6 +20,14 @@ struct PowerStatusAppEnergyReading: Sendable, Equatable {
     let watts: Double
 }
 
+/// The result of one background sampling pass. `hasMeasurements` is false for
+/// the baseline pass so the panel can distinguish loading from a real empty
+/// result.
+struct PowerStatusAppEnergySample: Sendable, Equatable {
+    let readings: [PowerStatusAppEnergyReading]
+    let hasMeasurements: Bool
+}
+
 /// A point-in-time snapshot of a running application. Passing value types to
 /// the sampler keeps `NSRunningApplication` access and icon loading on the main
 /// actor.
@@ -116,6 +124,11 @@ actor PowerStatusAppEnergyMonitor {
     private var smoothedWatts: [String: Double] = [:]
     private var sessionID: Int?
 
+    private static let emptySample = PowerStatusAppEnergySample(
+        readings: [],
+        hasMeasurements: false
+    )
+
     /// Samples cumulative energy and returns the five heaviest applications
     /// since the previous call. The first call in a session only records a
     /// baseline. A newer session drops the previous counters so reopening the
@@ -124,10 +137,10 @@ actor PowerStatusAppEnergyMonitor {
         identities: [PowerStatusAppIdentity],
         now: Date = Date(),
         sessionID: Int
-    ) -> [PowerStatusAppEnergyReading] {
-        guard !Task.isCancelled else { return [] }
+    ) -> PowerStatusAppEnergySample {
+        guard !Task.isCancelled else { return Self.emptySample }
         if let currentSession = self.sessionID, sessionID < currentSession {
-            return []
+            return Self.emptySample
         }
         if self.sessionID != sessionID {
             self.sessionID = sessionID
@@ -138,11 +151,11 @@ actor PowerStatusAppEnergyMonitor {
         let energies = Self.readCumulativeEnergy()
         defer { baseline = Baseline(timestamp: now, energyByPID: energies) }
 
-        guard let baseline else { return [] }
+        guard let baseline else { return Self.emptySample }
         let elapsed = now.timeIntervalSince(baseline.timestamp)
         guard elapsed > 0.2, elapsed <= Self.maximumSampleInterval else {
             smoothedWatts.removeAll()
-            return []
+            return Self.emptySample
         }
 
         let wattsByPID = PowerStatusAppEnergyMath.watts(
@@ -150,14 +163,18 @@ actor PowerStatusAppEnergyMonitor {
             current: energies,
             elapsed: elapsed
         )
-        guard !wattsByPID.isEmpty else { return [] }
+        guard !wattsByPID.isEmpty else {
+            return PowerStatusAppEnergySample(readings: [], hasMeasurements: true)
+        }
 
         var appsByPID: [Int32: PowerStatusAppIdentity] = [:]
         appsByPID.reserveCapacity(identities.count)
         for app in identities where app.pid > 0 {
             appsByPID[app.pid] = app
         }
-        guard !appsByPID.isEmpty else { return [] }
+        guard !appsByPID.isEmpty else {
+            return PowerStatusAppEnergySample(readings: [], hasMeasurements: true)
+        }
 
         // Attribute helpers and child processes to the app that owns them, so
         // a browser's renderer and GPU helpers count toward the browser.
@@ -169,7 +186,9 @@ actor PowerStatusAppEnergyMonitor {
             wattsByApp[owner.bundleID, default: 0] += watts
             appByID[owner.bundleID] = owner
         }
-        guard !wattsByApp.isEmpty else { return [] }
+        guard !wattsByApp.isEmpty else {
+            return PowerStatusAppEnergySample(readings: [], hasMeasurements: true)
+        }
 
         var smoothed: [String: Double] = [:]
         for (id, watts) in wattsByApp {
@@ -186,7 +205,10 @@ actor PowerStatusAppEnergyMonitor {
                 watts: watts
             )
         }
-        return PowerStatusAppEnergyMath.rankedReadings(readings)
+        return PowerStatusAppEnergySample(
+            readings: PowerStatusAppEnergyMath.rankedReadings(readings),
+            hasMeasurements: true
+        )
     }
 
     // MARK: - Process inspection

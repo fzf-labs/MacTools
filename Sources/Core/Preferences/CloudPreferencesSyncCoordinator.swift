@@ -23,7 +23,7 @@ final class CloudPreferencesSyncCoordinator {
     private(set) var lastSyncedAt: Date?
     private(set) var status: CloudPreferencesSyncStatus = .offline(reason: .disabled)
 
-    var snapshotProvider: (() -> PreferencesBackup?)?
+    var snapshotProvider: (() throws -> PreferencesBackup?)?
     var importHandler: ((PreferencesBackup) throws -> Void)?
     var statusHandler: ((CloudPreferencesSyncStatus) -> Void)?
     var directoryURLHandler: ((URL?) -> Void)?
@@ -181,9 +181,10 @@ final class CloudPreferencesSyncCoordinator {
         case .shared:
             try applyShared(shared)
         case .local:
+            guard let local = try currentBackup() else { throw CocoaError(.fileReadUnknown) }
             state.shared = shared
             state.conflict = nil
-            state.pending = currentBackup()
+            state.pending = local
             state.needsPublication = true
             currentGeneration = max(currentGeneration, shared.generation)
             try persistState()
@@ -283,7 +284,7 @@ final class CloudPreferencesSyncCoordinator {
         }
         updateStatus(to: .syncing)
         try session.checkCancellation()
-        guard let backup = currentBackup() else { throw CocoaError(.fileReadUnknown) }
+        guard let backup = try currentBackup() else { throw CocoaError(.fileReadUnknown) }
         let revision = localRevision
         guard currentGeneration < UInt64.max else { throw CocoaError(.fileWriteUnknown) }
         let snapshot = CloudPreferencesSnapshot(
@@ -339,7 +340,7 @@ final class CloudPreferencesSyncCoordinator {
                 try persistState()
                 return
             }
-            if let current = currentBackup(), current.hasSameMeaningfulContent(as: incoming) {
+            if let current = try currentBackup(), current.hasSameMeaningfulContent(as: incoming) {
                 try accept(snapshot)
             } else if state.pending != nil || state.needsPublication || isSibling
                 || (snapshot.isCloudSnapshot && snapshot.generation < base.generation) {
@@ -353,7 +354,7 @@ final class CloudPreferencesSyncCoordinator {
             // Legacy clients persisted only a counter, so ancestry is unknown.
             try recordConflict(snapshot)
         } else if state.pending != nil {
-            if currentBackup()?.hasSameMeaningfulContent(as: incoming) == true {
+            if try currentBackup()?.hasSameMeaningfulContent(as: incoming) == true {
                 try accept(snapshot)
             } else { try recordConflict(snapshot) }
         } else if snapshot.deviceID == localDeviceID {
@@ -372,8 +373,9 @@ final class CloudPreferencesSyncCoordinator {
     }
 
     private func accept(_ snapshot: CloudPreferencesSnapshot) throws {
+        let baseline = try currentBackup() ?? Self.filterMachineSpecificPreferences(snapshot.backup)
         state.shared = snapshot
-        state.localBaseline = currentBackup() ?? Self.filterMachineSpecificPreferences(snapshot.backup)
+        state.localBaseline = baseline
         state.pending = nil
         state.conflict = nil
         state.needsPublication = !snapshot.isCloudSnapshot
@@ -388,7 +390,7 @@ final class CloudPreferencesSyncCoordinator {
     }
 
     private func recordConflict(_ snapshot: CloudPreferencesSnapshot) throws {
-        guard let local = currentBackup() else { throw CocoaError(.fileReadUnknown) }
+        guard let local = try currentBackup() else { throw CocoaError(.fileReadUnknown) }
         state.conflict = CloudPreferencesConflict(local: local, shared: snapshot)
         state.pending = local
         try persistState()
@@ -399,13 +401,13 @@ final class CloudPreferencesSyncCoordinator {
         lhs.documentID == rhs.documentID && lhs.backup.hasSameMeaningfulContent(as: rhs.backup)
     }
 
-    private func currentBackup() -> PreferencesBackup? {
-        snapshotProvider?().map(Self.filterMachineSpecificPreferences)
+    private func currentBackup() throws -> PreferencesBackup? {
+        try snapshotProvider?().map(Self.filterMachineSpecificPreferences)
     }
 
     private func captureLocalChanges(isCommit: Bool = false) throws {
         if let stateLoadError { throw stateLoadError }
-        guard let current = currentBackup(), syncDirectoryURL != nil else { return }
+        guard let current = try currentBackup(), syncDirectoryURL != nil else { return }
         if let baseline = state.localBaseline {
             state.pending = baseline.hasSameMeaningfulContent(as: current) ? nil : current
         } else if isCommit || state.pending != nil {
@@ -616,7 +618,12 @@ final class CloudPreferencesSyncCoordinator {
             actionInvocationPresets: actionInvocationPresets,
             workflows: workflows,
             automationRules: automationRules,
-            selection: backup.selection,
+            selection: backup.selection.map { selection in
+                var sanitized = selection
+                sanitized.pluginPreferenceIDs.formIntersection(pluginPreferences.keys)
+                return sanitized
+            },
+            pluginDiagnostics: backup.pluginDiagnostics,
             exportedAt: backup.exportedAt
         )
     }

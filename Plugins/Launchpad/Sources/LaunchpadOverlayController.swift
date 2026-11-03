@@ -280,7 +280,21 @@ final class LaunchpadOverlayController: NSObject, NSWindowDelegate {
     /// - Parameter restoringFocus: hand focus back to the previously frontmost app.
     ///   `true` for user dismissal (Esc / background / app switch); `false` when an app
     ///   was just launched (it should come forward instead).
-    func close(restoringFocus: Bool = true) {
+    var isVisible: Bool { window?.isVisible == true }
+    var onAppsDidReload: (() -> Void)? {
+        get { catalog.onAppsDidReload }
+        set { catalog.onAppsDidReload = newValue }
+    }
+    private func abandonRenameSessions(in view: NSView?) {
+        guard let view else { return }
+        if let field = view as? LaunchpadRenameTextField,
+           let coordinator = field.delegate as? LaunchpadFolderRenameField.Coordinator { coordinator.abandonSession() }
+        for child in view.subviews { abandonRenameSessions(in: child) }
+    }
+
+    var onDidClose: (() -> Void)?
+
+    func close(restoringFocus: Bool = true, discardingEdits: Bool = false) {
         guard !isTearingDown else { return }
         // A carry may be mid-flight (mouse still down): drop its floating icon window before the
         // overlay goes — it's a separate window and would outlive us. Ahead of the window guard
@@ -299,6 +313,7 @@ final class LaunchpadOverlayController: NSObject, NSWindowDelegate {
         // commits synchronously on this event stack (design §2.3 "unmount → commit, no data
         // loss"). Idempotent for every other responder (search field has no end-editing
         // hooks) and the session latch keeps any later dismantle call inert.
+        if discardingEdits { abandonRenameSessions(in: win.contentView) }
         win.makeFirstResponder(nil)
         win.delegate = nil
         win.orderOut(nil)
@@ -309,6 +324,7 @@ final class LaunchpadOverlayController: NSObject, NSWindowDelegate {
         }
         previousApp = nil
         isTearingDown = false
+        onDidClose?()
     }
 
     private func launch(_ app: LaunchpadAppItem) {

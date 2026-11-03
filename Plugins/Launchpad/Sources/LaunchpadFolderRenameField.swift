@@ -185,6 +185,7 @@ struct LaunchpadFolderRenameField: NSViewRepresentable {
         /// Last applied resolution — test instrumentation for the forwarding table.
         private(set) var lastResolution: LaunchpadRenameEditSession.Resolution?
         private var focusRequestInFlight = false
+        private var focusGeneration = 0
         /// True once a keystroke has been saved to the store in real time this session, so an Esc
         /// cancel knows it must roll the store back to the original name. Cleared on each begin.
         private var hasLiveCommitted = false
@@ -245,6 +246,8 @@ struct LaunchpadFolderRenameField: NSViewRepresentable {
 
         func abandonSession() {
             session = nil
+            focusGeneration &+= 1
+            focusRequestInFlight = false
         }
 
         // MARK: Programmatic focus (context-menu rename / post-creation auto-open)
@@ -259,8 +262,9 @@ struct LaunchpadFolderRenameField: NSViewRepresentable {
         }
 
         private func attemptProgrammaticFocus(retries: Int) {
+            let generation = focusGeneration
             DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
+                guard let self, generation == self.focusGeneration else { return }
                 if let field = self.field, let window = field.window {
                     self.focusRequestInFlight = false
                     self.parent.onFocusRequestHandled()

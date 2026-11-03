@@ -6,6 +6,28 @@ import XCTest
 @testable import CloudflareR2Plugin
 
 final class R2ConfigurationTests: XCTestCase {
+    @MainActor
+    func testPortableConfigurationPreservesCredentialsAndPendingSecret() throws {
+        let source = R2ConfigurationStore(storage: R2MemoryStorage(), secrets: R2SecretStoreMock(secret: nil))
+        source.bucket = "public-bucket"
+        source.publicBaseURL = "https://files.example.com"
+        source.objectPrefix = "images"
+        source.save()
+        let storage = R2MemoryStorage(values: ["account-id": "local-account", "access-key-id": "local-key"])
+        let secrets = R2SecretStoreMock(secret: "local-secret")
+        let destination = R2ConfigurationStore(storage: storage, secrets: secrets)
+        destination.secretAccessKey = "unsaved-secret"
+        XCTAssertTrue(destination.restorePortableBackup(try XCTUnwrap(source.portableBackup())))
+        XCTAssertEqual(destination.bucket, "public-bucket")
+        XCTAssertEqual(destination.accountID, "local-account")
+        XCTAssertEqual(destination.accessKeyID, "local-key")
+        XCTAssertEqual(destination.secretAccessKey, "unsaved-secret")
+        XCTAssertEqual(secrets.saveCount, 0)
+        source.publicBaseURL = "https://user:password@files.example.com"
+        source.save()
+        XCTAssertNotNil(source.errorMessage)
+    }
+
     func testNightlyServiceNamePreservesExistingStableNamespace() {
         for channel in [nil, "stable", "development", "unknown"] {
             XCTAssertEqual(

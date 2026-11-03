@@ -119,25 +119,6 @@ struct PowerStatusComponentView: View {
                 .lineLimit(1)
 
             Spacer(minLength: 4)
-
-            if let headerPowerW = viewModel.snapshot.headerPowerW {
-                HStack(alignment: .firstTextBaseline, spacing: 2) {
-                    Text(String(format: "%.0f", headerPowerW))
-                        .font(PluginTypography.sectionTitle.font.weight(.bold))
-                        .foregroundStyle(theme.text.primary)
-                        .monospacedDigit()
-                    Text("W")
-                        .font(PluginTypography.caption.font)
-                        .foregroundStyle(theme.text.secondary)
-                }
-            } else {
-                // Nothing establishes the current total draw; say so instead of
-                // claiming 0 W.
-                Text(PowerStatusValueText.unavailable)
-                    .font(PluginTypography.sectionTitle.font.weight(.bold))
-                    .foregroundStyle(theme.text.tertiary)
-                    .monospacedDigit()
-            }
         }
         .padding(.horizontal, PowerStatusLayout.horizontalPadding)
         .padding(.bottom, PowerStatusLayout.sectionHeaderContent)
@@ -241,23 +222,20 @@ struct PowerStatusComponentView: View {
 
     // MARK: - Energy-consuming apps
 
-    /// The five heaviest applications in the current sampling window. Empty
-    /// until the second sample establishes a baseline.
-    @ViewBuilder
+    /// The five heaviest applications in the current sampling window. The
+    /// section stays collapsed by default and only samples while expanded.
     private var energyAppsSection: some View {
-        let apps = viewModel.snapshot.topEnergyApps
-        if !apps.isEmpty {
-            detailGroup(title: localization.string("energyApps.title", defaultValue: "高耗电应用")) {
-                VStack(spacing: PowerStatusLayout.rowVertical) {
-                    ForEach(apps) { app in
-                        PowerStatusAppEnergyRow(app: app)
-                    }
-                }
+        PowerStatusEnergyAppsSection(
+            isExpanded: viewModel.isEnergyAppsExpanded,
+            apps: viewModel.snapshot.topEnergyApps,
+            isSampled: viewModel.isEnergyAppsSampled,
+            localization: localization,
+            onToggle: {
+                viewModel.setEnergyAppsExpanded(!viewModel.isEnergyAppsExpanded)
             }
-            .help(localization.string("energyApps.help", defaultValue: "最近一次采样间隔内的平均功耗"))
-            .padding(.horizontal, PowerStatusLayout.horizontalPadding)
-            .padding(.top, PowerStatusLayout.section)
-        }
+        )
+        .padding(.horizontal, PowerStatusLayout.horizontalPadding)
+        .padding(.top, PowerStatusLayout.section)
     }
 
     // MARK: - Telemetry
@@ -437,7 +415,7 @@ struct PowerStatusComponentView: View {
     }
 
     private var batteryLevelBar: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: PowerStatusLayout.batteryBarLabelSpacing) {
             HStack {
                 Image(systemName: batteryIconName)
                     .font(.system(size: 12, weight: .medium))
@@ -456,19 +434,69 @@ struct PowerStatusComponentView: View {
                     .monospacedDigit()
             }
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
-                        .fill(theme.surfaces.track)
-                        .frame(height: 6)
+            batteryLevelTrack
+        }
+    }
 
-                    RoundedRectangle(cornerRadius: 3, style: .continuous)
+    /// A recessed capsule track with a tinted, gradient-filled level and a
+    /// bright edge marker at the current level.
+    private var batteryLevelTrack: some View {
+        let progress = min(max(CGFloat(viewModel.snapshot.batteryPercent) / 100, 0), 1)
+        let height = PowerStatusLayout.batteryTrackHeight
+
+        return GeometryReader { geo in
+            let fillWidth = geo.size.width * progress
+            ZStack(alignment: .leading) {
+                Capsule(style: .continuous)
+                    .fill(theme.surfaces.track)
+
+                Capsule(style: .continuous)
+                    .fill(batteryTint.opacity(0.14))
+
+                Capsule(style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                batteryTint.opacity(0.45),
+                                batteryTint.opacity(0.95)
+                            ],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .overlay {
+                        Capsule(style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.24),
+                                        Color.white.opacity(0.02)
+                                    ],
+                                    startPoint: .top,
+                                    endPoint: .bottom
+                                )
+                            )
+                    }
+                    .frame(width: fillWidth)
+
+                if progress > 0.005, progress < 0.995 {
+                    Capsule(style: .continuous)
+                        .fill(batteryTint.opacity(0.45))
+                        .frame(width: 6)
+                        .blur(radius: 2)
+                        .offset(x: fillWidth - 3)
+
+                    Capsule(style: .continuous)
                         .fill(batteryTint)
-                        .frame(width: max(0, geo.size.width * CGFloat(viewModel.snapshot.batteryPercent) / 100), height: 6)
+                        .frame(width: 2, height: height - 2)
+                        .brightness(0.3)
+                        .offset(x: fillWidth - 1)
                 }
             }
-            .frame(height: 6)
+            .frame(height: height)
         }
+        .frame(height: height)
+        .accessibilityHidden(true)
     }
 
     private var batteryTint: Color {
@@ -518,9 +546,13 @@ enum PowerStatusLayout {
 
     static let headerRowHeight: CGFloat = 22
     static let metricRowHeight: CGFloat = 17
-    static let batteryBarHeight: CGFloat = 26
+    /// Label row, spacing, and the level track inside the battery group.
+    static let batteryBarLabelSpacing: CGFloat = 6
+    static let batteryTrackHeight: CGFloat = 14
+    static let batteryBarHeight: CGFloat = 36
     static let miniMetricRowHeight: CGFloat = 31
     static let appEnergyRowHeight: CGFloat = 20
+    static let appEnergyHeaderHeight: CGFloat = 22
     static let sensorHeaderHeight: CGFloat = 22
     static let sensorTableHeaderHeight: CGFloat = 14
     static let sensorRowHeight: CGFloat = 18
@@ -545,6 +577,7 @@ enum PowerStatusLayout {
         capacityTileCount: Int,
         voltageCurrentTileCount: Int,
         energyAppCount: Int = 0,
+        isEnergyAppsExpanded: Bool = false,
         sensorRowCount: Int = 0,
         isSensorsExpanded: Bool = false,
         isDataAvailable: Bool
@@ -559,7 +592,10 @@ enum PowerStatusLayout {
         let powerFlow = CGFloat(rows) * metricRowHeight
             + CGFloat(max(rows - 1, 0)) * rowVertical
             + section
-        let energyApps = energyAppsHeight(rowCount: energyAppCount)
+        let energyApps = energyAppsHeight(
+            rowCount: energyAppCount,
+            isExpanded: isEnergyAppsExpanded
+        )
         let sensors = sensorsHeight(rowCount: sensorRowCount, isExpanded: isSensorsExpanded)
         // The capacity group always renders; it carries the battery level bar.
         let capacity = groupHeight(
@@ -585,13 +621,16 @@ enum PowerStatusLayout {
         return header + sectionHeaderContent + table
     }
 
-    /// One row per application, under the same group header as the telemetry
-    /// groups but in a single column.
-    private static func energyAppsHeight(rowCount: Int) -> CGFloat {
-        guard rowCount > 0 else { return 0 }
-        return section + detailGroupHeaderHeight + sectionHeaderContent
-            + CGFloat(rowCount) * appEnergyRowHeight
-            + CGFloat(max(rowCount - 1, 0)) * rowVertical
+    /// The collapsible header always renders; the list adds one row per app,
+    /// or one placeholder row before the first sample completes.
+    private static func energyAppsHeight(rowCount: Int, isExpanded: Bool) -> CGFloat {
+        let header = section + appEnergyHeaderHeight
+        guard isExpanded else { return header }
+
+        let rows = max(rowCount, 1)
+        return header + sectionHeaderContent
+            + CGFloat(rows) * appEnergyRowHeight
+            + CGFloat(max(rows - 1, 0)) * rowVertical
     }
 
     /// One telemetry group: its own leading spacing, header, an optional
@@ -1288,6 +1327,113 @@ private struct PowerStatusSensorSection: View {
 
     private static func temperatureText(_ value: Double) -> String {
         String(format: "%.1f°C", value)
+    }
+}
+
+// MARK: - High energy apps
+
+private struct PowerStatusEnergyAppsSection: View {
+    let isExpanded: Bool
+    let apps: [PowerStatusAppEnergy]
+    let isSampled: Bool
+    let localization: PluginLocalization
+    let onToggle: () -> Void
+
+    @Environment(\.pluginComponentTheme) private var theme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            header
+
+            if isExpanded {
+                content
+                    .padding(.top, PowerStatusLayout.sectionHeaderContent)
+            }
+        }
+    }
+
+    private var header: some View {
+        Button(action: toggle) {
+            HStack(spacing: 6) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(theme.text.tertiary)
+                    .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                    .frame(width: 10)
+
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 11, weight: .medium))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(theme.status.warning)
+                    .frame(width: 16)
+
+                Text(localization.string("energyApps.title", defaultValue: "高耗电应用"))
+                    .font(PluginTypography.caption.font.weight(.semibold))
+                    .foregroundStyle(theme.text.secondary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 4)
+            }
+            .frame(height: PowerStatusLayout.appEnergyHeaderHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(localization.string("energyApps.help", defaultValue: "最近一次采样间隔内的平均功耗"))
+        .accessibilityLabel(localization.string("energyApps.title", defaultValue: "高耗电应用"))
+        .accessibilityHint(isExpanded ? collapseHint : expandHint)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if apps.isEmpty {
+            placeholderRow
+        } else {
+            VStack(spacing: PowerStatusLayout.rowVertical) {
+                ForEach(apps) { app in
+                    PowerStatusAppEnergyRow(app: app)
+                }
+            }
+        }
+    }
+
+    private var placeholderRow: some View {
+        Text(
+            localization.string(
+                isSampled ? "energyApps.empty" : "energyApps.loading",
+                defaultValue: isSampled ? "未发现高耗电应用" : "正在采集应用功耗…"
+            )
+        )
+        .font(PluginTypography.detail.font)
+        .foregroundStyle(theme.text.tertiary)
+        .lineLimit(1)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.leading, 22)
+        .frame(height: PowerStatusLayout.appEnergyRowHeight)
+    }
+
+    private func toggle() {
+        if reduceMotion {
+            onToggle()
+        } else {
+            withAnimation(.easeInOut(duration: 0.18)) {
+                onToggle()
+            }
+        }
+    }
+
+    private var expandHint: String {
+        localization.string(
+            "energyApps.expandHint",
+            defaultValue: "展开查看高耗电应用"
+        )
+    }
+
+    private var collapseHint: String {
+        localization.string(
+            "energyApps.collapseHint",
+            defaultValue: "收起高耗电应用"
+        )
     }
 }
 
