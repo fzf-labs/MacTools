@@ -255,6 +255,11 @@ private final class MutationTestStorage: PluginStorage {
 
 @MainActor
 private final class MutationTestPasteboard: ClipboardPasteboardAccess {
+    func clearContents() {
+        payload = nil
+        changeCount += 1
+    }
+
     private(set) var changeCount = 0
     private var payload: ClipboardHistoryPayload?
     private(set) var payloadReadCount = 0

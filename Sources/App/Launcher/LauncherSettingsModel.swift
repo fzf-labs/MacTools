@@ -26,7 +26,7 @@ final class LauncherSettingsModel: ObservableObject {
             guard let host else { return [] }
             return LauncherCatalogSnapshot.make(host: host, category: category)
         }
-        host.objectWillChange.sink { [weak self] in self?.scheduleInvalidation([.systemOperations, .pluginFeatures]) }.store(in: &subscriptions)
+        host.objectWillChange.sink { [weak self] in self?.scheduleInvalidation([.pluginFeatures]) }.store(in: &subscriptions)
         catalog.objectWillChange.sink { [weak self] in self?.scheduleInvalidation([.applications]) }.store(in: &subscriptions)
         host.systemSettingsCatalog.objectWillChange.sink { [weak self] in self?.scheduleInvalidation([.systemSettings]) }.store(in: &subscriptions)
         PluginRuntimeLocalization.source.$revision.dropFirst().sink { [weak self] _ in

@@ -73,7 +73,13 @@ enum LauncherText {
     static var removeFavorite: String { PluginRuntimeLocalization.string("launcher.removeFavorite", defaultValue: "Remove from Favorites", table: "Launcher", bundle: .main) }
     static var shortcut: String { PluginRuntimeLocalization.string("launcher.shortcut", defaultValue: "Keyboard Shortcut", table: "Launcher", bundle: .main) }
     static var sourceHint: String { PluginRuntimeLocalization.string("launcher.sourceHint", defaultValue: "Include this category in launcher searches.", table: "Launcher", bundle: .main) }
-    static var systemOperationsDescription: String { PluginRuntimeLocalization.string("launcher.systemOperationsDescription", defaultValue: "Choose system actions provided by enabled plugins.", table: "Launcher", bundle: .main) }
+    static var systemOperationsDescription: String { PluginRuntimeLocalization.string("launcher.systemOperationsDescription", defaultValue: "Choose built-in macOS commands. Plugin features are managed separately.", table: "Launcher", bundle: .main) }
+    static var sessionWarning: String { PluginRuntimeLocalization.string("launcher.sessionWarning", defaultValue: "Applications with unsaved changes may ask you to save.", table: "Launcher", bundle: .main) }
+    static var trashWarning: String { PluginRuntimeLocalization.string("launcher.trashWarning", defaultValue: "Items in the Trash will be permanently deleted.", table: "Launcher", bundle: .main) }
+    static var accessibilityRequired: String { PluginRuntimeLocalization.string("launcher.accessibilityRequired", defaultValue: "Allow MacTools in System Settings > Privacy & Security > Accessibility, then try again.", table: "Launcher", bundle: .main) }
+    static var automationRequired: String { PluginRuntimeLocalization.string("launcher.automationRequired", defaultValue: "Allow MacTools to control Finder or System Events in System Settings > Privacy & Security > Automation, then try again.", table: "Launcher", bundle: .main) }
+    static var audioUnavailable: String { PluginRuntimeLocalization.string("launcher.audioUnavailable", defaultValue: "The current audio device does not support this control. Check the device and try again.", table: "Launcher", bundle: .main) }
+    static var systemActionFailed: String { PluginRuntimeLocalization.string("launcher.systemActionFailed", defaultValue: "Unable to perform this system action. Check its permissions and try again.", table: "Launcher", bundle: .main) }
     static var systemSettingsDescription: String { PluginRuntimeLocalization.string("launcher.systemSettingsDescription", defaultValue: "Choose macOS settings pages to open from the launcher.", table: "Launcher", bundle: .main) }
     static var tryAnotherSearch: String { PluginRuntimeLocalization.string("launcher.tryAnotherSearch", defaultValue: "Try another search term.", table: "Launcher", bundle: .main) }
     static var energy: String { PluginRuntimeLocalization.string("launcher.energy", defaultValue: "Energy", table: "Launcher", bundle: .main) }
@@ -84,4 +90,34 @@ enum LauncherText {
     static var fullDiskAccess: String { PluginRuntimeLocalization.string("launcher.fullDiskAccess", defaultValue: "Full Disk Access", table: "Launcher", bundle: .main) }
     static var inputMonitoring: String { PluginRuntimeLocalization.string("launcher.inputMonitoring", defaultValue: "Input Monitoring", table: "Launcher", bundle: .main) }
     static var automation: String { PluginRuntimeLocalization.string("launcher.automation", defaultValue: "Automation", table: "Launcher", bundle: .main) }
+    static func systemActionTitle(_ action: LauncherSystemAction) -> String {
+        switch action {
+        case .lockScreen: PluginRuntimeLocalization.string("launcher.action.lock-screen", defaultValue: "Lock Screen", table: "Launcher", bundle: .main)
+        case .sleep: PluginRuntimeLocalization.string("launcher.action.sleep", defaultValue: "Sleep", table: "Launcher", bundle: .main)
+        case .sleepDisplays: PluginRuntimeLocalization.string("launcher.action.sleep-displays", defaultValue: "Sleep Displays", table: "Launcher", bundle: .main)
+        case .restart: PluginRuntimeLocalization.string("launcher.action.restart", defaultValue: "Restart", table: "Launcher", bundle: .main)
+        case .shutDown: PluginRuntimeLocalization.string("launcher.action.shut-down", defaultValue: "Shut Down", table: "Launcher", bundle: .main)
+        case .logOut: PluginRuntimeLocalization.string("launcher.action.log-out", defaultValue: "Log Out", table: "Launcher", bundle: .main)
+        case .screenSaver: PluginRuntimeLocalization.string("launcher.action.screen-saver", defaultValue: "Start Screen Saver", table: "Launcher", bundle: .main)
+        case .showDesktop: PluginRuntimeLocalization.string("launcher.action.show-desktop", defaultValue: "Show Desktop", table: "Launcher", bundle: .main)
+        case .missionControl: PluginRuntimeLocalization.string("launcher.action.mission-control", defaultValue: "Mission Control", table: "Launcher", bundle: .main)
+        case .playPause: PluginRuntimeLocalization.string("launcher.action.play-pause", defaultValue: "Play / Pause", table: "Launcher", bundle: .main)
+        case .nextTrack: PluginRuntimeLocalization.string("launcher.action.next-track", defaultValue: "Next Track", table: "Launcher", bundle: .main)
+        case .previousTrack: PluginRuntimeLocalization.string("launcher.action.previous-track", defaultValue: "Previous Track", table: "Launcher", bundle: .main)
+        case .toggleMute: PluginRuntimeLocalization.string("launcher.action.toggle-mute", defaultValue: "Toggle Mute", table: "Launcher", bundle: .main)
+        case .toggleMicrophoneMute: PluginRuntimeLocalization.string("launcher.action.toggle-microphone-mute", defaultValue: "Toggle Microphone Mute", table: "Launcher", bundle: .main)
+        case .volumeUp: PluginRuntimeLocalization.string("launcher.action.volume-up", defaultValue: "Volume Up", table: "Launcher", bundle: .main)
+        case .volumeDown: PluginRuntimeLocalization.string("launcher.action.volume-down", defaultValue: "Volume Down", table: "Launcher", bundle: .main)
+        case .volume0: PluginRuntimeLocalization.string("launcher.action.volume-0", defaultValue: "Set Volume to 0%", table: "Launcher", bundle: .main)
+        case .volume25: PluginRuntimeLocalization.string("launcher.action.volume-25", defaultValue: "Set Volume to 25%", table: "Launcher", bundle: .main)
+        case .volume50: PluginRuntimeLocalization.string("launcher.action.volume-50", defaultValue: "Set Volume to 50%", table: "Launcher", bundle: .main)
+        case .volume75: PluginRuntimeLocalization.string("launcher.action.volume-75", defaultValue: "Set Volume to 75%", table: "Launcher", bundle: .main)
+        case .volume100: PluginRuntimeLocalization.string("launcher.action.volume-100", defaultValue: "Set Volume to 100%", table: "Launcher", bundle: .main)
+        case .toggleAppearance: PluginRuntimeLocalization.string("launcher.action.toggle-appearance", defaultValue: "Toggle Light / Dark Appearance", table: "Launcher", bundle: .main)
+        case .openTrash: PluginRuntimeLocalization.string("launcher.action.open-trash", defaultValue: "Open Trash", table: "Launcher", bundle: .main)
+        case .emptyTrash: PluginRuntimeLocalization.string("launcher.action.empty-trash", defaultValue: "Empty Trash", table: "Launcher", bundle: .main)
+        case .hideOtherApps: PluginRuntimeLocalization.string("launcher.action.hide-other-apps", defaultValue: "Hide Other Apps", table: "Launcher", bundle: .main)
+        case .unhideAllApps: PluginRuntimeLocalization.string("launcher.action.unhide-all-apps", defaultValue: "Show All Hidden Apps", table: "Launcher", bundle: .main)
+        }
+    }
 }

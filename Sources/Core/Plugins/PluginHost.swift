@@ -389,6 +389,7 @@ final class PluginHost: ObservableObject {
     lazy var applicationCatalog = ApplicationCatalog(defaults: shortcutStore.userDefaults)
     lazy var systemSettingsCatalog = LauncherSystemSettingsCatalog()
     let launcherOperations = LauncherOperationRegistry(providerID: "mactools-launcher")
+    let launcherSystemActions = LauncherSystemActionProvider()
     var launcherPluginIDs: Set<String> {
         Set(activePlugins.filter { !isPluginIsolated($0) }.map { $0.metadata.id })
     }
@@ -396,12 +397,18 @@ final class PluginHost: ObservableObject {
         activePlugins.first { $0.metadata.id == id && !isPluginIsolated($0) }?.metadata.title
     }
     func launcherRole(for reference: ActionReference) -> LauncherActionRole? {
+        if launcherSystemActions.command(for: reference) != nil,
+           actionRegistry.definition(for: reference.key) != nil { return .systemOperation }
         guard let plugin = corePlugin(for: reference.key.providerID), !isPluginIsolated(plugin),
               actionRegistry.definition(for: reference.key) != nil else { return nil }
+        let role: LauncherActionRole?
         if let declaring = plugin as? any PluginLauncherActionProviding {
-            return guardedOptionalValue(for: plugin, operation: "classify launcher action", declaring.launcherRole(for: reference))
+            role = guardedOptionalValue(for: plugin, operation: "classify launcher action", declaring.launcherRole(for: reference))
+        } else {
+            role = LauncherActionPolicy.legacyRole(for: reference.key)
         }
-        return LauncherActionPolicy.legacyRole(for: reference.key)
+        // Plugin-owned actions always belong to Plugin Features, including older system-role declarations.
+        return role.map { _ in .pluginFeature }
     }
     var launcherWorkspaces: [PluginSettingsPageItem] {
         let activeIDs = launcherPluginIDs
@@ -4148,7 +4155,7 @@ final class PluginHost: ObservableObject {
     }
 
     private func synchronizeActionRegistry(descriptors: [PluginDescriptor]) {
-        var registrations = [hostActionRegistration(), ActionProviderRegistration(
+        var registrations = [hostActionRegistration(), launcherSystemActions.registration, ActionProviderRegistration(
             providerID: "mactools-launcher", identity: ObjectIdentifier(launcherOperations),
             definitions: [launcherOperations.definition], catalogEntries: [],
             availability: { [weak self] in self?.launcherOperations.availability($0) ?? .unavailable(LauncherText.unavailable) },

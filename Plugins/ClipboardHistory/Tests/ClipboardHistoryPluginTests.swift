@@ -10,6 +10,103 @@ import XCTest
 @MainActor
 final class ClipboardHistoryPluginTests: XCTestCase {
 
+    func testClearCurrentClipboardPreservesHistoryAndSavedItemsWhilePaused() async throws {
+        let item = historyItem()
+        let persistence = BlockingClipboardHistoryPersistence(items: [item])
+        persistence.allowSaveToFinish()
+        let snippet = ClipboardSavedItem(
+            title: "Saved snippet",
+            savedKind: .snippet,
+            payload: .plainText("Keep this snippet"),
+            templateText: "Keep this snippet"
+        )
+        let savedPersistence = InMemoryClipboardSavedLibraryPersistence()
+        try savedPersistence.save(snippet, payloadChanged: true)
+        let pasteboard = NSPasteboard(name: .init("ClipboardHistoryPluginTests.\(UUID().uuidString)"))
+        defer { pasteboard.releaseGlobally() }
+        let plugin = makePlugin(
+            pasteboard: GeneralClipboardPasteboard(pasteboard: pasteboard),
+            persistence: persistence,
+            savedPersistence: savedPersistence,
+            accessibilityTrusted: { false }
+        )
+        defer { plugin.deactivate(reason: .hostShutdown) }
+        plugin.controller.start()
+        plugin.savedLibraryController.start()
+        await waitUntilLoaded(plugin.controller)
+        let savedLoaded = await waitUntil { plugin.savedLibraryController.isLoaded }
+        XCTAssertTrue(savedLoaded)
+        plugin.controller.settings.setPaused(true)
+        pasteboard.clearContents()
+        pasteboard.setString("Current copy", forType: .string)
+        pasteboard.setData(Data([1, 2, 3]), forType: .png)
+        let reference = reference(plugin, actionID: ClipboardHistoryPlugin.ActionID.clearCurrentClipboard)
+        let definition = try XCTUnwrap(plugin.actionDefinitions.first { $0.key == reference.key })
+        XCTAssertEqual(definition.risk, .confirmationRequired)
+        XCTAssertNotNil(definition.confirmation)
+        XCTAssertEqual(definition.externalInvocationPolicy, .confirmAlways)
+        XCTAssertTrue(plugin.actionAvailability(for: reference).isAvailable)
+
+        let result = try await plugin.beginAction(
+            ActionInvocation(reference: reference, source: .test, mode: .background)
+        ).result()
+
+        XCTAssertEqual(result, .succeeded())
+        XCTAssertTrue(pasteboard.pasteboardItems?.isEmpty ?? true)
+        XCTAssertEqual(plugin.controller.items.map(\.id), [item.id])
+        XCTAssertEqual(persistence.savedItems.map(\.id), [item.id])
+        XCTAssertEqual(plugin.savedLibraryController.items.map(\.id), [snippet.id])
+        XCTAssertEqual(try savedPersistence.load().map(\.id), [snippet.id])
+        XCTAssertTrue(plugin.controller.settings.isPaused)
+    }
+
+    func testClearCurrentClipboardPreservesIgnoreNextCopy() async throws {
+        let pasteboard = PluginTestClipboardPasteboard()
+        let plugin = makePlugin(pasteboard: pasteboard)
+        defer { plugin.deactivate(reason: .hostShutdown) }
+        plugin.controller.start()
+        await waitUntilLoaded(plugin.controller)
+        pasteboard.simulateCopy("Current copy")
+        XCTAssertTrue(plugin.controller.ignoreNextCopy())
+        let reference = reference(plugin, actionID: ClipboardHistoryPlugin.ActionID.clearCurrentClipboard)
+
+        let result = try await plugin.beginAction(
+            ActionInvocation(reference: reference, source: .test, mode: .background)
+        ).result()
+        plugin.controller.processPasteboardChange()
+
+        XCTAssertEqual(result, .succeeded())
+        XCTAssertTrue(plugin.controller.isIgnoringNextCopy)
+        pasteboard.simulateCopy("Sensitive next copy")
+        plugin.controller.processPasteboardChange()
+        await plugin.controller.waitForCaptureProcessingForTesting()
+        XCTAssertTrue(plugin.controller.items.isEmpty)
+        XCTAssertEqual(pasteboard.plainTextReadCount, 0)
+    }
+
+    func testClearCurrentClipboardDoesNotRequireReadableHistory() async throws {
+        let pasteboard = PluginTestClipboardPasteboard()
+        let persistence = LoadFailingResettableClipboardHistoryPersistence()
+        let plugin = makePlugin(pasteboard: pasteboard, persistence: persistence)
+        defer { plugin.deactivate(reason: .hostShutdown) }
+        plugin.controller.start()
+        await waitUntilLoaded(plugin.controller)
+        XCTAssertNotNil(plugin.controller.errorMessage)
+        pasteboard.simulateCopy("Current copy")
+        let reference = reference(plugin, actionID: ClipboardHistoryPlugin.ActionID.clearCurrentClipboard)
+        XCTAssertTrue(plugin.actionAvailability(for: reference).isAvailable)
+
+        let result = try await plugin.beginAction(
+            ActionInvocation(reference: reference, source: .test, mode: .background)
+        ).result()
+
+        XCTAssertEqual(result, .succeeded())
+        XCTAssertNil(pasteboard.text)
+        XCTAssertTrue(pasteboard.typeNames.isEmpty)
+        XCTAssertNotNil(plugin.controller.errorMessage)
+        XCTAssertEqual(persistence.resetCount, 0)
+    }
+
     func testExplicitQueueRejectsOnlyUnavailableItemsAtPluginBoundary() async {
         let historyItem = ClipboardHistoryItem(
             id: UUID(),
@@ -1109,6 +1206,13 @@ private final class RetryableKeychainClipboardHistoryPersistence: ClipboardHisto
 
 @MainActor
 private final class PluginTestClipboardPasteboard: ClipboardPasteboardAccess {
+    func clearContents() {
+        text = nil
+        payload = nil
+        typeNames = []
+        changeCount += 1
+    }
+
     var changeCount = 0
     var typeNames: Set<String> = [ClipboardRepresentationType.plainText]
     var text: String?

@@ -712,6 +712,13 @@ private func waitForSavedLibraryLoad(_ controller: ClipboardSavedLibraryControll
 
 @MainActor
 private final class SavedLibraryTestPasteboard: ClipboardPasteboardAccess {
+    func clearContents() {
+        text = nil
+        payload = nil
+        typeNames = []
+        changeCount += 1
+    }
+
     var changeCount = 0
     var typeNames: Set<String> = []
     var text: String?

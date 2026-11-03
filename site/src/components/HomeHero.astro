@@ -81,7 +81,7 @@ const interactionGroups: Array<{ type: InteractionType; ids: string[] }> = [
       "eject-disk",
       "quit-apps",
       "empty-trash",
-      "clipboard-clear",
+      "clipboard",
       "fix-damaged-app",
       "mouse-enhancer",
       "homebrew",
@@ -97,7 +97,7 @@ const pluginSymbols: Record<string, string> = {
   "auto-hide-dock": "rectangle.bottomthird.inset.filled",
   "auto-hide-menu-bar": "menubar.rectangle",
   "battery-charge-limit": "battery.100.bolt",
-  "clipboard-clear": "trash",
+  "clipboard": "clipboard",
   "disk-clean": "internaldrive",
   "display-brightness": "sun.max",
   "display-resolution": "display",
@@ -132,7 +132,7 @@ const pluginSymbols: Record<string, string> = {
 const symbolStyle = (name: string) => `--sim-symbol: url("${withBase(`/assets/sf-symbols/${name}.png`)}")`;
 
 const actionLabels: Record<string, LocalizedLabel> = {
-  "clipboard-clear": { zh: "清空", en: "Clear" },
+  "clipboard": { zh: "打开", en: "Open" },
   "display-sleep": { zh: "休眠", en: "Sleep" },
   "eject-disk": { zh: "推出", en: "Eject" },
   "empty-trash": { zh: "清空", en: "Empty" },

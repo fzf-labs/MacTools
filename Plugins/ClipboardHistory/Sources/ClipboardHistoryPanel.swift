@@ -3604,11 +3604,14 @@ final class ClipboardHistoryPanelController: NSObject, NSWindowDelegate {
 }
 
 private enum ClipboardHistoryClearRequest: Identifiable {
+    case currentClipboard
     case all
     case selected(ClipboardHistoryPanelActionContext)
 
     var id: String {
         switch self {
+        case .currentClipboard:
+            "current-clipboard"
         case .all:
             "all"
         case let .selected(context):
@@ -4278,6 +4281,18 @@ struct ClipboardHistoryPanelView: View {
         }
         .alert(item: $clearRequest) { request in
             switch request {
+            case .currentClipboard:
+                Alert(
+                    title: Text(localization.string("action.clearCurrent.title", defaultValue: "Clear Current Clipboard")),
+                    message: Text(localization.string(
+                        "action.clearCurrent.description",
+                        defaultValue: "Clear the current clipboard contents. History and Saved items are kept."
+                    )),
+                    primaryButton: .destructive(Text(localization.string("common.clear", defaultValue: "Clear"))) {
+                        controller.clearCurrentClipboard()
+                    },
+                    secondaryButton: .cancel(Text(localization.string("common.cancel", defaultValue: "Cancel")))
+                )
             case .all:
                 Alert(
                     title: Text(localization.string("clear.all.title", defaultValue: "清除全部剪贴板历史？")),
@@ -5806,6 +5821,12 @@ struct ClipboardHistoryPanelView: View {
 
     private func actionMenuEntries() -> [ClipboardHistoryExportMenuEntry] {
         var entries = rawActionMenuEntries()
+        entries.append(ClipboardHistoryExportMenuEntry(
+            title: localization.string("action.clearCurrent.title", defaultValue: "Clear Current Clipboard"),
+            action: .clearCurrentClipboard,
+            group: .history,
+            systemImage: "trash"
+        ))
         if model.actionItemIDs.count == 1, let itemID = model.actionItemIDs.first {
             entries.insert(ClipboardHistoryExportMenuEntry(
                 title: itemShortcutAssignment(itemID, .original) == nil
@@ -6319,6 +6340,8 @@ struct ClipboardHistoryPanelView: View {
             } else if controller.canSuppressNextCapture {
                 onIgnoreNextCopy()
             }
+        case .clearCurrentClipboard:
+            clearRequest = .currentClipboard
         case .clearAll:
             clearRequest = .all
         }
@@ -6546,7 +6569,7 @@ struct ClipboardHistoryPanelView: View {
              .createSnippet, .removeFromHistory, .removeFromSaved,
              .editSaved, .toggleMultiSelection, .toggleFocusedSelection,
              .toggleCollection, .ignoreNextCopy,
-             .clearAll:
+             .clearCurrentClipboard, .clearAll:
             return
         }
     }
@@ -7528,6 +7551,7 @@ struct ClipboardHistoryExportMenuEntry: Equatable, Identifiable {
         case toggleFocusedSelection
         case toggleCollection
         case ignoreNextCopy
+        case clearCurrentClipboard
         case clearAll
     }
 

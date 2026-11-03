@@ -74,6 +74,8 @@ Stable plugin publication reuses one aggregate `Release` build for package signi
 
 Ordinary plugins do not need root `project.yml` edits. Put necessary build overrides in the plugin's own `project.yml`; app extensions such as Finder Sync must be embedded by the host.
 
+Clipboard owns both history management and the `clear-current-clipboard` action. Do not restore a separate `ClipboardClear` target. A full Debug plugin sync quarantines its old package; a filtered Clipboard sync leaves it installed, so remove the old package through plugin management after updating Clipboard.
+
 The [Wallpaper plugin](docs/plugins/wallpaper.md) is an example of a settings workspace with local and online image sources. Its plugin-local project fragment links `MacToolsFileSystem`; use `make build-plugin PLUGIN=Wallpaper` and its focused tests when changing the image pipeline or rotation behavior. Desktop-dependent acceptance is manual; automated tests must use a fake wallpaper adapter.
 
 ## Development standards

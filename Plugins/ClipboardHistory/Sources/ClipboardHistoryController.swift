@@ -40,6 +40,7 @@ protocol ClipboardPasteboardAccess: AnyObject {
     var captureComplexityIsWithinLimits: Bool { get }
     var requiresAsynchronousPayloadRead: Bool { get }
     var typeNames: Set<String> { get }
+    func clearContents()
     func readPlainText() -> String?
     func readPlainTextAsynchronously(maximumByteCount: Int, expectedChangeCount: Int) async -> ClipboardPasteboardReadResult
     func readSemanticTextAsynchronously(maximumByteCount: Int, expectedChangeCount: Int) async -> ClipboardPasteboardReadResult
@@ -334,6 +335,10 @@ final class GeneralClipboardPasteboard: ClipboardPasteboardAccess {
         case .unsafe:
             return .changed
         }
+    }
+
+    func clearContents() {
+        pasteboard.clearContents()
     }
 
     func writePlainText(_ text: String) -> Bool {
@@ -1103,6 +1108,15 @@ final class ClipboardHistoryController: NSObject, ObservableObject {
         didLoadItemsSuccessfully = false
         notifyChanged()
         start()
+    }
+
+    func clearCurrentClipboard() {
+        pasteboard.clearContents()
+        currentHistoryItemPasteboardState = nil
+        // Clearing is an internal write, so it must not consume Ignore Next Copy.
+        lastSeenChangeCount = pasteboard.changeCount
+        onExternalPasteboardChange?()
+        notifyChanged(reschedulesRetention: false)
     }
 
     func processPasteboardChange(now: Date = Date()) {

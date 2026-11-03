@@ -1,19 +1,8 @@
 import AppKit
 import Combine
-import CryptoKit
 import Foundation
 import OSLog
 import MacToolsPluginKit
-
-nonisolated enum LauncherIdentity {
-    static func action(_ reference: ActionReference) -> String {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .sortedKeys
-        let data = (try? encoder.encode(reference)) ?? Data(reference.key.id.utf8)
-        return "action." + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
-}
-
 
 struct LauncherItemAction: Identifiable {
     let id: String
@@ -108,6 +97,7 @@ final class LauncherModel: ObservableObject {
         isPresented = true
         focusRequestID &+= 1
         host.captureCurrentFocusedWindowTarget()
+        host.launcherSystemActions.captureTarget()
         if !preferences.personalization.disabledSources.contains(LauncherCategory.applications.rawValue) { host.applicationCatalog.refresh() }
         if !preferences.personalization.disabledSources.contains(LauncherCategory.systemSettings.rawValue) { host.systemSettingsCatalog.refresh() }
         host.refreshActionPresentations(providerIDs: ["apple-shortcuts"])

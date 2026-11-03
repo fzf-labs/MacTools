@@ -95,7 +95,7 @@ final class LauncherLifecycleTests: XCTestCase {
         let host = host([legacy, unknown], defaults: defaults)
         let model = LauncherModel(host: host, defaults: defaults, systemSettings: { [] })
         let results = model.catalogResults()
-        XCTAssertEqual(results.map(\.pluginID), ["disk-clean"])
+        XCTAssertEqual(results.filter { $0.category == .pluginFeatures }.map(\.pluginID), ["disk-clean"])
         XCTAssertNil(LauncherActionPolicy.legacyRole(for: .init(providerID: "disk-clean", actionID: "open-settings")))
         XCTAssertNil(LauncherActionPolicy.legacyRole(for: .init(providerID: "activity-bar", actionID: "reset-today")))
     }

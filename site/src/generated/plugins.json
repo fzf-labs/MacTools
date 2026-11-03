@@ -5824,6 +5824,57 @@
                     "zh-Hans": "清除全部剪贴板历史",
                     "zh-Hant": "清除全部剪貼簿記錄"
                   }
+                },
+                {
+                  "automaticEligible": true,
+                  "description": {
+                    "ar": "امسح محتويات الحافظة الحالية. يتم الاحتفاظ بالسجل والعناصر المحفوظة.",
+                    "de": "Den aktuellen Inhalt der Zwischenablage löschen. Verlauf und gespeicherte Elemente bleiben erhalten.",
+                    "en": "Clear the current clipboard contents. History and Saved items are kept.",
+                    "es": "Borra el contenido actual del portapapeles. Se conservan el historial y los elementos guardados.",
+                    "fr": "Efface le contenu actuel du presse-papiers. L’historique et les éléments enregistrés sont conservés.",
+                    "ja": "現在のクリップボードの内容を消去します。履歴と保存済みの項目は保持されます。",
+                    "ko": "현재 클립보드 내용을 지웁니다. 기록과 저장된 항목은 유지됩니다.",
+                    "pt": "Limpa o conteúdo atual da área de transferência. O histórico e os itens salvos são mantidos.",
+                    "ru": "Очистить текущее содержимое буфера обмена. История и сохранённые элементы останутся.",
+                    "tr": "Geçerli pano içeriğini temizler. Geçmiş ve kayıtlı öğeler korunur.",
+                    "zh-Hans": "清空当前复制的内容，保留历史记录和已存项目。",
+                    "zh-Hant": "清空目前複製的內容，保留記錄和已儲存項目。"
+                  },
+                  "externalInvocation": "confirmAlways",
+                  "id": "clear-current-clipboard",
+                  "keywords": [
+                    "clipboard",
+                    "pasteboard",
+                    "clear"
+                  ],
+                  "parameters": [],
+                  "permissionIDs": [],
+                  "risk": "confirmationRequired",
+                  "surfaces": [
+                    "unified-search",
+                    "global-shortcut",
+                    "run-link",
+                    "workflow",
+                    "action-grid",
+                    "trackpad-gesture",
+                    "manual"
+                  ],
+                  "systemImage": "trash",
+                  "title": {
+                    "ar": "مسح الحافظة الحالية",
+                    "de": "Aktuelle Zwischenablage leeren",
+                    "en": "Clear Current Clipboard",
+                    "es": "Vaciar el portapapeles actual",
+                    "fr": "Vider le presse-papiers actuel",
+                    "ja": "現在のクリップボードを消去",
+                    "ko": "현재 클립보드 비우기",
+                    "pt": "Limpar a área de transferência atual",
+                    "ru": "Очистить текущий буфер обмена",
+                    "tr": "Geçerli Panoyu Temizle",
+                    "zh-Hans": "清空当前剪贴板",
+                    "zh-Hant": "清空目前剪貼簿"
+                  }
                 }
               ]
             }
@@ -5851,7 +5902,8 @@
               "نسخ بيانات الحافظة احتياطيًا",
               "لصق",
               "تصدير",
-              "توسيع النص"
+              "توسيع النص",
+              "مسح الحافظة الحالية"
             ],
             "de": [
               "Zwischenablageverlauf",
@@ -5859,7 +5911,8 @@
               "Zwischenablagedaten sichern",
               "Einfügen",
               "Exportieren",
-              "Texterweiterung"
+              "Texterweiterung",
+              "Aktuelle Zwischenablage leeren"
             ],
             "en": [
               "Clipboard History",
@@ -5867,7 +5920,8 @@
               "Back Up Clipboard Data",
               "Paste",
               "Export",
-              "Text Expansion"
+              "Text Expansion",
+              "Clear Current Clipboard"
             ],
             "es": [
               "Historial del portapapeles",
@@ -5875,7 +5929,8 @@
               "Crear copia de los datos del portapapeles",
               "Pegar",
               "Exportar",
-              "Expansión de texto"
+              "Expansión de texto",
+              "Vaciar el portapapeles actual"
             ],
             "fr": [
               "Historique du presse-papiers",
@@ -5883,7 +5938,8 @@
               "Sauvegarder les données du presse-papiers",
               "Coller",
               "Exporter",
-              "Expansion de texte"
+              "Expansion de texte",
+              "Vider le presse-papiers actuel"
             ],
             "ja": [
               "クリップボード履歴",
@@ -5891,7 +5947,8 @@
               "クリップボードデータをバックアップ",
               "ペースト",
               "書き出す",
-              "テキスト展開"
+              "テキスト展開",
+              "現在のクリップボードを消去"
             ],
             "ko": [
               "클립보드 기록",
@@ -5899,7 +5956,8 @@
               "클립보드 데이터 백업",
               "붙여넣기",
               "내보내기",
-              "텍스트 확장"
+              "텍스트 확장",
+              "현재 클립보드 비우기"
             ],
             "pt": [
               "Histórico da área de transferência",
@@ -5907,7 +5965,8 @@
               "Fazer backup dos dados da área de transferência",
               "Colar",
               "Exportar",
-              "Expansão de texto"
+              "Expansão de texto",
+              "Limpar a área de transferência atual"
             ],
             "ru": [
               "История буфера обмена",
@@ -5915,7 +5974,8 @@
               "Создать резервную копию буфера обмена",
               "Вставить",
               "Экспорт",
-              "Развёртывание текста"
+              "Развёртывание текста",
+              "Очистить текущий буфер обмена"
             ],
             "tr": [
               "Pano",
@@ -5923,7 +5983,8 @@
               "Pano Verilerini Yedekle",
               "Yapıştır",
               "Dışa Aktar",
-              "Metin genişletme"
+              "Metin genişletme",
+              "Geçerli Panoyu Temizle"
             ],
             "zh-Hans": [
               "剪贴板历史",
@@ -5933,7 +5994,8 @@
               "展开片段关键词",
               "备份剪贴板数据",
               "粘贴",
-              "导出"
+              "导出",
+              "清空当前剪贴板"
             ],
             "zh-Hant": [
               "剪貼簿記錄",
@@ -5941,12 +6003,11 @@
               "備份剪貼簿資料",
               "貼上",
               "輸出",
-              "文字展開"
+              "文字展開",
+              "清空目前剪貼簿"
             ]
           },
-          "relatedPluginIDs": [
-            "clipboard-clear"
-          ],
+          "relatedPluginIDs": [],
           "useCases": [
             {
               "id": "recall-copied-content",
@@ -6029,11 +6090,11 @@
         },
         "relationships": {
           "includedPackIDs": [],
-          "relatedPluginIDs": [
-            "clipboard-clear"
-          ],
+          "relatedPluginIDs": [],
           "suggestedRecipeIDs": [],
-          "supersedesPluginIDs": []
+          "supersedesPluginIDs": [
+            "clipboard-clear"
+          ]
         },
         "requirements": {
           "applications": [],
@@ -6128,287 +6189,6 @@
       "releaseNotesURL": null,
       "route": "/plugins/clipboard/",
       "summary": "搜索历史记录并管理可重复使用的片段和已存项目。",
-      "version": "2.1.0"
-    },
-    {
-      "capabilities": {
-        "panelItems": [
-          "row",
-          "widget"
-        ],
-        "settings": "none"
-      },
-      "category": "storage",
-      "displayName": "清空剪贴板",
-      "id": "clipboard-clear",
-      "localizedMetadata": {
-        "ar": {
-          "displayName": "مسح الحافظة",
-          "summary": "امسح محتويات الحافظة الحالية بنقرة واحدة."
-        },
-        "de": {
-          "displayName": "Zwischenablage leeren",
-          "summary": "Löschen Sie den aktuellen Inhalt der Zwischenablage mit einem Klick."
-        },
-        "en": {
-          "displayName": "Clear Clipboard",
-          "summary": "Clear the current clipboard contents with one click."
-        },
-        "es": {
-          "displayName": "Borrar portapapeles",
-          "summary": "Borra el contenido actual del portapapeles con un solo clic."
-        },
-        "fr": {
-          "displayName": "Vider le presse-papiers",
-          "summary": "Effacez le contenu actuel du presse-papiers en un seul clic."
-        },
-        "ja": {
-          "displayName": "クリップボードを消去",
-          "summary": "ワンクリックで現在のクリップボードの内容をクリアします。"
-        },
-        "ko": {
-          "displayName": "클립보드 지우기",
-          "summary": "한 번의 클릭으로 현재 클립보드 내용을 지웁니다."
-        },
-        "pt": {
-          "displayName": "Limpar área de transferência",
-          "summary": "Limpe o conteúdo atual da área de transferência com um clique."
-        },
-        "ru": {
-          "displayName": "Очистить буфер обмена",
-          "summary": "Очистите текущее содержимое буфера обмена одним щелчком мыши."
-        },
-        "tr": {
-          "displayName": "Panoyu Temizle",
-          "summary": "Geçerli pano içeriğini tek tıkla temizleyin."
-        },
-        "zh-Hans": {
-          "displayName": "清空剪贴板",
-          "summary": "一键清空当前剪贴板内容"
-        },
-        "zh-Hant": {
-          "displayName": "清空剪貼簿",
-          "summary": "一鍵清空當前剪貼板內容"
-        }
-      },
-      "openInMacToolsURL": "mactools://app/settings/plugins/marketplace/clipboard-clear",
-      "product": {
-        "actions": {
-          "providers": [
-            {
-              "dynamicTemplates": [],
-              "id": "clipboard-clear",
-              "kind": "static",
-              "staticActions": [
-                {
-                  "automaticEligible": true,
-                  "description": {
-                    "ar": "امسح محتويات الحافظة الحالية بنقرة واحدة.",
-                    "de": "Löschen Sie den aktuellen Inhalt der Zwischenablage mit einem Klick.",
-                    "en": "Clear the current clipboard contents with one click.",
-                    "es": "Borra el contenido actual del portapapeles con un solo clic.",
-                    "fr": "Effacez le contenu actuel du presse-papiers en un seul clic.",
-                    "ja": "ワンクリックで現在のクリップボードの内容をクリアします。",
-                    "ko": "한 번의 클릭으로 현재 클립보드 내용을 지웁니다.",
-                    "pt": "Limpe o conteúdo atual da área de transferência com um clique.",
-                    "ru": "Очистите текущее содержимое буфера обмена одним щелчком мыши.",
-                    "tr": "Geçerli pano içeriğini tek tıkla temizleyin.",
-                    "zh-Hans": "一键清空当前剪贴板内容",
-                    "zh-Hant": "一鍵清空當前剪貼板內容"
-                  },
-                  "externalInvocation": "confirmAlways",
-                  "id": "clear",
-                  "keywords": [
-                    "清空剪贴板",
-                    "一键清空当前剪贴板内容",
-                    "clipboard",
-                    "pasteboard",
-                    "clear"
-                  ],
-                  "parameters": [],
-                  "permissionIDs": [],
-                  "risk": "confirmationRequired",
-                  "surfaces": [
-                    "unified-search",
-                    "global-shortcut",
-                    "run-link",
-                    "workflow",
-                    "action-grid",
-                    "trackpad-gesture",
-                    "manual"
-                  ],
-                  "systemImage": "trash",
-                  "title": {
-                    "ar": "مسح الحافظة",
-                    "de": "Zwischenablage leeren",
-                    "en": "Clear Clipboard",
-                    "es": "Borrar portapapeles",
-                    "fr": "Vider le presse-papiers",
-                    "ja": "クリップボードを消去",
-                    "ko": "클립보드 지우기",
-                    "pt": "Limpar área de transferência",
-                    "ru": "Очистить буфер обмена",
-                    "tr": "Panoyu Temizle",
-                    "zh-Hans": "清空剪贴板",
-                    "zh-Hant": "清空剪貼簿"
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "discovery": {
-          "alternativePluginIDs": [],
-          "goalCategories": [
-            "storage"
-          ],
-          "keywords": [
-            "clipboard",
-            "clear",
-            "storage"
-          ],
-          "localizedSynonyms": {
-            "ar": [
-              "مسح الحافظة"
-            ],
-            "de": [
-              "Zwischenablage leeren"
-            ],
-            "en": [
-              "Clear Clipboard"
-            ],
-            "es": [
-              "Borrar portapapeles"
-            ],
-            "fr": [
-              "Vider le presse-papiers"
-            ],
-            "ja": [
-              "クリップボードを消去"
-            ],
-            "ko": [
-              "클립보드 지우기"
-            ],
-            "pt": [
-              "Limpar área de transferência"
-            ],
-            "ru": [
-              "Очистить буфер обмена"
-            ],
-            "tr": [
-              "Panoyu Temizle"
-            ],
-            "zh-Hans": [
-              "清空剪贴板"
-            ],
-            "zh-Hant": [
-              "清空剪貼簿"
-            ]
-          },
-          "relatedPluginIDs": [],
-          "useCases": [
-            {
-              "id": "primary-use",
-              "title": {
-                "ar": "مسح الحافظة",
-                "de": "Zwischenablage leeren",
-                "en": "Clear Clipboard",
-                "es": "Borrar portapapeles",
-                "fr": "Vider le presse-papiers",
-                "ja": "クリップボードを消去",
-                "ko": "클립보드 지우기",
-                "pt": "Limpar área de transferência",
-                "ru": "Очистить буфер обмена",
-                "tr": "Panoyu Temizle",
-                "zh-Hans": "清空剪贴板",
-                "zh-Hant": "清空剪貼簿"
-              }
-            }
-          ]
-        },
-        "presentation": {
-          "documentationURL": "https://github.com/ggbond268/MacTools#plugins-and-settings",
-          "examples": [
-            {
-              "id": "primary-use",
-              "text": {
-                "ar": "امسح محتويات الحافظة الحالية بنقرة واحدة.",
-                "de": "Löschen Sie den aktuellen Inhalt der Zwischenablage mit einem Klick.",
-                "en": "Clear the current clipboard contents with one click.",
-                "es": "Borra el contenido actual del portapapeles con un solo clic.",
-                "fr": "Effacez le contenu actuel du presse-papiers en un seul clic.",
-                "ja": "ワンクリックで現在のクリップボードの内容をクリアします。",
-                "ko": "한 번의 클릭으로 현재 클립보드 내용을 지웁니다.",
-                "pt": "Limpe o conteúdo atual da área de transferência com um clique.",
-                "ru": "Очистите текущее содержимое буфера обмена одним щелчком мыши.",
-                "tr": "Geçerli pano içeriğini tek tıkla temizleyin.",
-                "zh-Hans": "一键清空当前剪贴板内容",
-                "zh-Hant": "一鍵清空當前剪貼板內容"
-              }
-            }
-          ],
-          "license": "GPL-3.0-only",
-          "longDescription": {
-            "ar": "امسح محتويات الحافظة الحالية بنقرة واحدة.",
-            "de": "Löschen Sie den aktuellen Inhalt der Zwischenablage mit einem Klick.",
-            "en": "Clear the current clipboard contents with one click.",
-            "es": "Borra el contenido actual del portapapeles con un solo clic.",
-            "fr": "Effacez le contenu actuel du presse-papiers en un seul clic.",
-            "ja": "ワンクリックで現在のクリップボードの内容をクリアします。",
-            "ko": "한 번의 클릭으로 현재 클립보드 내용을 지웁니다.",
-            "pt": "Limpe o conteúdo atual da área de transferência com um clique.",
-            "ru": "Очистите текущее содержимое буфера обмена одним щелчком мыши.",
-            "tr": "Geçerli pano içeriğini tek tıkla temizleyin.",
-            "zh-Hans": "一键清空当前剪贴板内容",
-            "zh-Hant": "一鍵清空當前剪貼板內容"
-          },
-          "publisher": "MacTools",
-          "screenshots": [],
-          "supportURL": "https://github.com/ggbond268/MacTools/issues"
-        },
-        "privacy": {
-          "allowsUserConfiguredDomains": false,
-          "dataObserved": [
-            "clipboard-content"
-          ],
-          "dataPersisted": [],
-          "diagnosticExportsContainUserData": false,
-          "networkDomains": [],
-          "networkUse": "none",
-          "processesSensitiveUserContent": true,
-          "retention": {
-            "policy": "none"
-          },
-          "telemetry": "none"
-        },
-        "relationships": {
-          "includedPackIDs": [],
-          "relatedPluginIDs": [],
-          "suggestedRecipeIDs": [],
-          "supersedesPluginIDs": []
-        },
-        "requirements": {
-          "applications": [],
-          "architectures": [
-            "arm64",
-            "x86_64"
-          ],
-          "executables": [],
-          "hardware": [],
-          "minimumMacOSVersion": "14.0",
-          "permissionIDs": [],
-          "requiresRelaunch": false,
-          "setupComplexity": "none"
-        },
-        "setup": {
-          "optionalSurfaces": [],
-          "steps": []
-        }
-      },
-      "releaseChannel": null,
-      "releaseNotesURL": null,
-      "route": "/plugins/clipboard-clear/",
-      "summary": "一键清空当前剪贴板内容",
       "version": "2.1.0"
     },
     {

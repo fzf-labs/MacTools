@@ -2,9 +2,17 @@
 
 The launcher is a shortcut to existing capabilities: applications, macOS System Settings pages, system operations, and enabled plugin features. Option-Space toggles it. An empty query shows only favorites and recent successful operations; a new installation shows a search prompt. Command-K opens actions, Escape dismisses actions or the launcher, and Command-comma opens its independent Settings category.
 
+## Built-in system actions
+
+System Actions includes a host-owned catalog even when no plugins are installed or enabled. It covers locking, system/display sleep, session-ending operations, screen saver, desktop and Mission Control, media transport, output volume presets and stepping, output/input mute, appearance, Trash, and application visibility. These are fixed commands, not an arbitrary script runtime.
+
+The host registers canonical definitions with the existing ActionExecutor. Restart, shutdown, logout, and emptying Trash require confirmation. Media transport requires Accessibility; fixed Finder/System Events adapters report Automation denial with recovery guidance. Unsupported audio controls fail explicitly. Discovery and search never execute commands or probe the pasteboard.
+
+System Actions contains only host-owned commands that directly operate macOS. Its references and identities do not depend on plugin declarations, installation, or lifecycle. There is no plugin override or fallback. Plugin-owned commands appear under Plugin Features with their provider name, even when their effect controls the system. Inclusion, favorites, aliases, hidden state, and usage remain independent for each owner; existing plugin preferences and stored identities are preserved.
+
 ## Canonical actions and discovery
 
-Implement the optional `PluginLauncherActionProviding` protocol and return a `LauncherActionRole` for existing `ActionReference` values. Use `.systemOperation` for system actions and `.pluginFeature` for plugin functionality. Return `nil` for configuration, permission setup, shortcut management, import/export, and internal plumbing. Classification is synchronous, read-only, and must not inspect the pasteboard, perform scans, or execute actions.
+Implement the optional `PluginLauncherActionProviding` protocol and return a `LauncherActionRole` for existing `ActionReference` values. Use `.pluginFeature` for plugin functionality. The `.systemOperation` enum case remains ABI-compatible for existing clients, but current hosts normalize that plugin declaration to Plugin Features; it cannot add or replace built-in system commands. Return `nil` for configuration, permission setup, shortcut management, import/export, and internal plumbing. Classification is synchronous, read-only, and must not inspect the pasteboard, perform scans, or execute actions.
 
 The host reads existing canonical catalog entries; it does not ask plugins for launcher-specific business pages or dynamic content. Titles, symbols, parameter bindings, availability, permissions, confirmation, and concurrency remain owned by the existing action system. References must be complete and valid before being listed. Existing `ActionInputDescriptor` entries route to the current composer rather than a new launcher form.
 

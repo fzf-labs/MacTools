@@ -20,26 +20,29 @@ enum LauncherCatalogSnapshot {
                       keywords: page.keywords, category: .systemSettings, pluginID: nil, target: .systemSetting(page))
             }
         }
-        if category == nil || category == .systemOperations || category == .pluginFeatures {
+        if category == nil || category == .systemOperations {
+            output += LauncherSystemAction.allCases.map { command in
+                .init(id: command.identity, title: command.title, subtitle: "macOS",
+                      systemImage: command.systemImage, keywords: [command.englishTitle],
+                      category: .systemOperations, pluginID: nil, target: .action(command.reference))
+            }
+        }
+        if category == nil || category == .pluginFeatures {
             output += host.actionCatalogEntries.compactMap { entry in
-                guard let role = host.launcherRole(for: entry.reference) else { return nil }
-                let kind: LauncherCategory = role == .systemOperation ? .systemOperations : .pluginFeatures
-                guard category == nil || category == kind,
+                guard host.launcherRole(for: entry.reference) == .pluginFeature,
                       let definition = host.actionRegistry.definition(for: entry.reference.key),
                       ActionRegistry.parameterValidationFailure(entry.reference.parameters, for: definition) == nil,
                       let pluginTitle = host.launcherPluginTitle(entry.reference.key.providerID) else { return nil }
                 return .init(id: LauncherIdentity.action(entry.reference), title: entry.title, subtitle: pluginTitle,
                              systemImage: definition.systemImage, keywords: definition.keywords + [pluginTitle],
-                             category: kind, pluginID: entry.reference.key.providerID, target: .action(entry.reference))
+                             category: .pluginFeatures, pluginID: entry.reference.key.providerID, target: .action(entry.reference))
             }
             output += host.actionInputRegistry.items.compactMap { item in
-                guard let role = host.launcherRole(for: .init(key: item.id)) else { return nil }
-                let kind: LauncherCategory = role == .systemOperation ? .systemOperations : .pluginFeatures
-                guard category == nil || category == kind,
+                guard host.launcherRole(for: .init(key: item.id)) == .pluginFeature,
                       let pluginTitle = host.launcherPluginTitle(item.id.providerID) else { return nil }
                 return .init(id: "input." + item.id.id, title: item.definition.title, subtitle: pluginTitle,
                              systemImage: item.definition.systemImage, keywords: item.definition.keywords + item.descriptor.aliases + [pluginTitle],
-                             category: kind, pluginID: item.id.providerID, target: .input(item))
+                             category: .pluginFeatures, pluginID: item.id.providerID, target: .input(item))
             }
         }
         if category == nil || category == .pluginFeatures {

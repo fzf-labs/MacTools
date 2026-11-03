@@ -746,6 +746,13 @@ private final class BlockingCountingClipboardPayloadLoader: @unchecked Sendable 
 
 @MainActor
 private final class FakeClipboardPasteboard: ClipboardPasteboardAccess {
+    func clearContents() {
+        text = nil
+        payload = nil
+        simulatedTypeNames = []
+        changeCount += 1
+    }
+
     var changeCount = 0
     var captureSourceHint: ClipboardPasteboardSourceHint?
     var requiresAsynchronousPayloadRead = false

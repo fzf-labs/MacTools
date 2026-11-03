@@ -1765,7 +1765,6 @@ verify_code_session() {
         -only-testing:MacToolsTests/AutoHideMenuBarPluginTests \
         -only-testing:MacToolsTests/AutoInputPluginPanelTests \
         -only-testing:MacToolsTests/BatteryChargeLimitPluginTests \
-        -only-testing:MacToolsTests/ClipboardClearPluginTests \
         -only-testing:MacToolsTests/ClipboardHistoryPluginTests \
         -only-testing:MacToolsTests/CloudflareR2PluginTests \
         -only-testing:MacToolsTests/DiskCleanPluginTests \

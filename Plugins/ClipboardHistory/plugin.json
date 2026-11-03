@@ -120,7 +120,9 @@
       "tr": "Metin genişletme",
       "zh-Hans": "文本展开",
       "zh-Hant": "文字展開"
-    }
+    },
+    "clear-current-clipboard-title": "@localizable.action.clearCurrent.title",
+    "clear-current-clipboard-description": "@localizable.action.clearCurrent.description"
   },
   "presentation": {
     "longDescription": "@productStrings.summary",
@@ -197,16 +199,15 @@
     "goalCategories": [
       "productivity"
     ],
-    "relatedPluginIDs": [
-      "clipboard-clear"
-    ],
+    "relatedPluginIDs": [],
     "alternativePluginIDs": [],
     "localizedSynonymRefs": [
       "@productStrings.discovery.keyword-expansion",
       "@productStrings.discovery.clipboard-backup",
       "@productStrings.discovery.paste",
       "@productStrings.discovery.export",
-      "@productStrings.discovery.text-expansion"
+      "@productStrings.discovery.text-expansion",
+      "@productStrings.clear-current-clipboard-title"
     ]
   },
   "requirements": {
@@ -266,12 +267,12 @@
     }
   },
   "relationships": {
-    "relatedPluginIDs": [
-      "clipboard-clear"
-    ],
+    "relatedPluginIDs": [],
     "includedPackIDs": [],
     "suggestedRecipeIDs": [],
-    "supersedesPluginIDs": []
+    "supersedesPluginIDs": [
+      "clipboard-clear"
+    ]
   },
   "actions": {
     "providers": [
@@ -491,6 +492,31 @@
             ],
             "automaticEligible": false,
             "externalInvocation": "unavailable"
+          },
+          {
+            "id": "clear-current-clipboard",
+            "title": "@productStrings.clear-current-clipboard-title",
+            "description": "@productStrings.clear-current-clipboard-description",
+            "keywords": [
+              "clipboard",
+              "pasteboard",
+              "clear"
+            ],
+            "systemImage": "trash",
+            "parameters": [],
+            "permissionIDs": [],
+            "risk": "confirmationRequired",
+            "surfaces": [
+              "unified-search",
+              "global-shortcut",
+              "run-link",
+              "workflow",
+              "action-grid",
+              "trackpad-gesture",
+              "manual"
+            ],
+            "automaticEligible": true,
+            "externalInvocation": "confirmAlways"
           }
         ],
         "dynamicTemplates": []

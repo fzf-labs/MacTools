@@ -25,6 +25,17 @@ from plugin_source_manifest import (  # noqa: E402
 
 
 class PluginSourceManifestTests(unittest.TestCase):
+    def test_superseded_plugin_ids_can_refer_to_removed_packages(self) -> None:
+        path = PLUGINS_ROOT / "ClipboardHistory" / "plugin.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        known_ids = load_known_plugin_ids(PLUGINS_ROOT)
+        self.assertNotIn("clipboard-clear", known_ids)
+        projected, _ = validate_and_project_manifest(manifest, path, known_ids)
+        self.assertEqual(projected["relationships"]["supersedesPluginIDs"], ["clipboard-clear"])
+        manifest["relationships"]["supersedesPluginIDs"] = ["invalid/id"]
+        with self.assertRaisesRegex(ManifestValidationError, "stable identifier"):
+            validate_and_project_manifest(manifest, path, known_ids)
+
     def test_every_repository_manifest_passes_semantic_validation(self) -> None:
         known_ids = load_known_plugin_ids(PLUGINS_ROOT)
         for path in sorted(PLUGINS_ROOT.glob("*/plugin.json")):

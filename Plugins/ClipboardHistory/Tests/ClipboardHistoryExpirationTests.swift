@@ -148,6 +148,10 @@ final class ClipboardHistoryExpirationTests: XCTestCase {
 
 @MainActor
 private final class ExpirationPasteboard: ClipboardPasteboardAccess {
+    func clearContents() {
+        changeCount += 1
+    }
+
     var changeCount = 0
     var typeNames: Set<String> { [] }
     func readPayload(maximumByteCount: Int) -> ClipboardPasteboardReadResult { .empty }

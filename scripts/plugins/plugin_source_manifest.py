@@ -1355,7 +1355,10 @@ def _validate_manifest(
         }, plugin_id, "relationships")
         for key in ("relatedPluginIDs", "includedPackIDs", "suggestedRecipeIDs", "supersedesPluginIDs"):
             _unique_strings(relationships[key], plugin_id, f"relationships.{key}")
-        referenced = set(relationships["relatedPluginIDs"]) | set(relationships["supersedesPluginIDs"])
+        # Superseded IDs can belong to packages removed from the current source tree.
+        for superseded_id in relationships["supersedesPluginIDs"]:
+            _identifier(superseded_id, plugin_id, "relationships.supersedesPluginIDs")
+        referenced = set(relationships["relatedPluginIDs"])
         if validate_plugin_references:
             missing = sorted(referenced - known_plugin_ids)
             if missing:

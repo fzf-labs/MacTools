@@ -2,6 +2,7 @@ import Foundation
 
 /// The semantic role of an existing canonical action in launcher search.
 public enum LauncherActionRole: String, Hashable, Sendable {
+    /// Legacy hint; current hosts keep plugin-owned entries under Plugin Features.
     case systemOperation
     case pluginFeature
 }

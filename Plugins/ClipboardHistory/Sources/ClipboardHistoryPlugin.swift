@@ -54,6 +54,7 @@ final class ClipboardHistoryPlugin:
         static let resumeCollection = "resume-collection"
         static let toggleCollection = "toggle-collection"
         static let clearAllHistory = "clear-all-history"
+        static let clearCurrentClipboard = "clear-current-clipboard"
 
         static let all: Set<String> = [
             openHistory,
@@ -65,6 +66,7 @@ final class ClipboardHistoryPlugin:
             resumeCollection,
             toggleCollection,
             clearAllHistory,
+            clearCurrentClipboard,
         ]
     }
 
@@ -1171,6 +1173,7 @@ final class ClipboardHistoryPlugin:
         ActionID.resumeCollection,
         ActionID.toggleCollection,
         ActionID.clearAllHistory,
+        ActionID.clearCurrentClipboard,
     ]
 
     var collapsibleShortcutSettingsGroupIDs: Set<String> {
@@ -1261,6 +1264,26 @@ final class ClipboardHistoryPlugin:
                 capabilities: [.automatic, .background, .foregroundInteractive]
             ),
             action(
+                id: ActionID.clearCurrentClipboard,
+                title: localization.string("action.clearCurrent.title", defaultValue: "Clear Current Clipboard"),
+                description: localization.string(
+                    "action.clearCurrent.description",
+                    defaultValue: "Clear the current clipboard contents. History and Saved items are kept."
+                ),
+                systemImage: "trash",
+                risk: .confirmationRequired,
+                confirmation: ActionConfirmation(
+                    title: localization.string("action.clearCurrent.title", defaultValue: "Clear Current Clipboard"),
+                    message: localization.string(
+                        "action.clearCurrent.description",
+                        defaultValue: "Clear the current clipboard contents. History and Saved items are kept."
+                    ),
+                    confirmButtonTitle: localization.string("common.clear", defaultValue: "Clear")
+                ),
+                externalInvocationPolicy: .confirmAlways,
+                capabilities: [.automatic, .background, .foregroundInteractive]
+            ),
+            action(
                 id: ActionID.clearAllHistory,
                 title: localization.string("action.clearAll.title", defaultValue: "清除全部剪贴板历史"),
                 description: localization.string(
@@ -1319,6 +1342,8 @@ final class ClipboardHistoryPlugin:
             if let message = collectionActionBlockingMessage() {
                 return .unavailable(message)
             }
+            return .available
+        case ActionID.clearCurrentClipboard:
             return .available
         case ActionID.clearAllHistory:
             if controller.isClearingHistory {
@@ -1391,6 +1416,9 @@ final class ClipboardHistoryPlugin:
             settingsStore.setPaused(false)
         case ActionID.toggleCollection:
             settingsStore.setPaused(!settingsStore.isPaused)
+        case ActionID.clearCurrentClipboard:
+            controller.clearCurrentClipboard()
+            onStateChange?()
         case ActionID.clearAllHistory:
             let controller = controller
             let failureMessage = localization.string(
@@ -2936,6 +2964,7 @@ final class ClipboardHistoryPlugin:
         systemImage: String,
         risk: ActionRisk = .safe,
         confirmation: ActionConfirmation? = nil,
+        externalInvocationPolicy: ActionExternalInvocationPolicy = .unavailable,
         capabilities: ActionExecutionCapabilities = [.foregroundInteractive]
     ) -> ActionDefinition {
         ActionDefinition(
@@ -2951,7 +2980,7 @@ final class ClipboardHistoryPlugin:
             systemImage: systemImage,
             risk: risk,
             confirmation: confirmation,
-            externalInvocationPolicy: .unavailable,
+            externalInvocationPolicy: externalInvocationPolicy,
             capabilities: capabilities
         )
     }
