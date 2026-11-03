@@ -407,6 +407,18 @@ final class AppWindowRouter: NSObject, NSWindowDelegate {
     private(set) var commandPaletteState: StandaloneCommandPaletteState?
     private var runtimeLocaleCancellable: AnyCancellable?
     private let commandPaletteDismissal = PluginPanelDismissalMonitor()
+    private var launcherController: LauncherWindowController?
+
+    func toggleLauncher() {
+        if launcherController == nil {
+            launcherController = LauncherWindowController(host: pluginHost, defaults: appearanceUserDefaults,
+                showSettings: { [weak self] in self?.presentSettings(.feature(.launcher)) })
+        }
+        dismissCommandPalette(restoringFocus: false)
+        settingsNavigationCoordinator?.dismissUnifiedSearch()
+        onProgrammaticSettingsPresentation()
+        launcherController?.toggle()
+    }
     private var appearanceObserver: NSObjectProtocol?
     private var onProgrammaticSettingsPresentation: () -> Void = {}
 
@@ -582,6 +594,7 @@ final class AppWindowRouter: NSObject, NSWindowDelegate {
     }
 
     func showCommandPalette(input: ActionInputItem? = nil) {
+        launcherController?.dismiss(restoringFocus: false)
         if let input, !pluginHost.actionInputRegistry.contains(input) { return }
         settingsNavigationCoordinator?.dismissUnifiedSearch()
 

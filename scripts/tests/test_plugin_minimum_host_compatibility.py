@@ -20,6 +20,12 @@ PLUGIN_INTERFACES = REPO_ROOT / "Sources/MacToolsPluginKit/PluginInterfaces.swif
 PLUGIN_SETTINGS_MODELS = REPO_ROOT / "Sources/MacToolsPluginKit/PluginSettingsModels.swift"
 APP_VERSION_CONFIG = REPO_ROOT / "Configs/AppVersion.xcconfig"
 NEW_API_MINIMUM_HOSTS = {
+    "LauncherActionRole": "2.2.0",
+    "PluginLauncherActionProviding": "2.2.0",
+    "ApplicationCatalogItem": "2.2.0",
+    "ApplicationCatalogHostContext": "2.2.0",
+    "ApplicationCatalogHostContextConsuming": "2.2.0",
+
     "PluginPanelCompactSwitchProviding": "2.1.0",
     "TrackpadSensorContact": "2.1.0",
     "TrackpadSensorFrame": "2.1.0",
@@ -359,6 +365,11 @@ class PluginMinimumHostCompatibilityTests(unittest.TestCase):
                 "finderExtension",
             ],
         )
+
+    def test_launcher_inventory_covers_public_types(self) -> None:
+        for name in ("LauncherModels.swift",):
+            source = (REPO_ROOT / "Sources/MacToolsPluginKit" / name).read_text()
+            self.assertEqual(public_top_level_type_names(source) - NEW_API_MINIMUM_HOSTS.keys(), set())
 
     def test_action_model_inventory_covers_every_public_type_used_by_plugins(self) -> None:
         action_model_symbols = public_top_level_type_names(

@@ -52,10 +52,10 @@ final class AppShortcutTests: XCTestCase {
         for currentHost in [host, makeHost(defaults: defaults, manager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))] {
             let panels = currentHost.menuBarPanels
             let rows = currentHost.actionShortcutCatalogItems.filter { $0.reference.key.providerID == "mactools" }
-            let panelRows = Array(rows.dropFirst(2))
+            let panelRows = rows.filter { !AppShortcutAction.allCases.filter { !$0.isPanelAction }.map(\.rawValue).contains($0.reference.key.actionID) }
             XCTAssertEqual(panels.map(\.title), (1...4).map { FeatureL10n.format("面板 %lld", $0) })
-            XCTAssertEqual(Array(rows.prefix(2)).map { $0.reference.key.actionID }, [
-                AppShortcutAction.openSettings.rawValue, AppShortcutAction.openCommandPalette.rawValue,
+            XCTAssertEqual(Array(rows.prefix(3)).map { $0.reference.key.actionID }, [
+                AppShortcutAction.openSettings.rawValue, AppShortcutAction.openCommandPalette.rawValue, AppShortcutAction.openLauncher.rawValue,
             ])
             XCTAssertEqual(panelRows.map(\.reference), [customReference] + panels.map {
                 currentHost.panelActionReference(id: $0.id)
@@ -337,6 +337,28 @@ final class AppShortcutTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
         return defaults
+    }
+
+    func testLauncherDefaultShortcutPreservesConflictsAndExplicitClear() throws {
+        let defaults = try makeDefaults()
+        let host = makeHost(defaults: defaults, manager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))
+        host.seedLauncherShortcut()
+        let expected = ShortcutBinding(keyCode: 49, modifiers: .option)
+        XCTAssertEqual(try item(.openLauncher, in: host).bindingText, ShortcutFormatter.displayString(for: expected))
+        host.clearAppShortcut(.openLauncher)
+        let restored = makeHost(defaults: defaults, manager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))
+        restored.seedLauncherShortcut()
+        XCTAssertNil(restored.actionShortcutSettingsItem(for: ActionReference(key: .init(providerID: "mactools", actionID: AppShortcutAction.openLauncher.rawValue)))?.assignment.binding)
+    }
+
+    func testLauncherDefaultDoesNotReplaceAnotherActionBinding() throws {
+        let defaults = try makeDefaults()
+        let host = makeHost(defaults: defaults, manager: GlobalShortcutManager(registrar: FakeCarbonHotKeyRegistrar()))
+        let binding = ShortcutBinding(keyCode: 49, modifiers: .option)
+        XCTAssertNil(host.setAppShortcutBindingAndReturnError(binding, for: .openCommandPalette))
+        host.seedLauncherShortcut()
+        XCTAssertEqual(try item(.openCommandPalette, in: host).bindingText, ShortcutFormatter.displayString(for: binding))
+        XCTAssertNil(host.actionShortcutSettingsItem(for: ActionReference(key: .init(providerID: "mactools", actionID: AppShortcutAction.openLauncher.rawValue)))?.assignment.binding)
     }
 
     private func makeHost(

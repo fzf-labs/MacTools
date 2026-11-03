@@ -21,7 +21,7 @@ private struct SystemPowerPluginProvider: PluginProvider {
 
 @MainActor
 final class SystemPowerPlugin:
-    MacToolsPlugin, PluginActionProviding, PluginActionPermissionProviding {
+    MacToolsPlugin, PluginActionProviding, PluginActionPermissionProviding, PluginLauncherActionProviding {
     var panelItems: [PluginPanelItem] {
         return [
             .row(id: "control", initialPlacement: .featurePanel,
@@ -93,6 +93,12 @@ final class SystemPowerPlugin:
             detail: panelDetail,
             errorMessage: lastErrorMessage
         )
+    }
+
+    func launcherRole(for reference: ActionReference) -> LauncherActionRole? {
+        guard reference.key.providerID == metadata.id,
+              SystemPowerOperation(rawValue: reference.key.actionID) != nil else { return nil }
+        return .systemOperation
     }
 
     var actionDefinitions: [ActionDefinition] {

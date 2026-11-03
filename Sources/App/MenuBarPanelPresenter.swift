@@ -1126,7 +1126,8 @@ struct MenuBarUnifiedPanelContent: View {
                 editingFeedback: model.editingFeedback,
                 onUndoLayout: undoLayoutEdit,
                 panelWidth: model.contentWidth,
-                onChangeWidth: { if model.isEditingLayout { showsWidthPicker = true } }
+                onChangeWidth: { if model.isEditingLayout { showsWidthPicker = true } },
+                onOpenLauncher: { pluginHost.appPresentationHandler?(.toggleLauncher) }
             )
             .frame(maxWidth: .infinity)
             .frame(height: MenuBarPanelLayout.headerHeight)
@@ -1387,6 +1388,7 @@ struct MenuBarPanelHeader: View {
     let onUndoLayout: () -> Void
     var panelWidth: CGFloat = MenuBarPanelLayout.baseWidth
     var onChangeWidth: () -> Void = {}
+    var onOpenLauncher: (() -> Void)? = nil
 
     var body: some View {
         if isEditingLayout {
@@ -1399,6 +1401,9 @@ struct MenuBarPanelHeader: View {
                 navigation.fixedSize()
                 HStack(spacing: MenuBarPanelLayout.headerAccessorySpacing) {
                     Spacer(minLength: 8)
+                    if let onOpenLauncher {
+                        MenuBarPanelIconButton(systemImage: "command.square", accessibilityTitle: LauncherText.openLauncher, action: onOpenLauncher)
+                    }
                     MenuBarPanelIconButton(
                         systemImage: "gearshape",
                         accessibilityTitle: AppL10n.settings("settings.window.title", defaultValue: "设置"),

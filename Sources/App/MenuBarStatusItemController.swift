@@ -28,6 +28,7 @@ enum MenuBarStatusItemPresentationAction: Equatable {
     case composeActionInput(ActionInputItem)
     case presentSettings(SettingsPresentationRequest)
     case toggleCommandPalette
+    case toggleLauncher
     case toggleComponentPanel
     case toggleFeaturePanel
     case showComponentPanel
@@ -40,6 +41,8 @@ enum MenuBarStatusItemPresentationAction: Equatable {
             self = .composeActionInput(item)
         case let .settings(settingsRequest):
             self = .presentSettings(settingsRequest)
+        case .toggleLauncher:
+            self = .toggleLauncher
         case .toggleCommandPalette:
             self = .toggleCommandPalette
         case .toggleDashboard:
@@ -168,6 +171,8 @@ final class MenuBarStatusItemController: NSObject {
                 windowRouter?.showCommandPalette(input: item)
             case let .presentSettings(settingsRequest):
                 windowRouter?.presentSettings(settingsRequest)
+            case .toggleLauncher:
+                windowRouter?.toggleLauncher()
             case .toggleCommandPalette:
                 windowRouter?.toggleCommandPalette()
             case .toggleComponentPanel:
@@ -182,6 +187,7 @@ final class MenuBarStatusItemController: NSObject {
                 windowRouter?.showCommandPalette()
             }
         }
+        pluginHost.seedLauncherShortcut()
     }
 
     private func statusItemButtonScreenRect() -> NSRect? {

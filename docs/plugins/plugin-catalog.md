@@ -340,3 +340,7 @@ Install, update, and uninstall are immediate at the UI contribution level:
 - Already-loaded native code is not force-unloaded in-process. The executable code is fully released after the app restarts.
 
 This keeps the native bundle lifecycle aligned with macOS loadable bundle constraints while preserving a predictable management UI.
+
+## Launcher discovery
+
+The launcher discovers existing enabled plugin functions without embedding business tools or offering an installation pack. New explicit declarations require host 2.2.0; reviewed legacy actions remain discoverable through the host adapter. See [launcher integration](launcher.md).

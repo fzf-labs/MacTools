@@ -25,6 +25,7 @@ final class SettingsSidebarPreferencesStore: ObservableObject {
         static let customOrder = "settings.sidebar.customPluginOrder"
         static let appSectionExpanded = "settings.sidebar.appSectionExpanded"
         static let customizeSectionExpanded = "settings.sidebar.customizeSectionExpanded"
+        static let launcherSectionExpanded = "settings.sidebar.launcherSectionExpanded"
         static let pluginSettingsSectionExpanded = "settings.sidebar.pluginSettingsSectionExpanded"
     }
 
@@ -36,6 +37,7 @@ final class SettingsSidebarPreferencesStore: ObservableObject {
     @Published private(set) var customOrderedPluginIDs: [String]
     @Published private(set) var isAppSectionExpanded: Bool
     @Published private(set) var isCustomizeSectionExpanded: Bool
+    @Published private(set) var isLauncherSectionExpanded: Bool
     @Published private(set) var isPluginSettingsSectionExpanded: Bool
 
     private let userDefaults: UserDefaults
@@ -62,6 +64,7 @@ final class SettingsSidebarPreferencesStore: ObservableObject {
             forKey: DefaultsKey.customizeSectionExpanded,
             in: userDefaults
         )
+        isLauncherSectionExpanded = Self.storedSectionExpansion(forKey: DefaultsKey.launcherSectionExpanded, in: userDefaults)
         isPluginSettingsSectionExpanded = Self.storedSectionExpansion(
             forKey: DefaultsKey.pluginSettingsSectionExpanded,
             in: userDefaults
@@ -126,6 +129,10 @@ final class SettingsSidebarPreferencesStore: ObservableObject {
             guard isCustomizeSectionExpanded != expanded else { return }
             isCustomizeSectionExpanded = expanded
             key = DefaultsKey.customizeSectionExpanded
+        case .launcher:
+            guard isLauncherSectionExpanded != expanded else { return }
+            isLauncherSectionExpanded = expanded
+            key = DefaultsKey.launcherSectionExpanded
         case .pluginSettings:
             guard isPluginSettingsSectionExpanded != expanded else { return }
             isPluginSettingsSectionExpanded = expanded
@@ -254,6 +261,7 @@ final class SettingsSidebarPreferencesStore: ObservableObject {
             forKey: DefaultsKey.customizeSectionExpanded,
             in: userDefaults
         )
+        isLauncherSectionExpanded = Self.storedSectionExpansion(forKey: DefaultsKey.launcherSectionExpanded, in: userDefaults)
         isPluginSettingsSectionExpanded = Self.storedSectionExpansion(
             forKey: DefaultsKey.pluginSettingsSectionExpanded,
             in: userDefaults

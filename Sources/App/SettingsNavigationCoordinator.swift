@@ -76,6 +76,15 @@ extension SettingsNavigationDestination {
 
 }
 
+extension SettingsNavigationDestination {
+    var isLauncherDestination: Bool {
+        switch self {
+        case .plugins(.launcher), .plugins(.launcherCategory): true
+        default: false
+        }
+    }
+}
+
 enum SettingsSearchField: Equatable {
     case actionsAndShortcuts
     case pluginMarketplace
@@ -100,8 +109,9 @@ extension FeatureSettingsPane {
         [
             .marketplace,
             .actionsAndShortcuts,
-            .automation
-        ] + configurationIDs.map(FeatureSettingsPane.configuration)
+            .automation,
+            .launcher
+        ] + LauncherCategory.allCases.map(FeatureSettingsPane.launcherCategory) + configurationIDs.map(FeatureSettingsPane.configuration)
     }
 }
 
@@ -167,6 +177,7 @@ struct UnifiedSearchQuickSelectionRequest: Equatable {
 enum SettingsSidebarSection: String, Hashable {
     case app
     case customize
+    case launcher
     case pluginSettings
 }
 
@@ -182,9 +193,11 @@ enum SettingsSidebarNumberingPolicy {
         appDestinations: [SettingsNavigationDestination],
         customizeDestinations: [SettingsNavigationDestination],
         pluginDestinations: [SettingsNavigationDestination],
+        launcherDestinations: [SettingsNavigationDestination] = [],
         appExpanded: Bool,
         customizeExpanded: Bool,
         pluginSettingsExpanded: Bool,
+        launcherExpanded: Bool = true,
         limit: Int? = maximumShortcutCount
     ) -> [SettingsSidebarNumberTarget] {
         var targets: [SettingsSidebarNumberTarget] = []
@@ -194,6 +207,11 @@ enum SettingsSidebarNumberingPolicy {
         targets += customizeExpanded
             ? customizeDestinations.map(SettingsSidebarNumberTarget.destination)
             : [.collapsedSection(.customize)]
+        if !launcherDestinations.isEmpty {
+            targets += launcherExpanded
+                ? launcherDestinations.map(SettingsSidebarNumberTarget.destination)
+                : [.collapsedSection(.launcher)]
+        }
         targets += pluginSettingsExpanded
             ? pluginDestinations.map(SettingsSidebarNumberTarget.destination)
             : [.collapsedSection(.pluginSettings)]

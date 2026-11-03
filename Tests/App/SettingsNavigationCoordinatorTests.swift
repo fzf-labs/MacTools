@@ -4,6 +4,35 @@ import MacToolsPluginKit
 
 @MainActor
 final class SettingsNavigationCoordinatorTests: XCTestCase {
+    func testLauncherSectionParticipatesInHistoryAndCollapsedSidebarNavigation() {
+        let destinations = FeatureSettingsPane.settingsSidebarOrder(configurationIDs: []).map(SettingsNavigationDestination.plugins)
+        let launcherPages = destinations.filter(\.isLauncherDestination)
+        XCTAssertEqual(launcherPages, [.plugins(.launcher)] + LauncherCategory.allCases.map { .plugins(.launcherCategory($0)) })
+        let coordinator = SettingsNavigationCoordinator(initialDestination: .plugins(.launcher))
+        coordinator.navigate(to: .plugins(.launcherCategory(.systemSettings)))
+        coordinator.navigate(to: .plugins(.launcherCategory(.pluginFeatures)))
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.destination, .plugins(.launcherCategory(.systemSettings)))
+        coordinator.goBack()
+        XCTAssertEqual(coordinator.destination, .plugins(.launcher))
+        let collapsed = SettingsSidebarNumberingPolicy.targets(
+            appDestinations: [], customizeDestinations: destinations.filter { !$0.isLauncherDestination }, pluginDestinations: [],
+            launcherDestinations: launcherPages,
+            appExpanded: true, customizeExpanded: true, pluginSettingsExpanded: true, launcherExpanded: false, limit: nil)
+        XCTAssertEqual(collapsed, [.destination(.plugins(.marketplace)), .destination(.plugins(.actionsAndShortcuts)),
+                                   .destination(.plugins(.automation)), .collapsedSection(.launcher)])
+        let expanded = SettingsSidebarNumberingPolicy.targets(
+            appDestinations: [], customizeDestinations: destinations.filter { !$0.isLauncherDestination }, pluginDestinations: [],
+            launcherDestinations: launcherPages,
+            appExpanded: true, customizeExpanded: true, pluginSettingsExpanded: true, launcherExpanded: true, limit: nil)
+        XCTAssertEqual(expanded, (destinations.filter { !$0.isLauncherDestination } + launcherPages).map(SettingsSidebarNumberTarget.destination))
+        let independent = SettingsSidebarNumberingPolicy.targets(
+            appDestinations: [], customizeDestinations: destinations.filter { !$0.isLauncherDestination }, pluginDestinations: [],
+            launcherDestinations: launcherPages, appExpanded: true, customizeExpanded: false,
+            pluginSettingsExpanded: true, launcherExpanded: true, limit: nil)
+        XCTAssertEqual(independent, [.collapsedSection(.customize)] + launcherPages.map(SettingsSidebarNumberTarget.destination))
+    }
+
     func testSettingsOpensIndependentlyOfUnfinishedOnboarding() {
         let suite = "OnboardingNavigationTests-\(UUID().uuidString)"
         let host = makePluginHostForTests(plugins: [], suiteName: suite, loadDynamicPluginsOnInit: false)

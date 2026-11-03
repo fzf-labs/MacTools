@@ -25,7 +25,11 @@ private struct LaunchpadPluginProvider: PluginProvider {
 
 @MainActor
 final class LaunchpadPlugin:
-    MacToolsPlugin, PluginActionProviding, PluginLegacyActionShortcutProviding {
+    MacToolsPlugin, PluginActionProviding, PluginLegacyActionShortcutProviding, ApplicationCatalogHostContextConsuming {
+    var applicationCatalogHostContext: ApplicationCatalogHostContext? {
+        didSet { overlay.setApplicationCatalogContext(applicationCatalogHostContext) }
+    }
+    func applicationCatalogDidChange() { overlay.applicationCatalogDidChange() }
     var panelItems: [PluginPanelItem] {
         let state = rowState
         let descriptor = rowDescriptor

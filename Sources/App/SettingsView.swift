@@ -40,6 +40,10 @@ private func settingsNavigationTitle(
         AppL10n.settings("tab.permissions", defaultValue: "权限")
     case .about:
         AppL10n.settings("tab.about", defaultValue: "关于")
+    case .plugins(.launcher):
+        "\(LauncherText.title) · \(LauncherText.general)"
+    case let .plugins(.launcherCategory(category)):
+        "\(LauncherText.title) · \(category.title)"
     case .plugins(.actionsAndShortcuts):
         FeatureL10n.string("操作与快捷键")
     case .plugins(.automation):
@@ -3125,11 +3129,7 @@ private struct SettingsSidebar: View {
                     Section {
                         if sidebarPreferences.isCustomizeSectionExpanded {
                             ForEach(primaryPluginDestinations, id: \.self) { destination in
-                                sidebarRow(
-                                    for: destination,
-                                    configurationItemsByID: configurationItemsByID,
-                                    shortcutNumbers: shortcutNumbers
-                                )
+                                sidebarRow(for: destination, configurationItemsByID: configurationItemsByID, shortcutNumbers: shortcutNumbers)
                             }
                         }
                     } header: {
@@ -3137,6 +3137,16 @@ private struct SettingsSidebar: View {
                             title: customizeSectionTitle,
                             section: .customize
                         )
+                    }
+
+                    Section {
+                        if sidebarPreferences.isLauncherSectionExpanded {
+                            ForEach(launcherDestinations, id: \.self) { destination in
+                                sidebarRow(for: destination, configurationItemsByID: configurationItemsByID, shortcutNumbers: shortcutNumbers)
+                            }
+                        }
+                    } header: {
+                        disclosureSectionHeader(title: LauncherText.title, section: .launcher)
                     }
 
                     Section {
@@ -3162,6 +3172,9 @@ private struct SettingsSidebar: View {
                 }
                 .listStyle(.sidebar)
                 .focused($isListFocused)
+                .onAppear {
+                    if selection.isLauncherDestination { reveal(selection, using: proxy) }
+                }
                 .onChange(of: selection) { _, destination in
                     highlightedCollapsedSection = nil
                     reveal(destination, using: proxy)
@@ -3245,10 +3258,8 @@ private struct SettingsSidebar: View {
             guard case let .plugins(pane) = $0 else {
                 return false
             }
-            if case .configuration = pane {
-                return false
-            }
-            return true
+            if case .configuration = pane { return false }
+            return !$0.isLauncherDestination
         }
     }
 
@@ -3264,6 +3275,10 @@ private struct SettingsSidebar: View {
         }
     }
 
+    private var launcherDestinations: [SettingsNavigationDestination] {
+        orderedDestinations.filter(\.isLauncherDestination)
+    }
+
     private func sidebarRow(
         for destination: SettingsNavigationDestination,
         configurationItemsByID: [String: SettingsPluginNavigationItem],
@@ -3274,7 +3289,11 @@ private struct SettingsSidebar: View {
         } else {
             nil
         }
-        let title = item?.title ?? settingsNavigationTitle(for: destination, configurationItems: [])
+        let title: String = switch destination {
+        case .plugins(.launcher): LauncherText.general
+        case let .plugins(.launcherCategory(category)): category.title
+        default: item?.title ?? settingsNavigationTitle(for: destination, configurationItems: [])
+        }
         let shortcutNumber = shortcutNumbers[.destination(destination)]
 
         // Keep one explicit row per destination so List can collect IDs without building every label.
@@ -3286,6 +3305,10 @@ private struct SettingsSidebar: View {
                 SettingsSidebarRow(title: title, systemImage: "lock.shield", iconTint: .teal, shortcutNumber: shortcutNumber)
             case .about:
                 SettingsSidebarRow(title: title, systemImage: "info.circle", iconTint: .blue, shortcutNumber: shortcutNumber)
+            case .plugins(.launcher):
+                SettingsSidebarRow(title: title, systemImage: "gearshape", iconTint: .gray, shortcutNumber: shortcutNumber)
+            case let .plugins(.launcherCategory(category)):
+                SettingsSidebarRow(title: title, systemImage: category.sidebarImage, iconTint: .blue, shortcutNumber: shortcutNumber)
             case .plugins(.actionsAndShortcuts):
                 SettingsSidebarRow(title: title, systemImage: "command", iconTint: .orange, shortcutNumber: shortcutNumber)
             case .plugins(.automation):
@@ -3491,9 +3514,11 @@ private struct SettingsSidebar: View {
             appDestinations: appDestinations,
             customizeDestinations: primaryPluginDestinations,
             pluginDestinations: configurationDestinations,
+            launcherDestinations: launcherDestinations,
             appExpanded: sidebarPreferences.isAppSectionExpanded,
             customizeExpanded: sidebarPreferences.isCustomizeSectionExpanded,
-            pluginSettingsExpanded: sidebarPreferences.isPluginSettingsSectionExpanded
+            pluginSettingsExpanded: sidebarPreferences.isPluginSettingsSectionExpanded,
+            launcherExpanded: sidebarPreferences.isLauncherSectionExpanded
         )
     }
 
@@ -3503,6 +3528,8 @@ private struct SettingsSidebar: View {
             .app
         case .plugins(.configuration):
             .pluginSettings
+        case .plugins(.launcher), .plugins(.launcherCategory):
+            .launcher
         case .plugins, .marketplaceDetail, .starterPacks:
             .customize
         }
@@ -3516,6 +3543,8 @@ private struct SettingsSidebar: View {
             sidebarPreferences.isCustomizeSectionExpanded
         case .pluginSettings:
             sidebarPreferences.isPluginSettingsSectionExpanded
+        case .launcher:
+            sidebarPreferences.isLauncherSectionExpanded
         }
     }
 
@@ -3530,9 +3559,11 @@ private struct SettingsSidebar: View {
             appDestinations: appDestinations,
             customizeDestinations: primaryPluginDestinations,
             pluginDestinations: configurationDestinations,
+            launcherDestinations: launcherDestinations,
             appExpanded: sidebarPreferences.isAppSectionExpanded,
             customizeExpanded: sidebarPreferences.isCustomizeSectionExpanded,
             pluginSettingsExpanded: sidebarPreferences.isPluginSettingsSectionExpanded,
+            launcherExpanded: sidebarPreferences.isLauncherSectionExpanded,
             limit: nil
         )
         guard !targets.isEmpty else { return }
@@ -3610,6 +3641,8 @@ private struct SettingsSidebar: View {
                 sidebarPreferences.setSection(.app, expanded: true)
             case .plugins(.configuration):
                 sidebarPreferences.setSection(.pluginSettings, expanded: true)
+            case .plugins(.launcher), .plugins(.launcherCategory):
+                sidebarPreferences.setSection(.launcher, expanded: true)
             case .plugins, .marketplaceDetail, .starterPacks:
                 sidebarPreferences.setSection(.customize, expanded: true)
             }
@@ -3942,9 +3975,16 @@ private struct PluginSettingsDestinationPane: View {
         detail
     }
 
+    private var launcherCategory: LauncherCategory? {
+        if case let .launcherCategory(category) = selectedPane { return category }
+        return nil
+    }
+
     @ViewBuilder
     private var detail: some View {
         switch selectedPane {
+        case .launcher, .launcherCategory:
+            LauncherSettingsView(host: pluginHost, category: launcherCategory)
         case .actionsAndShortcuts:
             ActionShortcutSettingsView(
                 pluginHost: pluginHost,

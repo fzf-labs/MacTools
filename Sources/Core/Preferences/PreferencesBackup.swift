@@ -34,6 +34,7 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
     static let maximumFileSize = 16 * 1024 * 1024
 
     struct ApplicationPreferences: Codable, Equatable, Sendable {
+        let launcherPersonalization: LauncherPersonalization?
         let appearancePreference: String
         let floatingPanelAppearance: String?
         let languagePreference: String
@@ -44,12 +45,14 @@ struct PreferencesBackup: Codable, Equatable, Sendable {
 
         init(
             appearancePreference: String,
+            launcherPersonalization: LauncherPersonalization? = nil,
             floatingPanelAppearance: String? = nil,
             languagePreference: String,
             menuBarClickBehavior: String? = nil,
             settingsSidebarPluginSortMode: String? = nil,
             settingsSidebarCustomPluginOrder: [String]? = nil
         ) {
+            self.launcherPersonalization = launcherPersonalization
             self.appearancePreference = appearancePreference
             self.floatingPanelAppearance = floatingPanelAppearance
             self.languagePreference = languagePreference

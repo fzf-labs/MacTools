@@ -18,6 +18,7 @@ final class PreferencesBackupStore: PreferencesBackupApplicationStoring {
         let sidebarSortMode = SettingsSidebarPreferencesStore.storedSortMode(in: userDefaults)
         return PreferencesBackup.ApplicationPreferences(
             appearancePreference: AppAppearancePreference.stored(in: userDefaults).rawValue,
+            launcherPersonalization: LauncherPreferences(defaults: userDefaults).personalization.portable,
             floatingPanelAppearance: PluginFloatingPanelAppearance.stored(in: userDefaults).rawValue,
             languagePreference: AppLanguagePreference.stored(in: userDefaults).rawValue,
             settingsSidebarPluginSortMode: sidebarSortMode.rawValue,
@@ -27,7 +28,8 @@ final class PreferencesBackupStore: PreferencesBackupApplicationStoring {
     }
 
     func validates(_ preferences: PreferencesBackup.ApplicationPreferences) -> Bool {
-        guard AppAppearancePreference(rawValue: preferences.appearancePreference) != nil,
+        guard preferences.launcherPersonalization?.isValid != false,
+              AppAppearancePreference(rawValue: preferences.appearancePreference) != nil,
               AppLanguagePreference(rawValue: preferences.languagePreference) != nil
         else {
             return false
@@ -65,6 +67,20 @@ final class PreferencesBackupStore: PreferencesBackupApplicationStoring {
         }
 
         let previousPreferences = applicationPreferences()
+        if let imported = preferences.launcherPersonalization, imported.isValid {
+            let store = LauncherPreferences(defaults: userDefaults)
+            store.update { current in
+                let localFavorites = current.favorites.filter { LauncherPersonalization.isLocalReference($0) }
+                let localAliases = current.aliases.filter { LauncherPersonalization.isLocalReference($0.key) }
+                let localLabels = current.labels.filter { LauncherPersonalization.isLocalReference($0.key) }
+                let localHidden = current.hidden.filter { LauncherPersonalization.isLocalReference($0) }
+                current = imported.portable
+                current.favorites += localFavorites
+                current.aliases.merge(localAliases, uniquingKeysWith: { imported, _ in imported })
+                current.hidden.formUnion(localHidden)
+                current.labels.merge(localLabels, uniquingKeysWith: { imported, _ in imported })
+            }
+        }
         appearance.storeAndApply(in: userDefaults)
         let floatingPanelAppearance = preferences.floatingPanelAppearance
             .flatMap { PluginFloatingPanelAppearance(rawValue: $0) } ?? .system

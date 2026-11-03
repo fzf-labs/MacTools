@@ -137,7 +137,7 @@ enum AppHostCommandCatalog {
             keywords = ["dashboard", "show dashboard", "仪表盘", "显示仪表盘"]
         case .toggleFeaturePanel:
             keywords = ["feature panel", "show feature panel", "功能面板", "显示功能面板"]
-        case .openSettings, .openCommandPalette:
+        case .openSettings, .openCommandPalette, .openLauncher:
             // Only the two actions in `sharedAppShortcutActions` reach this path.
             keywords = []
         }

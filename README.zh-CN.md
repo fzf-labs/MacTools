@@ -21,6 +21,8 @@ https://github.com/user-attachments/assets/7ddba190-de41-4200-8c31-751f9cfb4a2e
   <a href="docs/assets/screenshots/readme/controls-zh-dark.png"><img src="docs/assets/screenshots/readme/controls-zh-dark.png" width="32%" alt="显示、外观、音频和电源快捷控制面板"></a>
 </p>
 
+- **Launcher**: Quickly open Mac apps, macOS settings pages, system actions, and enabled plugin features.
+
 ## 安装
 
 ```bash

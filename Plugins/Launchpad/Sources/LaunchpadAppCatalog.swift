@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import MacToolsPluginKit
 
 /// Owns the app list + icon cache for the launcher UI.
 ///
@@ -21,18 +22,15 @@ final class LaunchpadAppCatalog: ObservableObject {
     }
 
     /// Rescans installed apps. Call right before showing the launcher.
+    var hostContext: ApplicationCatalogHostContext?
     func reload() {
-        reloadGeneration &+= 1
-        let generation = reloadGeneration
-        isLoading = true
-        Task { [weak self] in
-            let scanned = await Task.detached(priority: .userInitiated) {
-                LaunchpadAppScanner.scan()
-            }.value
-            guard let self, generation == self.reloadGeneration else { return } // stale scan → drop
-            self.apps = scanned
-            self.isLoading = false
-        }
+        hostContext?.refresh()
+        receiveHostSnapshot()
+    }
+    func receiveHostSnapshot() {
+        guard let hostContext else { return }
+        apps = hostContext.snapshot().map { .init(id: $0.id, name: $0.name, url: $0.url) }
+        isLoading = apps.isEmpty
     }
 
     func icon(for app: LaunchpadAppItem) -> NSImage {

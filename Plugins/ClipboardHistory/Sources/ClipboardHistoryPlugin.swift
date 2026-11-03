@@ -21,7 +21,7 @@ private struct ClipboardHistoryPluginProvider: PluginProvider {
 
 @MainActor
 final class ClipboardHistoryPlugin:
-    MacToolsPlugin, PluginActionProviding, PluginGroupedShortcutSettingsProviding, PluginShortcutSettingsGroupPresentationProviding, PluginShortcutBindingValidating, PluginInlineShortcutSettingsContextConsuming, PluginShortcutResetRequesting, PluginWindowLayoutTargetProviding, PluginSettingsPresenting, AccessibilityPermissionRefreshing, DisplayTopologyRefreshing {
+    MacToolsPlugin, PluginActionProviding, PluginLauncherActionProviding, PluginGroupedShortcutSettingsProviding, PluginShortcutSettingsGroupPresentationProviding, PluginShortcutBindingValidating, PluginInlineShortcutSettingsContextConsuming, PluginShortcutResetRequesting, PluginWindowLayoutTargetProviding, PluginSettingsPresenting, AccessibilityPermissionRefreshing, DisplayTopologyRefreshing {
     var panelItems: [PluginPanelItem] {
         let state = rowState
         let descriptor = rowDescriptor
@@ -1179,6 +1179,17 @@ final class ClipboardHistoryPlugin:
 
     var collapsibleActionSettingsGroupIDs: Set<String> {
         [ShortcutID.queueGroup]
+    }
+
+    func launcherRole(for reference: ActionReference) -> LauncherActionRole? {
+        guard reference.key.providerID == metadata.id else { return nil }
+        switch reference.key.actionID {
+        case ActionID.openHistory, ActionID.previousSequentialQueueItem, ActionID.skipSequentialQueueItem,
+             ActionID.restartSequentialQueue, ActionID.cancelSequentialQueue, "clear-current-clipboard":
+            return .pluginFeature
+        default:
+            return nil
+        }
     }
 
     var actionDefinitions: [ActionDefinition] {

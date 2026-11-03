@@ -112,7 +112,10 @@ def references(path: str, source: str):
             yield {"path": path, "line": source[:match.start()].count("\n") + 1,
                    "catalog": "Sources/Resources/Localization/Plugins.xcstrings",
                    "key": "plugin.marketplace.label." + literal(match[1])}
-    if parts[:2] == ("Sources", "MacToolsPluginKit"):
+    if path == "Sources/Core/Launcher/LauncherText.swift":
+        yield from matches(r'\bstring\(\s*' + LITERAL + r'(?=\s*,\s*defaultValue:)',
+                           "Sources/Resources/Localization/Launcher.xcstrings")
+    elif parts[:2] == ("Sources", "MacToolsPluginKit"):
         yield from matches(r'\bstring\(\s*' + LITERAL + r'(?=\s*,\s*defaultValue:)',
                            "Sources/MacToolsPluginKit/Resources/Localizable.xcstrings")
     if parts[:2] == ("Sources", "MacToolsAppIntents"):

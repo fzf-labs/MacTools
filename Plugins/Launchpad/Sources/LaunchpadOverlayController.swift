@@ -64,6 +64,8 @@ final class LaunchpadOverlayController: NSObject, NSWindowDelegate {
     private var previousApp: NSRunningApplication?
 
     private let catalog = LaunchpadAppCatalog()
+    func setApplicationCatalogContext(_ context: ApplicationCatalogHostContext?) { catalog.hostContext = context }
+    func applicationCatalogDidChange() { catalog.receiveHostSnapshot() }
     private let preferences: LaunchpadPreferences
     /// Custom-order layout shared with the grid as `@ObservedObject` so a reorder /
     /// reset re-renders the open overlay (the grid does NOT observe `onStateChange`).

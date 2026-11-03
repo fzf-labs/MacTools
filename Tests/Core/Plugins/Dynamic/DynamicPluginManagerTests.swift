@@ -196,7 +196,16 @@ final class DynamicPluginManagerTests: XCTestCase {
         XCTAssertNotNil(plugin.subscriptionID)
         XCTAssertTrue(host.panelEntries(in: MenuBarPanelDefinition.featuresID).contains { $0.pluginID == id })
 
+        let launcher = LauncherModel(host: host, defaults: defaults, systemSettings: { [] })
+        launcher.preferences.update { $0.disabledSources = ["applications", "system-settings"] }
+        launcher.present(); launcher.query = "Test Action"
+        let favoriteID = try XCTUnwrap(launcher.selectedID)
+        launcher.favorite()
         try host.setPluginEnabled(false, pluginID: id)
+        launcher.rebuild()
+        XCTAssertTrue(launcher.results.isEmpty)
+        XCTAssertTrue(launcher.preferences.personalization.favorites.contains(favoriteID))
+        launcher.reset()
         XCTAssertNil(plugin.subscriptionID)
         XCTAssertFalse(shortcuts.debugRegistrationsForTests.contains { $0.shortcutID == shortcut.id })
         XCTAssertEqual(ShortcutStore(userDefaults: defaults).customization(for: shortcut.id), .custom(binding))
@@ -858,7 +867,7 @@ private final class PreparingDynamicPluginLoader: DynamicPluginLoading {
 }
 
 @MainActor
-private final class LifecycleInputPlugin: MacToolsPlugin, TrackpadInputServiceConsuming, PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting, PluginCommandProviding {
+private final class LifecycleInputPlugin: MacToolsPlugin, TrackpadInputServiceConsuming, PluginPortablePreferencesProviding, PluginPortablePreferencesRestorationReporting, PluginCommandProviding, PluginLauncherActionProviding {
     let metadata: PluginMetadata
     var onStateChange: (() -> Void)?
     var requestPermissionGuidance: ((String) -> Void)?
@@ -885,6 +894,9 @@ private final class LifecycleInputPlugin: MacToolsPlugin, TrackpadInputServiceCo
         guard let value = String(data: data, encoding: .utf8), value != "invalid" else { return false }
         preferenceValue = value
         return true
+    }
+    func launcherRole(for reference: ActionReference) -> LauncherActionRole? {
+        reference.key.actionID == "portable-action" ? .pluginFeature : nil
     }
     var commandDefinitions: [PluginCommandDefinition] {
         guard showsPanelItem else { return [] }

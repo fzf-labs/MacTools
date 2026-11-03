@@ -6,6 +6,8 @@ import MacToolsPluginKit
 
 enum FeatureSettingsPane: Hashable {
     case actionsAndShortcuts
+    case launcher
+    case launcherCategory(LauncherCategory)
     case automation
     case marketplace
     case configuration(String)
@@ -29,6 +31,7 @@ enum AppPresentationRequest: Equatable {
     case composeActionInput(ActionInputItem)
     case settings(SettingsPresentationRequest)
     case toggleCommandPalette
+    case toggleLauncher
     case toggleDashboard
     case toggleFeaturePanel
     case showDashboard
@@ -41,11 +44,14 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
     case toggleDashboard = "app.toggle-dashboard"
     case toggleFeaturePanel = "app.toggle-feature-panel"
     case openCommandPalette = "app.open-command-palette"
+    case openLauncher = "app.open-launcher"
 
     var isPanelAction: Bool { self == .toggleDashboard || self == .toggleFeaturePanel }
 
     var title: String {
         switch self {
+        case .openLauncher:
+            return LauncherText.openLauncher
         case .openSettings:
             return AppL10n.settings("shortcuts.openSettings.title", defaultValue: "打开设置")
         case .openCommandPalette:
@@ -64,7 +70,7 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
         switch self {
         case .openSettings:
             return AppL10n.settings("settings.window.title", defaultValue: "设置")
-        case .openCommandPalette:
+        case .openCommandPalette, .openLauncher:
             return title
         case .toggleDashboard:
             return AppL10n.settings("plugins.dashboard.title", defaultValue: "仪表盘")
@@ -75,6 +81,8 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
 
     var description: String {
         switch self {
+        case .openLauncher:
+            return LauncherText.description
         case .openSettings:
             return AppL10n.settings("shortcuts.openSettings.description", defaultValue: "打开 MacTools 设置。")
         case .openCommandPalette:
@@ -99,7 +107,7 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
         switch self {
         case .openSettings:
             return "gearshape"
-        case .openCommandPalette:
+        case .openCommandPalette, .openLauncher:
             return "command.square"
         case .toggleDashboard:
             return "square.grid.2x2"
@@ -112,6 +120,8 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
         switch self {
         case .openSettings:
             return .settings(.settings)
+        case .openLauncher:
+            return .toggleLauncher
         case .openCommandPalette:
             return .toggleCommandPalette
         case .toggleDashboard:
@@ -123,6 +133,8 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
 
     var settingsPresentationRequest: SettingsPresentationRequest {
         switch self {
+        case .openLauncher:
+            .feature(.launcher)
         case .openSettings, .openCommandPalette:
             .general
         case .toggleDashboard, .toggleFeaturePanel:
@@ -132,7 +144,7 @@ enum AppShortcutAction: String, CaseIterable, Hashable {
 
     var isCommandPaletteSearchEligible: Bool {
         switch self {
-        case .openSettings, .openCommandPalette:
+        case .openSettings, .openCommandPalette, .openLauncher:
             false
         case .toggleDashboard, .toggleFeaturePanel:
             true
@@ -374,6 +386,39 @@ final class PluginHost: ObservableObject {
         let resolvableWorkflowIDs: Set<UUID>
     }
 
+    lazy var applicationCatalog = ApplicationCatalog(defaults: shortcutStore.userDefaults)
+    lazy var systemSettingsCatalog = LauncherSystemSettingsCatalog()
+    let launcherOperations = LauncherOperationRegistry(providerID: "mactools-launcher")
+    var launcherPluginIDs: Set<String> {
+        Set(activePlugins.filter { !isPluginIsolated($0) }.map { $0.metadata.id })
+    }
+    func launcherPluginTitle(_ id: String) -> String? {
+        activePlugins.first { $0.metadata.id == id && !isPluginIsolated($0) }?.metadata.title
+    }
+    func launcherRole(for reference: ActionReference) -> LauncherActionRole? {
+        guard let plugin = corePlugin(for: reference.key.providerID), !isPluginIsolated(plugin),
+              actionRegistry.definition(for: reference.key) != nil else { return nil }
+        if let declaring = plugin as? any PluginLauncherActionProviding {
+            return guardedOptionalValue(for: plugin, operation: "classify launcher action", declaring.launcherRole(for: reference))
+        }
+        return LauncherActionPolicy.legacyRole(for: reference.key)
+    }
+    var launcherWorkspaces: [PluginSettingsPageItem] {
+        let activeIDs = launcherPluginIDs
+        return pluginSettingsItems.filter { LauncherActionPolicy.workspaces.contains($0.id) && activeIDs.contains($0.id) }
+    }
+    func canOpenLauncherWorkspace(_ pluginID: String) -> Bool {
+        launcherWorkspaces.contains { $0.id == pluginID }
+    }
+    func seedLauncherShortcut() {
+        let key = "launcher.default-shortcut.initialized.v1"
+        guard !shortcutStore.userDefaults.bool(forKey: key) else { return }
+        shortcutStore.userDefaults.set(true, forKey: key)
+        let reference = actionReference(for: .openLauncher)
+        guard shortcutStore.customization(for: AppShortcutAction.openLauncher.rawValue) == .inheritDefault,
+              actionShortcutSettingsItem(for: reference)?.assignment.binding == nil else { return }
+        _ = setActionShortcutBinding(ShortcutBinding(keyCode: 49, modifiers: .option), to: reference)
+    }
     private let builtInPlugins: [any MacToolsPlugin]
     private var deactivatedPluginInstances = Set<ObjectIdentifier>()
     private let shortcutStore: ShortcutStore
@@ -2227,7 +2272,7 @@ final class PluginHost: ObservableObject {
     @discardableResult
     func selectFeatureSettingsPane(_ pane: FeatureSettingsPane) -> Bool {
         switch pane {
-        case .actionsAndShortcuts, .automation, .marketplace:
+        case .actionsAndShortcuts, .launcher, .launcherCategory, .automation, .marketplace:
             return true
         case let .configuration(pluginID):
             guard pluginSettingsItems.contains(where: { $0.id == pluginID }) else {
@@ -3815,6 +3860,17 @@ final class PluginHost: ObservableObject {
         let missingPermissionCardIDs = rebuildPermissionProjections(descriptors: orderedDescriptors)
 
         synchronizeActionRegistry(descriptors: orderedDescriptors)
+        for plugin in activePlugins {
+            if let consumer = plugin as? any ApplicationCatalogHostContextConsuming {
+                consumer.applicationCatalogHostContext = applicationCatalog.context
+            }
+        }
+        applicationCatalog.onChange = { [weak self] in
+            guard let self else { return }
+            for plugin in activePlugins {
+                (plugin as? any ApplicationCatalogHostContextConsuming)?.applicationCatalogDidChange()
+            }
+        }
 
         let shortcutSnapshot = makeShortcutResolutionSnapshot(from: orderedDescriptors)
         let shortcutDescriptors = shortcutSnapshot.descriptors
@@ -4092,7 +4148,15 @@ final class PluginHost: ObservableObject {
     }
 
     private func synchronizeActionRegistry(descriptors: [PluginDescriptor]) {
-        var registrations = [hostActionRegistration()]
+        var registrations = [hostActionRegistration(), ActionProviderRegistration(
+            providerID: "mactools-launcher", identity: ObjectIdentifier(launcherOperations),
+            definitions: [launcherOperations.definition], catalogEntries: [],
+            availability: { [weak self] in self?.launcherOperations.availability($0) ?? .unavailable(LauncherText.unavailable) },
+            begin: { [weak self] invocation in
+                guard let self else { return .failure(.providerFailure(LauncherText.unavailable)) }
+                do { return .success(try launcherOperations.begin(invocation)) }
+                catch { return .failure(.providerFailure(LauncherText.unavailable)) }
+            })]
 
         for descriptor in descriptors where !isPluginIsolated(descriptor.plugin) {
             let plugin = descriptor.plugin

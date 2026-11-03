@@ -481,6 +481,9 @@ enum MacToolsSearchIndexBuilder {
             )
         ]
 
+        items.append(navigationResult(id: "navigation.launcher", title: LauncherText.title,
+            subtitle: AppL10n.search("search.subtitle.appSettings", defaultValue: "应用设置"), detail: LauncherText.description,
+            systemImage: "command.square", destination: .plugins(.launcher), suggestionPriority: nil))
         items += generalSettingsResults()
 
         let managementItemsByID = Dictionary(
@@ -774,7 +777,7 @@ enum MacToolsSearchIndexBuilder {
         detail: String,
         systemImage: String,
         destination: SettingsNavigationDestination,
-        suggestionPriority: Int
+        suggestionPriority: Int?
     ) -> MacToolsSearchResult {
         MacToolsSearchResult(
             id: id,

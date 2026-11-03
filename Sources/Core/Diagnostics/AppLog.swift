@@ -6,6 +6,7 @@ enum AppLog {
 
     static let trackpadSensor = Logger(subsystem: subsystem, category: "TrackpadSensor")
     static let accessibilityPermissionObserver = Logger(subsystem: subsystem, category: "AccessibilityPermissionObserver")
+    static let launcher = Logger(subsystem: subsystem, category: "Launcher")
     static let actionGrid = Logger(subsystem: subsystem, category: "ActionGrid")
     static let actionExecution = Logger(subsystem: subsystem, category: "ActionExecution")
     static let appIntents = Logger(subsystem: subsystem, category: "AppIntents")
